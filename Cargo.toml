@@ -1,0 +1,23 @@
+[package]
+name = "bevy_ggrs"
+version = "0.1.0"
+authors = ["Georg Schuppe <georg.schuppe@gmail.com>"]
+edition = "2018"
+description = "Bevy plugin for the GGRS P2P rollback networking library"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/gschup/bevy_ggrs"
+homepage = "https://gschup.github.io/ggrs/"
+keywords = ["gamedev", "networking", "ggpo", "rollback", "bevy"]
+categories = ["network-programming", "game-development"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bevy = "0.5"
+ggrs = "0.4"
+
+# Examples
+[[example]]
+name = "hello_ggrs"
+path = "examples/hello_ggrs.rs"

@@ -6,12 +6,11 @@ const NUM_PLAYERS: u32 = 2;
 const INPUT_SIZE: usize = std::mem::size_of::<u8>();
 const CHECK_DISTANCE: u32 = 7;
 
-const INPUT_UP: u8 = 1 << 0;
-const INPUT_DOWN: u8 = 1 << 1;
-const INPUT_LEFT: u8 = 1 << 2;
-const INPUT_RIGHT: u8 = 1 << 3;
-
 fn main() {
+    // start a GGRS SyncTest session, which will simulate rollbacks every frame
+
+    // WARNING: usually, SyncTestSession does compare checksums to validate game update determinism,
+    // but bevy_ggrs currently computes no checksums for gamestates
     let sync_sess = ggrs::start_synctest_session(NUM_PLAYERS, INPUT_SIZE, CHECK_DISTANCE).unwrap();
 
     App::build()
@@ -35,6 +34,8 @@ fn main() {
         .run();
 }
 
+// Every entity that you want to be saved/loaded needs a `Rollback` component with a unique rollback id.
+// When loading entities from the past, this extra id is necessary to connect entities over different game states
 fn spawn_persons(mut rip: ResMut<RollbackIdProvider>, mut commands: Commands) {
     commands
         .spawn()
@@ -58,6 +59,9 @@ fn spawn_persons(mut rip: ResMut<RollbackIdProvider>, mut commands: Commands) {
         .insert(Rollback::new(rip.next_id()));
 }
 
+// Example system that mutates some variables, added as a rollback system above.
+// Filtering for the rollback component is a good way to make sure your game logic systems
+// only mutate components that are being saved/loaded.
 fn move_persons(mut query: Query<(&Person, &mut Position), With<Rollback>>) {
     for (_, mut pos) in query.iter_mut() {
         pos.x += 1;
@@ -74,33 +78,19 @@ fn print_persons(query: Query<(&Person, &Name, &Position), With<Rollback>>) {
 }
 */
 
-fn input(_handle: In<PlayerHandle>, keyboard_input: Res<Input<KeyCode>>) -> Vec<u8> {
-    let mut input: u8 = 0;
-
-    if keyboard_input.pressed(KeyCode::W) {
-        input |= INPUT_UP;
-    }
-    if keyboard_input.pressed(KeyCode::A) {
-        input |= INPUT_LEFT;
-    }
-    if keyboard_input.pressed(KeyCode::S) {
-        input |= INPUT_DOWN;
-    }
-    if keyboard_input.pressed(KeyCode::D) {
-        input |= INPUT_RIGHT;
-    }
-
-    vec![input]
+// This system should represent player input as a `Vec<u8>`, but this example is independent from any inputs.
+// Check the other examples on ideas how that could be done
+fn input(_handle: In<PlayerHandle>) -> Vec<u8> {
+    vec![0u8]
 }
 
-#[derive(Default, Debug, Reflect)]
-#[reflect(Component)]
+#[derive(Default, Debug)]
 struct Person;
 
-#[derive(Default, Debug, Reflect)]
-#[reflect(Component)]
+#[derive(Default, Debug)]
 struct Name(String);
 
+// Components that should be saved/loaded need to implement the `Reflect` trait
 #[derive(Default, Debug, Reflect)]
 #[reflect(Component)]
 struct Position {

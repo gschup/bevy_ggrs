@@ -1,5 +1,5 @@
 use bevy::{core::FixedTimestep, prelude::*};
-use bevy_ggrs::{GGRSAppBuilder, GGRSPlugin, Rollback, RollbackIdProvider};
+use bevy_ggrs::{GGRSAppBuilder, GGRSPlugin, Rollback, RollbackIdProvider, SessionType};
 use ggrs::PlayerHandle;
 
 const NUM_PLAYERS: u32 = 2;
@@ -17,31 +17,32 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .add_plugin(GGRSPlugin)
+        // define session type
+        .with_session_type(SessionType::SyncTestSession)
         // frequency of game update
         .with_rollback_run_criteria(FixedTimestep::steps_per_second(60.0))
         // system that creates a compact input representation
         .with_input_system(input.system())
-        // this system will be executed as part of the advance frame update
-        .add_rollback_system(move_persons.system())
         // register components that will be loaded/saved
         .register_rollback_type::<Position>()
         // insert the GGRS session and id provider
         .insert_resource(sync_sess)
         .insert_resource(RollbackIdProvider::default())
+        // these systems will be executed as part of the advance frame update
+        .add_rollback_system(move_persons.system())
+        .add_rollback_system(print_persons.system())
         // spawn some test entities
         .add_startup_system(spawn_persons.system())
         .run();
 }
 
 fn spawn_persons(mut rip: ResMut<RollbackIdProvider>, mut commands: Commands) {
-    for _ in 0..10000 {
-        commands
-            .spawn()
-            .insert(Person)
-            .insert(Name("Bernd Brems".to_string()))
-            .insert(Position { x: 0, y: 0, z: 0 })
-            .insert(Rollback::new(rip.next_id()));
-    }
+    commands
+        .spawn()
+        .insert(Person)
+        .insert(Name("Bernd Brems".to_string()))
+        .insert(Position { x: 0, y: 0, z: 0 })
+        .insert(Rollback::new(rip.next_id()));
 
     commands
         .spawn()
@@ -53,7 +54,7 @@ fn spawn_persons(mut rip: ResMut<RollbackIdProvider>, mut commands: Commands) {
     commands
         .spawn()
         .insert(Person)
-        .insert(Name("Elaina Proctor".to_string()))
+        .insert(Name("Hans Röst".to_string()))
         .insert(Position { x: 0, y: 0, z: 0 })
         .insert(Rollback::new(rip.next_id()));
 }
@@ -66,13 +67,11 @@ fn move_persons(mut query: Query<(&Person, &mut Position), With<Rollback>>) {
     }
 }
 
-/*
 fn print_persons(query: Query<(&Person, &Name, &Position), With<Rollback>>) {
     for (_, name, pos) in query.iter() {
         println!("PERSON {} AT POS: {:?}", name.0, pos);
     }
 }
-*/
 
 fn input(handle: In<PlayerHandle>, keyboard_input: Res<Input<KeyCode>>) -> Vec<u8> {
     let mut input: u8 = 0;

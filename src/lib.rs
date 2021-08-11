@@ -9,8 +9,21 @@ use stage::GGRSStage;
 pub(crate) mod stage;
 pub(crate) mod world_snapshot;
 
-const GGRS_UPDATE: &str = "ggrs_update";
-const ROLLBACK_UPDATE: &str = "rollback_systems";
+/// Stage label for the Custom GGRS Stage.
+pub const GGRS_UPDATE: &str = "ggrs_update";
+const GGRS_ADVANCE_FRAME: &str = "ggrs_advance_frame";
+
+pub enum SessionType {
+    SyncTestSession,
+    P2PSession,
+    P2PSpectatorSession,
+}
+
+impl Default for SessionType {
+    fn default() -> Self {
+        SessionType::SyncTestSession
+    }
+}
 
 pub struct Rollback {
     id: u32,
@@ -48,16 +61,16 @@ impl Plugin for GGRSPlugin {
     fn build(&self, app: &mut AppBuilder) {
         // everything for the GGRS stage, where all rollback systems will be executed
         let mut schedule = Schedule::default();
-        schedule.add_stage(ROLLBACK_UPDATE, SystemStage::parallel());
-        let ggrs_stage = GGRSStage {
-            schedule,
-            ..Default::default()
-        };
+        schedule.add_stage(GGRS_ADVANCE_FRAME, SystemStage::single_threaded());
+        let mut ggrs_stage = GGRSStage::default();
+        ggrs_stage.schedule = schedule;
         app.add_stage_before(CoreStage::Update, GGRS_UPDATE, ggrs_stage);
     }
 }
 
 pub trait GGRSAppBuilder {
+    fn with_session_type(&mut self, session_type: SessionType) -> &mut Self;
+
     fn with_rollback_run_criteria(
         &mut self,
         run_criteria: impl System<In = (), Out = ShouldRun>,
@@ -78,6 +91,16 @@ pub trait GGRSAppBuilder {
 }
 
 impl GGRSAppBuilder for AppBuilder {
+    fn with_session_type(&mut self, session_type: SessionType) -> &mut Self {
+        let stage = self
+            .app
+            .schedule
+            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
+            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
+        stage.session_type = session_type;
+        self
+    }
+
     fn with_rollback_run_criteria(
         &mut self,
         mut run_criteria: impl System<In = (), Out = ShouldRun>,
@@ -112,7 +135,9 @@ impl GGRSAppBuilder for AppBuilder {
             .schedule
             .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
             .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        stage.schedule.add_system_to_stage(ROLLBACK_UPDATE, system);
+        stage
+            .schedule
+            .add_system_to_stage(GGRS_ADVANCE_FRAME, system);
         self
     }
 
@@ -124,7 +149,7 @@ impl GGRSAppBuilder for AppBuilder {
             .expect("No GGRSStage found! Did you install the GGRSPlugin?");
         stage
             .schedule
-            .add_system_set_to_stage(ROLLBACK_UPDATE, system);
+            .add_system_set_to_stage(GGRS_ADVANCE_FRAME, system);
         self
     }
 

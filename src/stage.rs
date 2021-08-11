@@ -17,7 +17,6 @@ pub(crate) struct GGRSStage {
     pub(crate) input_system: Option<Box<dyn System<In = PlayerHandle, Out = Vec<u8>>>>,
     snapshots: [WorldSnapshot; MAX_PREDICTION_FRAMES as usize + 2],
     frame: i32,
-    num_players: Option<u32>,
 }
 
 impl Stage for GGRSStage {
@@ -48,21 +47,16 @@ impl Stage for GGRSStage {
 
 impl GGRSStage {
     fn run_synctest(&mut self, world: &mut World) {
-        match world.get_resource::<SyncTestSession>() {
-            Some(session) => {
-                if self.num_players == None {
-                    self.num_players = Some(session.num_players());
-                }
-            }
-            None => {
-                println!("No GGRS SyncTestSession found. Please start a session and add it as a resource.");
-                return;
-            }
+        let num_players = if let Some(session) = world.get_resource::<SyncTestSession>() {
+            Some(session.num_players())
+        } else {
+            None
         }
+        .expect("No GGRS SyncTestSession found. Please start a session and add it as a resource.");
 
         // get inputs for all players
         let mut inputs = Vec::new();
-        for handle in 0..self.num_players.unwrap() as usize {
+        for handle in 0..num_players as usize {
             let input = self
                 .input_system
                 .as_mut()
@@ -83,9 +77,11 @@ impl GGRSStage {
         }
     }
 
+    // run spectator session, no input necessary
     fn run_spectator(&mut self, world: &mut World) {
         match world.get_resource_mut::<P2PSpectatorSession>() {
             Some(mut session) => {
+                // try to advance the frame
                 match session.advance_frame() {
                     Ok(requests) => self.handle_requests(requests, world),
                     Err(GGRSError::PredictionThreshold) => {
@@ -101,10 +97,17 @@ impl GGRSStage {
         }
     }
 
+    // run p2p session, input from local player necessary
     fn run_p2p(&mut self, world: &mut World) {
         // get input for the local player
-        // TODO: get the local player handle
-        let local_handle = 0;
+        let local_handle = if let Some(session) = world.get_resource::<P2PSession>() {
+            session.local_player_handle()
+        } else {
+            None
+        }
+        .expect("No GGRS SyncTestSession found. Please start a session and add it as a resource.");
+
+        // get input from the local player
         let input = self
             .input_system
             .as_mut()

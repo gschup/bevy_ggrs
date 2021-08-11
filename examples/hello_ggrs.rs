@@ -19,18 +19,17 @@ fn main() {
         .add_plugin(GGRSPlugin)
         // define session type
         .with_session_type(SessionType::SyncTestSession)
-        // frequency of game update
+        // define frequency of game logic update
         .with_rollback_run_criteria(FixedTimestep::steps_per_second(60.0))
-        // system that creates a compact input representation
+        // define system that creates a compact input representation
         .with_input_system(input.system())
         // register components that will be loaded/saved
         .register_rollback_type::<Position>()
-        // insert the GGRS session and id provider
+        // insert the GGRS session and rollback ID provider
         .insert_resource(sync_sess)
         .insert_resource(RollbackIdProvider::default())
         // these systems will be executed as part of the advance frame update
         .add_rollback_system(move_persons.system())
-        .add_rollback_system(print_persons.system())
         // spawn some test entities
         .add_startup_system(spawn_persons.system())
         .run();
@@ -67,28 +66,28 @@ fn move_persons(mut query: Query<(&Person, &mut Position), With<Rollback>>) {
     }
 }
 
+/*
 fn print_persons(query: Query<(&Person, &Name, &Position), With<Rollback>>) {
     for (_, name, pos) in query.iter() {
         println!("PERSON {} AT POS: {:?}", name.0, pos);
     }
 }
+*/
 
-fn input(handle: In<PlayerHandle>, keyboard_input: Res<Input<KeyCode>>) -> Vec<u8> {
+fn input(_handle: In<PlayerHandle>, keyboard_input: Res<Input<KeyCode>>) -> Vec<u8> {
     let mut input: u8 = 0;
 
-    if handle.0 == 0 {
-        if keyboard_input.pressed(KeyCode::W) {
-            input |= INPUT_UP;
-        }
-        if keyboard_input.pressed(KeyCode::A) {
-            input |= INPUT_LEFT;
-        }
-        if keyboard_input.pressed(KeyCode::S) {
-            input |= INPUT_DOWN;
-        }
-        if keyboard_input.pressed(KeyCode::D) {
-            input |= INPUT_RIGHT;
-        }
+    if keyboard_input.pressed(KeyCode::W) {
+        input |= INPUT_UP;
+    }
+    if keyboard_input.pressed(KeyCode::A) {
+        input |= INPUT_LEFT;
+    }
+    if keyboard_input.pressed(KeyCode::S) {
+        input |= INPUT_DOWN;
+    }
+    if keyboard_input.pressed(KeyCode::D) {
+        input |= INPUT_RIGHT;
     }
 
     vec![input]

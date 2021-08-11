@@ -15,7 +15,7 @@ categories = ["network-programming", "game-development"]
 
 [dependencies]
 bevy = "0.5"
-ggrs = "0.4"
+ggrs = { git = "https://github.com/gschup/ggrs" }
 
 # Examples
 [[example]]

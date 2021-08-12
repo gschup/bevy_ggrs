@@ -1,5 +1,7 @@
 # bevy_ggrs
 
-Bevy plugin for the GGRS P2P rollback networking library.
+Bevy plugin for the [GGRS](https://github.com/gschup/ggrs) P2P rollback networking library.
 
-WIP WIP WIP
+Check the examples!
+
+**!WIP!**

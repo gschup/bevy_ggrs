@@ -1,10 +1,10 @@
 use bevy::{core::FixedTimestep, prelude::*};
 use bevy_ggrs::{GGRSAppBuilder, GGRSPlugin, Rollback, RollbackIdProvider};
-use ggrs::{GameInput, PlayerHandle};
+use ggrs::{GameInput, PlayerHandle, SyncTestSession};
+use structopt::StructOpt;
 
-const NUM_PLAYERS: u32 = 3;
 const INPUT_SIZE: usize = std::mem::size_of::<u8>();
-const CHECK_DISTANCE: u32 = 7;
+
 const BLUE: Color = Color::rgb(0.8, 0.6, 0.2);
 const ORANGE: Color = Color::rgb(0., 0.35, 0.8);
 const MAGENTA: Color = Color::rgb(0.9, 0.2, 0.2);
@@ -22,6 +22,13 @@ const FRICTION: f32 = 0.9;
 const PLANE_SIZE: f32 = 5.0;
 const CUBE_SIZE: f32 = 0.2;
 
+#[derive(StructOpt)]
+struct Opt {
+    #[structopt(short, long)]
+    num_players: usize,
+    #[structopt(short, long)]
+    check_distance: u32,
+}
 struct Player {
     handle: u32,
 }
@@ -36,11 +43,21 @@ struct Velocity {
 }
 
 fn main() {
+    // read cmd line arguments
+    let opt = Opt::from_args();
+
     // start a GGRS SyncTest session, which will simulate rollbacks every frame
 
     // WARNING: usually, SyncTestSession does compare checksums to validate game update determinism,
     // but bevy_ggrs currently computes no checksums for gamestates
-    let sync_sess = ggrs::start_synctest_session(NUM_PLAYERS, INPUT_SIZE, CHECK_DISTANCE).unwrap();
+    let mut sync_sess =
+        ggrs::start_synctest_session(opt.num_players as u32, INPUT_SIZE, opt.check_distance)
+            .unwrap();
+
+    // set input delay for any player you want (if you want)
+    for i in 0..opt.num_players {
+        sync_sess.set_frame_delay(2, i).unwrap();
+    }
 
     App::build()
         .insert_resource(Msaa { samples: 4 })
@@ -67,6 +84,7 @@ fn setup(
     mut rip: ResMut<RollbackIdProvider>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    session: Res<SyncTestSession>,
 ) {
     // plane
     commands.spawn_bundle(PbrBundle {
@@ -80,8 +98,8 @@ fn setup(
     // When loading entities from the past, this extra id is necessary to connect entities over different game states
     let r = PLANE_SIZE / 4.;
 
-    for handle in 0..NUM_PLAYERS {
-        let rot = handle as f32 / NUM_PLAYERS as f32 * 2. * std::f32::consts::PI;
+    for handle in 0..session.num_players() {
+        let rot = handle as f32 / session.num_players() as f32 * 2. * std::f32::consts::PI;
         let x = r * rot.cos();
         let z = r * rot.sin();
 

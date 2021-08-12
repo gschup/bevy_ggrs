@@ -17,10 +17,13 @@ categories = ["network-programming", "game-development"]
 bevy = "0.5"
 ggrs = { git = "https://github.com/gschup/ggrs" }
 
+[dev-dependencies]
+structopt = "0.3"
+
 # Examples
 [[example]]
-name = "3d_scene_synctest"
-path = "examples/3d_scene_synctest.rs"
+name = "3d_box_game_synctest"
+path = "examples/3d_box_game/3d_box_game_synctest.rs"
 
 #[[example]]
 #name = "3d_scene_p2p"

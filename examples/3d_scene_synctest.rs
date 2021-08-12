@@ -1,5 +1,5 @@
 use bevy::{core::FixedTimestep, prelude::*};
-use bevy_ggrs::{GGRSAppBuilder, GGRSPlugin, Rollback, RollbackIdProvider, SessionType};
+use bevy_ggrs::{GGRSAppBuilder, GGRSPlugin, Rollback, RollbackIdProvider};
 use ggrs::{GameInput, PlayerHandle};
 
 const NUM_PLAYERS: u32 = 1;
@@ -39,15 +39,12 @@ fn main() {
     let sync_sess = ggrs::start_synctest_session(NUM_PLAYERS, INPUT_SIZE, CHECK_DISTANCE).unwrap();
 
     App::build()
-        // insert the GGRS session and rollback ID provider
-        .insert_resource(sync_sess)
-        .insert_resource(RollbackIdProvider::default())
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_plugin(GGRSPlugin)
         .add_startup_system(setup.system())
-        // define session type
-        .with_session_type(SessionType::SyncTestSession)
+        // add your GGRS session
+        .with_synctest_session(sync_sess)
         // define frequency of game logic update
         .with_rollback_run_criteria(FixedTimestep::steps_per_second(60.0))
         // define system that creates a compact input representation

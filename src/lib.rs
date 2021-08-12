@@ -3,7 +3,7 @@ use bevy::{
     prelude::*,
     reflect::GetTypeRegistration,
 };
-use ggrs::PlayerHandle;
+use ggrs::{P2PSession, P2PSpectatorSession, PlayerHandle, SyncTestSession};
 use stage::GGRSStage;
 
 pub(crate) mod stage;
@@ -11,8 +11,11 @@ pub(crate) mod world_snapshot;
 
 /// Stage label for the Custom GGRS Stage.
 pub const GGRS_UPDATE: &str = "ggrs_update";
+/// Stage label for the internal GGRS System Stage, where all rollback systems will be added to.
 const GGRS_ADVANCE_FRAME: &str = "ggrs_advance_frame";
 
+/// Defines the Session that the GGRS Plugin should expect as a resource.
+/// Use `with_session_type(type)` to set accordingly.
 pub enum SessionType {
     SyncTestSession,
     P2PSession,
@@ -25,28 +28,36 @@ impl Default for SessionType {
     }
 }
 
+/// Add this component to all entities you want to be loaded/saved on rollback.
+/// The `id` has to be unique. Consider using the `RollbackIdProvider` resource.
 pub struct Rollback {
     id: u32,
 }
 
 impl Rollback {
+    /// Creates a new rollback tag with the given id.
     pub fn new(id: u32) -> Self {
         Self { id }
     }
 
+    /// Returns the rollback id.
     pub const fn id(&self) -> u32 {
         self.id
     }
 }
 
+/// Provides unique ids for your Rollback components.
+/// When you add the GGRS Plugin, this should be available as a resource.
 #[derive(Default)]
 pub struct RollbackIdProvider {
     next_id: u32,
 }
 
 impl RollbackIdProvider {
+    /// Returns an unused, unique id.
     pub fn next_id(&mut self) -> u32 {
         if self.next_id >= u32::MAX {
+            // TODO: do something smart?
             panic!("RollbackIdProvider: u32::MAX has been reached.");
         }
         let ret = self.next_id;
@@ -55,6 +66,7 @@ impl RollbackIdProvider {
     }
 }
 
+/// Provides all functionality for the GGRS p2p rollback networking library.
 pub struct GGRSPlugin;
 
 impl Plugin for GGRSPlugin {
@@ -65,39 +77,77 @@ impl Plugin for GGRSPlugin {
         let mut ggrs_stage = GGRSStage::default();
         ggrs_stage.schedule = schedule;
         app.add_stage_before(CoreStage::Update, GGRS_UPDATE, ggrs_stage);
+        // insert a rollback id provider
+        app.insert_resource(RollbackIdProvider::default());
     }
 }
 
+/// Extension trait for the `AppBuilder`.
 pub trait GGRSAppBuilder {
-    fn with_session_type(&mut self, session_type: SessionType) -> &mut Self;
+    /// Adds the given `ggrs::SyncTestSession` to your app.
+    fn with_synctest_session(&mut self, sess: SyncTestSession) -> &mut Self;
 
+    /// Adds the given `ggrs::P2PSession` to your app.
+    fn with_p2p_session(&mut self, sess: P2PSession) -> &mut Self;
+
+    /// Adds the given `ggrs::P2PSpectatorSession` to your app.
+    fn with_p2p_spectator_session(&mut self, sess: P2PSpectatorSession) -> &mut Self;
+
+    /// Sets the run criteria for the ggrs update, including all rollback systems. If this is never called, the session will never run.
     fn with_rollback_run_criteria(
         &mut self,
         run_criteria: impl System<In = (), Out = ShouldRun>,
     ) -> &mut Self;
 
+    /// Registers a given system as the input system. This system should provide encoded inputs for a given player.
     fn with_input_system(
         &mut self,
         input_fn: impl System<In = PlayerHandle, Out = Vec<u8>>,
     ) -> &mut Self;
 
+    /// Registers a type of component for saving and loading during rollbacks.
     fn register_rollback_type<T>(&mut self) -> &mut Self
     where
         T: GetTypeRegistration;
 
+    /// Adds a system that is executed as part of the ggrs update. All game logic related systems should be added here.
     fn add_rollback_system(&mut self, system: impl Into<SystemDescriptor>) -> &mut Self;
 
+    /// Adds a system set that is executed as part of the ggrs update. All game logic related systems should be added here.
     fn add_rollback_system_set(&mut self, system: SystemSet) -> &mut Self;
 }
 
 impl GGRSAppBuilder for AppBuilder {
-    fn with_session_type(&mut self, session_type: SessionType) -> &mut Self {
+    fn with_synctest_session(&mut self, session: SyncTestSession) -> &mut Self {
         let stage = self
             .app
             .schedule
             .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
             .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        stage.session_type = session_type;
+        stage.session_type = SessionType::SyncTestSession;
+        self.insert_resource(session);
+        self
+    }
+
+    fn with_p2p_session(&mut self, session: P2PSession) -> &mut Self {
+        let stage = self
+            .app
+            .schedule
+            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
+            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
+        stage.session_type = SessionType::P2PSession;
+        self.insert_resource(session);
+        self
+    }
+
+    fn with_p2p_spectator_session(&mut self, session: P2PSpectatorSession) -> &mut Self {
+        let stage = self
+            .app
+            .schedule
+            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
+            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
+        stage.session_type = SessionType::P2PSpectatorSession;
+        self.insert_resource(session);
         self
     }
 

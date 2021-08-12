@@ -7,6 +7,7 @@ use std::fmt::Debug;
 
 use crate::Rollback;
 
+/// Maps rollback_ids to entity id+generation. Necessary to track entities over time.
 fn rollback_id_map(world: &mut World) -> HashMap<u32, Entity> {
     let mut rid_map = HashMap::default();
     let mut query = world.query::<(Entity, &Rollback)>();

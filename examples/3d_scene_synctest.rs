@@ -2,10 +2,14 @@ use bevy::{core::FixedTimestep, prelude::*};
 use bevy_ggrs::{GGRSAppBuilder, GGRSPlugin, Rollback, RollbackIdProvider};
 use ggrs::{GameInput, PlayerHandle};
 
-const NUM_PLAYERS: u32 = 1;
+const NUM_PLAYERS: u32 = 3;
 const INPUT_SIZE: usize = std::mem::size_of::<u8>();
 const CHECK_DISTANCE: u32 = 7;
-const PLAYER_COLORS: [Color; 2] = [Color::rgb(0.8, 0.6, 0.2), Color::rgb(0., 0.35, 0.8)];
+const BLUE: Color = Color::rgb(0.8, 0.6, 0.2);
+const ORANGE: Color = Color::rgb(0., 0.35, 0.8);
+const MAGENTA: Color = Color::rgb(0.9, 0.2, 0.2);
+const GREEN: Color = Color::rgb(0.35, 0.7, 0.35);
+const PLAYER_COLORS: [Color; 4] = [BLUE, ORANGE, MAGENTA, GREEN];
 
 const INPUT_UP: u8 = 1 << 0;
 const INPUT_DOWN: u8 = 1 << 1;
@@ -74,20 +78,27 @@ fn setup(
     // player cube - just spawn whatever entity you want, then add a `Rollback` component with a unique id (for example through the `RollbackIdProvider` resource).
     // Every entity that you want to be saved/loaded needs a `Rollback` component with a unique rollback id.
     // When loading entities from the past, this extra id is necessary to connect entities over different game states
+    let r = PLANE_SIZE / 4.;
+
     for handle in 0..NUM_PLAYERS {
+        let rot = handle as f32 / NUM_PLAYERS as f32 * 2. * std::f32::consts::PI;
+        let x = r * rot.cos();
+        let z = r * rot.sin();
+
+        let mut transform = Transform::default();
+        transform.translation.x = x;
+        transform.translation.y = CUBE_SIZE / 2.;
+        transform.translation.z = z;
+
         commands
             .spawn_bundle(PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Cube { size: CUBE_SIZE })),
                 material: materials.add(PLAYER_COLORS[handle as usize].into()),
-                transform: Transform::from_xyz(0., CUBE_SIZE / 2., 0.),
+                transform,
                 ..Default::default()
             })
             .insert(Player { handle })
-            .insert(Velocity {
-                x: 0.,
-                y: 0.,
-                z: 0.,
-            })
+            .insert(Velocity::default())
             .insert(Rollback::new(rip.next_id()));
     }
 
@@ -128,10 +139,10 @@ fn move_cube(
 
         // slow down
         if input & INPUT_UP == 0 && input & INPUT_DOWN == 0 {
-            v.x *= FRICTION;
+            v.z *= FRICTION;
         }
         if input & INPUT_LEFT == 0 && input & INPUT_RIGHT == 0 {
-            v.z *= FRICTION;
+            v.x *= FRICTION;
         }
         v.y *= FRICTION;
 

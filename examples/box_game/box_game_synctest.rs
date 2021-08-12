@@ -42,7 +42,7 @@ struct Velocity {
     z: f32,
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     // read cmd line arguments
     let opt = Opt::from_args();
 
@@ -51,12 +51,11 @@ fn main() {
     // WARNING: usually, SyncTestSession does compare checksums to validate game update determinism,
     // but bevy_ggrs currently computes no checksums for gamestates
     let mut sync_sess =
-        ggrs::start_synctest_session(opt.num_players as u32, INPUT_SIZE, opt.check_distance)
-            .unwrap();
+        ggrs::start_synctest_session(opt.num_players as u32, INPUT_SIZE, opt.check_distance)?;
 
     // set input delay for any player you want (if you want)
     for i in 0..opt.num_players {
-        sync_sess.set_frame_delay(2, i).unwrap();
+        sync_sess.set_frame_delay(2, i)?;
     }
 
     App::build()
@@ -76,6 +75,8 @@ fn main() {
         // these systems will be executed as part of the advance frame update
         .add_rollback_system(move_cube.system())
         .run();
+
+    Ok(())
 }
 
 /// set up a simple 3D scene

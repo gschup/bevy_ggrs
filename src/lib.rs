@@ -4,9 +4,9 @@ use bevy::{
     reflect::GetTypeRegistration,
 };
 use ggrs::{P2PSession, P2PSpectatorSession, PlayerHandle, SyncTestSession};
-use stage::GGRSStage;
+use ggrs_stage::GGRSStage;
 
-pub(crate) mod stage;
+pub(crate) mod ggrs_stage;
 pub(crate) mod world_snapshot;
 
 /// Stage label for the Custom GGRS Stage.

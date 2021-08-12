@@ -1,7 +1,7 @@
 use bevy::{ecs::schedule::ShouldRun, prelude::*, reflect::TypeRegistry};
 use ggrs::{
-    GGRSError, GGRSRequest, GameInput, GameState, GameStateCell, P2PSession, P2PSpectatorSession,
-    PlayerHandle, SyncTestSession, MAX_PREDICTION_FRAMES,
+    GGRSError, GGRSEvent, GGRSRequest, GameInput, GameState, GameStateCell, P2PSession,
+    P2PSpectatorSession, PlayerHandle, SessionState, SyncTestSession, MAX_PREDICTION_FRAMES,
 };
 
 use crate::{world_snapshot::WorldSnapshot, SessionType};
@@ -19,6 +19,7 @@ pub(crate) struct GGRSStage {
     /// Instead of using GGRS's internal storage for encoded save states, we save the world here, avoiding encoding into `Vec<u8>`.
     snapshots: [WorldSnapshot; MAX_PREDICTION_FRAMES as usize + 2],
     frame: i32,
+    frames_to_skip: u32,
 }
 
 impl Stage for GGRSStage {
@@ -91,14 +92,19 @@ impl GGRSStage {
         // run spectator session, no input necessary
         match world.get_resource_mut::<P2PSpectatorSession>() {
             Some(mut session) => {
-                // try to advance the frame
-                match session.advance_frame() {
-                    Ok(requests) => request_vec = Some(requests),
-                    Err(GGRSError::PredictionThreshold) => {
-                        println!("P2PSpectatorSession: Waiting for input from host.")
-                    }
-                    Err(e) => println!("{}", e),
-                };
+                // get newest info from remotes
+                session.poll_remote_clients();
+
+                // if session is ready, try to advance the frame
+                if session.current_state() == SessionState::Running {
+                    match session.advance_frame() {
+                        Ok(requests) => request_vec = Some(requests),
+                        Err(GGRSError::PredictionThreshold) => {
+                            println!("P2PSpectatorSession: Waiting for input from host.")
+                        }
+                        Err(e) => println!("{}", e),
+                    };
+                }
 
                 // display all events
                 for event in session.events() {
@@ -127,7 +133,6 @@ impl GGRSStage {
         }
         .expect("No GGRS SyncTestSession found. Please start a session and add it as a resource.");
 
-        // get input from the local player
         let input = self
             .input_system
             .as_mut()
@@ -136,17 +141,31 @@ impl GGRSStage {
 
         match world.get_resource_mut::<P2PSession>() {
             Some(mut session) => {
-                match session.advance_frame(local_handle, &input) {
-                    Ok(requests) => request_vec = Some(requests),
-                    Err(GGRSError::PredictionThreshold) => {
-                        println!("Skipping a frame: PredictionThreshold.")
-                    }
-                    Err(e) => println!("{}", e),
-                };
+                if self.frames_to_skip > 0 {
+                    self.frames_to_skip -= 1;
+                    println!("Skipping a frame: WaitRecommendation");
+                    return;
+                }
+                // get newest info from remotes
+                session.poll_remote_clients();
+
+                // if session is ready, try to advance the frame
+                if session.current_state() == SessionState::Running {
+                    match session.advance_frame(local_handle, &input) {
+                        Ok(requests) => request_vec = Some(requests),
+                        Err(GGRSError::PredictionThreshold) => {
+                            println!("Skipping a frame: PredictionThreshold.")
+                        }
+                        Err(e) => println!("{}", e),
+                    };
+                }
 
                 // display all events
                 for event in session.events() {
                     println!("GGRS Event: {:?}", event);
+                    if let GGRSEvent::WaitRecommendation { skip_frames } = event {
+                        self.frames_to_skip += skip_frames
+                    }
                 }
             }
             None => {

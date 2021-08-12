@@ -22,9 +22,9 @@ structopt = "0.3"
 
 # Examples
 [[example]]
-name = "3d_box_game_synctest"
-path = "examples/3d_box_game/3d_box_game_synctest.rs"
+name = "box_game_synctest"
+path = "examples/box_game/box_game_synctest.rs"
 
-#[[example]]
-#name = "3d_scene_p2p"
-#path = "examples/3d_scene_p2p.rs"
+[[example]]
+name = "box_game_p2p"
+path = "examples/box_game/box_game_p2p.rs"

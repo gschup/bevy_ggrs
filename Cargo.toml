@@ -19,5 +19,9 @@ ggrs = { git = "https://github.com/gschup/ggrs" }
 
 # Examples
 [[example]]
-name = "hello_ggrs"
-path = "examples/hello_ggrs.rs"
+name = "3d_scene_synctest"
+path = "examples/3d_scene_synctest.rs"
+
+#[[example]]
+#name = "3d_scene_p2p"
+#path = "examples/3d_scene_p2p.rs"

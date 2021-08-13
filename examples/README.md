@@ -25,7 +25,6 @@ The P2P example is launched by command-line arguments:
 - `--players / -p`: a list of player addresses, with the local player being identified by `localhost`
 - `--spectators / -s`: a list of spectator addresses. This client will act as a host for these spectators
 
-**!SPECTATOR NOT IMPLEMENTED YET!**
 For the spectator, the following command-line arguments exist:
 
 - `--local-port / -l`: local port the client is listening to
@@ -36,15 +35,16 @@ For example, to run a two-player game,
 run these commands in separate terminals:
 
 ```shell
-cargo run --example box_game_p2p -- --local-port 7000 --players localhost 127.0.0.1:7001
+cargo run --example box_game_p2p -- --local-port 7000 --players localhost 127.0.0.1:7001 --spectators 127.0.0.1:7002
 cargo run --example box_game_p2p -- --local-port 7001 --players 127.0.0.1:7000 localhost
+cargo run --example box_game_spectator -- --local-port 7002 --num-players 2 --host 127.0.0.1:7000 
 ```
 
 ## BoxGame SyncTest
 
 The same game, but without network functionality.
 Instead, the SyncTestSession focusses on simulating rollbacks and comparing checksums.
-**!checksum comparison not implemented yet!**
+**!WARNING: Checksum comparison is currently not supported in bevy_ggrs!**
 
 ### Launching BoxGame SyncTest
 

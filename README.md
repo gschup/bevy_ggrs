@@ -1,9 +1,17 @@
 # bevy_ggrs
 
 Bevy plugin for the [GGRS](https://github.com/gschup/ggrs) P2P rollback networking library.
+The plugin creates a custom stage with a separate schedule, which handles correctly advancing the gamestate, including rollbacks.
+It efficiently handles saving and loading of the gamestate by only snapshotting relevant parts of the world, as defined by the user.
 
-Check the [examples](./examples/)!
+For advise on how to use it, check the [examples](./examples/)!
 
-**!WIP!**
+## Development Status
 
-currently, I have the GGRS dependency directly linked to the repository. That will change once I publish necessary changes to GGRS.
+bevy_ggrs is in a very early stage:
+
+- no checksums are generated, so `SyncTestSession` doesn't do all that much.
+- GGRS dependency is directly linked to the repository (will change once necessary changes are published)
+- only components of entities can be rolled back, no resources yet.
+- since bevy_ggrs operates with a separate schedule, compatibility with other plugins might be complicated to achieve.
+- currently, it is not possible to create stages inside the GGRS schedule or define system orderings.

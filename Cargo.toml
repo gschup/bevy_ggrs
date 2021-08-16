@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/gschup/bevy_ggrs"
 homepage = "https://gschup.github.io/ggrs/"
-keywords = ["gamedev", "networking", "ggpo", "rollback", "bevy"]
+keywords = ["gamedev", "networking", "ggpo", "rollback", "bevy", "ggrs"]
 categories = ["network-programming", "game-development"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

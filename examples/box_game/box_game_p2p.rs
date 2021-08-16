@@ -20,6 +20,7 @@ const FRICTION: f32 = 0.9;
 const PLANE_SIZE: f32 = 5.0;
 const CUBE_SIZE: f32 = 0.2;
 
+// structopt will read command line parameters for u
 #[derive(StructOpt)]
 struct Opt {
     #[structopt(short, long)]
@@ -77,7 +78,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // set input delay for the local player
     p2p_sess.set_frame_delay(2, local_handle)?;
 
-    // set change default expected update frequency
+    // set change default expected update frequency (affects synchronization timings between players)
     p2p_sess.set_fps(FPS)?;
 
     // start the GGRS session

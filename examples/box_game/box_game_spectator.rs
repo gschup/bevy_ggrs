@@ -21,6 +21,7 @@ const FRICTION: f32 = 0.9;
 const PLANE_SIZE: f32 = 5.0;
 const CUBE_SIZE: f32 = 0.2;
 
+// structopt will read command line parameters for us
 #[derive(StructOpt)]
 struct Opt {
     #[structopt(short, long)]
@@ -61,8 +62,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     spec_sess.set_max_frames_behind(5)?; // when the spectator is more than this amount of frames behind, it will catch up
     spec_sess.set_catchup_speed(2)?; // set this to 1 if you don't want any catch-ups
 
-    // set change default expected update frequency
-    // spec_sess.set_fps(FPS)?;
+    // set change default expected update frequency (not super important in the spectator session)
+    spec_sess.set_fps(FPS)?;
 
     // start the GGRS session
     spec_sess.start_session()?;

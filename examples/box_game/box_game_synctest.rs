@@ -22,6 +22,7 @@ const FRICTION: f32 = 0.9;
 const PLANE_SIZE: f32 = 5.0;
 const CUBE_SIZE: f32 = 0.2;
 
+// structopt will read command line parameters for u
 #[derive(StructOpt)]
 struct Opt {
     #[structopt(short, long)]
@@ -29,6 +30,7 @@ struct Opt {
     #[structopt(short, long)]
     check_distance: u32,
 }
+
 struct Player {
     handle: u32,
 }

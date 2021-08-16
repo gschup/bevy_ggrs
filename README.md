@@ -19,14 +19,7 @@ Since bevy_ggrs operates with a separate schedule, compatibility with other plug
 
 ## Development Status
 
-bevy_ggrs is in a very early stage:
-
-- no checksums are generated, so `SyncTestSession` cannot compare checksums.
-- only components of entities can be rolled back, no resources yet.
-- components added to existing entities after saving will not be removed when loading.
-- currently, it is not possible to create stages inside the GGRS schedule or define system orderings.
-
-Once the most important points are taken care of, I will publish a first version to crates.io.
+bevy_ggrs is in a very early stage. Once the most important issues are taken care of, I will publish a first version to crates.io.
 
 ## Licensing
 

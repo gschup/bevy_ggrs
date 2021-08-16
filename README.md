@@ -10,11 +10,13 @@ For advise on how to use it, check the [examples](./examples/)!
 
 bevy_ggrs is in a very early stage:
 
-- no checksums are generated, so `SyncTestSession` doesn't do all that much.
-- GGRS dependency is directly linked to the repository (will change once necessary changes are published)
+- no checksums are generated, so `SyncTestSession` cannot compare checksums.
 - only components of entities can be rolled back, no resources yet.
+- components added to existing entities after saving will not be removed when loading.
 - since bevy_ggrs operates with a separate schedule, compatibility with other plugins might be complicated to achieve.
 - currently, it is not possible to create stages inside the GGRS schedule or define system orderings.
+
+Once the most important points are taken care of, I will publish a first version to crates.io.
 
 ## Licensing
 

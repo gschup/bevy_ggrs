@@ -1,5 +1,5 @@
 use bevy::{
-    ecs::schedule::{ShouldRun, SystemDescriptor},
+    ecs::schedule::{ShouldRun, Stage, SystemDescriptor},
     prelude::*,
     reflect::GetTypeRegistration,
 };
@@ -115,38 +115,68 @@ pub trait GGRSAppBuilder {
 
     /// Adds a system set that is executed as part of the ggrs update. All game logic related systems should be added here.
     fn add_rollback_system_set(&mut self, system: SystemSet) -> &mut Self;
+
+    /// Adds a system to a specific stage inside the GGRS schedule.
+    fn add_rollback_system_to_stage(
+        &mut self,
+        stage_label: impl StageLabel,
+        system: impl Into<SystemDescriptor>,
+    ) -> &mut Self;
+
+    /// Adds a system set to a specific stage inside the GGRS schedule.
+    fn add_rollback_system_set_to_stage(
+        &mut self,
+        stage_label: impl StageLabel,
+        system_set: SystemSet,
+    ) -> &mut Self;
+
+    fn add_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self;
+
+    fn add_stage_after<S: Stage>(
+        &mut self,
+        target: impl StageLabel,
+        label: impl StageLabel,
+        stage: S,
+    ) -> &mut Self;
+
+    fn add_stage_before<S: Stage>(
+        &mut self,
+        target: impl StageLabel,
+        label: impl StageLabel,
+        stage: S,
+    ) -> &mut Self;
 }
 
 impl GGRSAppBuilder for AppBuilder {
     fn with_synctest_session(&mut self, session: SyncTestSession) -> &mut Self {
-        let stage = self
+        let ggrs_stage = self
             .app
             .schedule
             .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
             .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        stage.session_type = SessionType::SyncTestSession;
+        ggrs_stage.session_type = SessionType::SyncTestSession;
         self.insert_resource(session);
         self
     }
 
     fn with_p2p_session(&mut self, session: P2PSession) -> &mut Self {
-        let stage = self
+        let ggrs_stage = self
             .app
             .schedule
             .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
             .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        stage.session_type = SessionType::P2PSession;
+        ggrs_stage.session_type = SessionType::P2PSession;
         self.insert_resource(session);
         self
     }
 
     fn with_p2p_spectator_session(&mut self, session: P2PSpectatorSession) -> &mut Self {
-        let stage = self
+        let ggrs_stage = self
             .app
             .schedule
             .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
             .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        stage.session_type = SessionType::P2PSpectatorSession;
+        ggrs_stage.session_type = SessionType::P2PSpectatorSession;
         self.insert_resource(session);
         self
     }
@@ -156,12 +186,12 @@ impl GGRSAppBuilder for AppBuilder {
         mut run_criteria: impl System<In = (), Out = ShouldRun>,
     ) -> &mut Self {
         run_criteria.initialize(self.world_mut());
-        let stage = self
+        let ggrs_stage = self
             .app
             .schedule
             .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
             .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        stage.run_criteria = Some(Box::new(run_criteria));
+        ggrs_stage.run_criteria = Some(Box::new(run_criteria));
         self
     }
 
@@ -170,34 +200,12 @@ impl GGRSAppBuilder for AppBuilder {
         mut input_system: impl System<In = PlayerHandle, Out = Vec<u8>>,
     ) -> &mut Self {
         input_system.initialize(self.world_mut());
-        let stage = self
+        let ggrs_stage = self
             .app
             .schedule
             .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
             .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        stage.input_system = Some(Box::new(input_system));
-        self
-    }
-
-    fn add_rollback_system(&mut self, system: impl Into<SystemDescriptor>) -> &mut Self {
-        let stage = self
-            .app
-            .schedule
-            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
-            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        stage.schedule.add_system_to_stage(ROLLBACK_DEFAULT, system);
-        self
-    }
-
-    fn add_rollback_system_set(&mut self, system: SystemSet) -> &mut Self {
-        let stage = self
-            .app
-            .schedule
-            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
-            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        stage
-            .schedule
-            .add_system_set_to_stage(ROLLBACK_DEFAULT, system);
+        ggrs_stage.input_system = Some(Box::new(input_system));
         self
     }
 
@@ -205,12 +213,106 @@ impl GGRSAppBuilder for AppBuilder {
     where
         T: GetTypeRegistration,
     {
-        let stage = self
+        let ggrs_stage = self
             .app
             .schedule
             .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
             .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        stage.type_registry.write().register::<T>();
+        ggrs_stage.type_registry.write().register::<T>();
+        self
+    }
+
+    fn add_rollback_system(&mut self, system: impl Into<SystemDescriptor>) -> &mut Self {
+        let ggrs_stage = self
+            .app
+            .schedule
+            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
+            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
+        ggrs_stage
+            .schedule
+            .add_system_to_stage(ROLLBACK_DEFAULT, system);
+        self
+    }
+
+    fn add_rollback_system_set(&mut self, system_set: SystemSet) -> &mut Self {
+        let ggrs_stage = self
+            .app
+            .schedule
+            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
+            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
+        ggrs_stage
+            .schedule
+            .add_system_set_to_stage(ROLLBACK_DEFAULT, system_set);
+        self
+    }
+
+    fn add_rollback_system_to_stage(
+        &mut self,
+        stage_label: impl StageLabel,
+        system: impl Into<SystemDescriptor>,
+    ) -> &mut Self {
+        let ggrs_stage = self
+            .app
+            .schedule
+            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
+            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
+        ggrs_stage.schedule.add_system_to_stage(stage_label, system);
+        self
+    }
+
+    fn add_rollback_system_set_to_stage(
+        &mut self,
+        stage_label: impl StageLabel,
+        system_set: SystemSet,
+    ) -> &mut Self {
+        let ggrs_stage = self
+            .app
+            .schedule
+            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
+            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
+        ggrs_stage
+            .schedule
+            .add_system_set_to_stage(stage_label, system_set);
+        self
+    }
+
+    fn add_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
+        let ggrs_stage = self
+            .app
+            .schedule
+            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
+            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
+        ggrs_stage.schedule.add_stage(label, stage);
+        self
+    }
+
+    fn add_stage_after<S: Stage>(
+        &mut self,
+        target: impl StageLabel,
+        label: impl StageLabel,
+        stage: S,
+    ) -> &mut Self {
+        let ggrs_stage = self
+            .app
+            .schedule
+            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
+            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
+        ggrs_stage.schedule.add_stage_after(target, label, stage);
+        self
+    }
+
+    fn add_stage_before<S: Stage>(
+        &mut self,
+        target: impl StageLabel,
+        label: impl StageLabel,
+        stage: S,
+    ) -> &mut Self {
+        let ggrs_stage = self
+            .app
+            .schedule
+            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
+            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
+        ggrs_stage.schedule.add_stage_before(target, label, stage);
         self
     }
 }

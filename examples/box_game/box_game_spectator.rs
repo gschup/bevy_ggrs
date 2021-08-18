@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use bevy::{core::FixedTimestep, prelude::*};
-use bevy_ggrs::{GGRSAppBuilder, GGRSPlugin, Rollback, RollbackIdProvider};
+use bevy_ggrs::{GGRSApp, GGRSPlugin, Rollback, RollbackIdProvider};
 use ggrs::{GameInput, P2PSpectatorSession, PlayerHandle};
 use structopt::StructOpt;
 
@@ -68,7 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // start the GGRS session
     spec_sess.start_session()?;
 
-    App::build()
+    App::new()
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_plugin(GGRSPlugin)
@@ -132,7 +132,7 @@ fn setup(
     }
 
     // light
-    commands.spawn_bundle(LightBundle {
+    commands.spawn_bundle(PointLightBundle {
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..Default::default()
     });

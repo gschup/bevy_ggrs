@@ -14,12 +14,13 @@ categories = ["network-programming", "game-development"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bevy = { version = "0.5", default-features = false }
+#bevy = { version = "0.5", default-features = false }
+bevy = { git = "https://github.com/gschup/bevy"}
 ggrs = "0.4.3"
 
 [dev-dependencies]
 structopt = "0.3"
-bevy ="0.5"
+#bevy ="0.5"
 
 # Examples
 [[example]]

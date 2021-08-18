@@ -130,7 +130,7 @@ impl WorldSnapshot {
                         reflect_component.apply_component(world, entity, &**component);
                     } else {
                         // if we don't have any data saved, we need to remove that component from the entity
-                        // TODO: remove the component from the entity
+                        reflect_component.remove_component(world, entity);
                     }
                 } else {
                     // the entity in the world has no such component

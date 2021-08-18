@@ -112,28 +112,42 @@ impl WorldSnapshot {
                         .id()
                 });
 
-            // afterwards, remove the pair from the map (leftover entities will need to be despawned)
-            rid_map.remove(&rollback_entity.rollback_id);
-
-            // set the components for that entity
-            for component in rollback_entity.components.iter() {
-                let registration = type_registry
-                    .get_with_name(component.type_name())
-                    .expect("Unregistered Type in GGRS Type Registry");
+            // for each registered type, check what we need to do
+            for registration in type_registry.iter() {
+                let type_id = registration.type_id();
                 let reflect_component = registration
                     .data::<ReflectComponent>()
                     .expect("Unregistered Type in GGRS Type Registry");
 
-                // if the entity already has such a component, overwrite it, otherwise add it
-                if world
-                    .entity(entity)
-                    .contains_type_id(registration.type_id())
-                {
-                    reflect_component.apply_component(world, entity, &**component);
+                if world.entity(entity).contains_type_id(type_id) {
+                    // the entity in the world has such a component
+                    if let Some(component) = rollback_entity
+                        .components
+                        .iter()
+                        .find(|comp| comp.type_name() == registration.name())
+                    {
+                        // if we have data saved in the snapshot, overwrite the world
+                        reflect_component.apply_component(world, entity, &**component);
+                    } else {
+                        // if we don't have any data saved, we need to remove that component from the entity
+                        // TODO: remove the component from the entity
+                    }
                 } else {
-                    reflect_component.add_component(world, entity, &**component);
+                    // the entity in the world has no such component
+                    if let Some(component) = rollback_entity
+                        .components
+                        .iter()
+                        .find(|comp| comp.type_id() == type_id)
+                    {
+                        // if we have data saved in the snapshot, add the component to the entity
+                        reflect_component.add_component(world, entity, &**component);
+                    }
+                    // if both the snapshot and the world does not have the registered component, we don't need to to anything
                 }
             }
+
+            // afterwards, remove the pair from the map (leftover entities will need to be despawned)
+            rid_map.remove(&rollback_entity.rollback_id);
         }
 
         // despawn entities which have a rollback component but where not present in the snapshot

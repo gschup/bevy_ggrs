@@ -110,10 +110,10 @@ pub trait GGRSAppBuilder {
     where
         T: GetTypeRegistration;
 
-    /// Adds a system that is executed as part of the ggrs update. All game logic related systems should be added here.
+    /// Adds a system that is executed as part of the ggrs update.
     fn add_rollback_system(&mut self, system: impl Into<SystemDescriptor>) -> &mut Self;
 
-    /// Adds a system set that is executed as part of the ggrs update. All game logic related systems should be added here.
+    /// Adds a system set that is executed as part of the ggrs update.
     fn add_rollback_system_set(&mut self, system: SystemSet) -> &mut Self;
 
     /// Adds a system to a specific stage inside the GGRS schedule.
@@ -130,8 +130,10 @@ pub trait GGRSAppBuilder {
         system_set: SystemSet,
     ) -> &mut Self;
 
+    /// Adds a stage into the GGRS schedule.
     fn add_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self;
 
+    /// Adds a stage into the GGRS schedule after another stage inside the GGRS schedule.
     fn add_stage_after<S: Stage>(
         &mut self,
         target: impl StageLabel,
@@ -139,6 +141,7 @@ pub trait GGRSAppBuilder {
         stage: S,
     ) -> &mut Self;
 
+    /// Adds a stage into the GGRS schedule before another stage inside the GGRS schedule.
     fn add_stage_before<S: Stage>(
         &mut self,
         target: impl StageLabel,

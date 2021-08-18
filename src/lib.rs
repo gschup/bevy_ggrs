@@ -11,8 +11,8 @@ pub(crate) mod world_snapshot;
 
 /// Stage label for the Custom GGRS Stage.
 pub const GGRS_UPDATE: &str = "ggrs_update";
-/// Stage label for the internal GGRS System Stage, where all rollback systems will be added to.
-const GGRS_ADVANCE_FRAME: &str = "ggrs_advance_frame";
+/// Stage label for the default internal GGRS System Stage, where all rollback systems will be added to by default.
+pub const ROLLBACK_DEFAULT: &str = "rollback_default";
 
 /// Defines the Session that the GGRS Plugin should expect as a resource.
 /// Use `with_session_type(type)` to set accordingly.
@@ -73,7 +73,7 @@ impl Plugin for GGRSPlugin {
     fn build(&self, app: &mut AppBuilder) {
         // everything for the GGRS stage, where all rollback systems will be executed
         let mut schedule = Schedule::default();
-        schedule.add_stage(GGRS_ADVANCE_FRAME, SystemStage::single_threaded());
+        schedule.add_stage(ROLLBACK_DEFAULT, SystemStage::single_threaded());
         let mut ggrs_stage = GGRSStage::default();
         ggrs_stage.schedule = schedule;
         app.add_stage_before(CoreStage::Update, GGRS_UPDATE, ggrs_stage);
@@ -185,9 +185,7 @@ impl GGRSAppBuilder for AppBuilder {
             .schedule
             .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
             .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        stage
-            .schedule
-            .add_system_to_stage(GGRS_ADVANCE_FRAME, system);
+        stage.schedule.add_system_to_stage(ROLLBACK_DEFAULT, system);
         self
     }
 
@@ -199,7 +197,7 @@ impl GGRSAppBuilder for AppBuilder {
             .expect("No GGRSStage found! Did you install the GGRSPlugin?");
         stage
             .schedule
-            .add_system_set_to_stage(GGRS_ADVANCE_FRAME, system);
+            .add_system_set_to_stage(ROLLBACK_DEFAULT, system);
         self
     }
 

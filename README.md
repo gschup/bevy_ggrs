@@ -6,6 +6,8 @@ It efficiently handles saving and loading of the gamestate by only snapshotting 
 
 For explanation on how to use it, check the 👉[examples](./examples/)!
 
+
+
 ## How it works
 
 The GGRS plugin creates a custom `GGRSStage` which owns a separate schedule. Inside this schedule, we add the rollback systems in a single threaded system stage.
@@ -16,6 +18,10 @@ When the default schedule runs the `GGRSStage`, it polls the session and execute
 - loading the gamestate applies the snapshot by overwriting, creating and deleting entities tagged with a `bevy_ggrs::Rollback` component and updating the registered components values.
 
 Since bevy_ggrs operates with a separate schedule, compatibility with other plugins might be complicated to achieve out of the box, as all gamestate-relevant systems needs to somehow end up inside the internal GGRS schedule to be updated together the rest of the game systems.
+
+⚠️Disclaimer⚠️: This plugin currently depends on the latest bevy developments in the GitHub repository and is thus
+incompatible with bevy releases on crates.io. Once bevy 0.6 releases, I will also 
+make a stable release!
 
 ## Development Status
 

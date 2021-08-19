@@ -44,6 +44,13 @@ struct Velocity {
     z: f32,
 }
 
+// You can also register resources
+#[derive(Default, Reflect)]
+#[reflect(Component)]
+struct FrameCount {
+    frame: u32,
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // read cmd line arguments
     let opt = Opt::from_args();
@@ -62,9 +69,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     App::new()
         .insert_resource(Msaa { samples: 4 })
+        .insert_resource(FrameCount { frame: 0 })
         .add_plugins(DefaultPlugins)
         .add_plugin(GGRSPlugin)
-        .add_startup_system(setup.system())
+        .add_startup_system(setup_system)
         // add your GGRS session
         .with_synctest_session(sync_sess)
         // define frequency of game logic update
@@ -74,15 +82,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // register components that will be loaded/saved
         .register_rollback_type::<Transform>()
         .register_rollback_type::<Velocity>()
+        // you can also register resources
+        .register_rollback_type::<FrameCount>()
         // these systems will be executed as part of the advance frame update
-        .add_rollback_system(move_cube.system())
+        .add_rollback_system(move_cube_system)
+        .add_rollback_system(increase_frame_system)
         .run();
 
     Ok(())
 }
 
 /// set up a simple 3D scene
-fn setup(
+fn setup_system(
     mut commands: Commands,
     mut rip: ResMut<RollbackIdProvider>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -135,10 +146,16 @@ fn setup(
     });
 }
 
+// Increases the frame count by 1 every update step. If loading and saving resources works correctly,
+// you should see this resource rolling back, counting back up and finally increasing by 1 every update step
+fn increase_frame_system(mut frame_count: ResMut<FrameCount>) {
+    frame_count.frame += 1;
+}
+
 // System that moves the cubes, added as a rollback system above.
 // Filtering for the rollback component is a good way to make sure your game logic systems
 // only mutate components that are being saved/loaded.
-fn move_cube(
+fn move_cube_system(
     mut query: Query<(&mut Transform, &mut Velocity, &Player), With<Rollback>>,
     inputs: Res<Vec<GameInput>>,
 ) {

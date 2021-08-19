@@ -5,6 +5,7 @@ use bevy::{
 };
 use std::fmt::Debug;
 
+use crate::reflect_resource::ReflectResource;
 use crate::Rollback;
 
 /// Maps rollback_ids to entity id+generation. Necessary to track entities over time.
@@ -46,6 +47,7 @@ impl Debug for RollbackEntity {
 #[derive(Default)]
 pub(crate) struct WorldSnapshot {
     entities: Vec<RollbackEntity>,
+    pub resources: Vec<Box<dyn Reflect>>,
 }
 
 impl WorldSnapshot {
@@ -92,6 +94,20 @@ impl WorldSnapshot {
             }
         }
 
+        // go through all recources and clone those that are registered
+        for component_id in world.archetypes().resource().unique_components().indices() {
+            let reflect_component = world
+                .components()
+                .get_info(component_id)
+                .and_then(|info| type_registry.get(info.type_id().unwrap()))
+                .and_then(|registration| registration.data::<ReflectResource>());
+            if let Some(reflect_resource) = reflect_component {
+                if let Some(resource) = reflect_resource.reflect_resource(world) {
+                    snapshot.resources.push(resource.clone_value());
+                }
+            }
+        }
+
         snapshot
     }
 
@@ -99,6 +115,7 @@ impl WorldSnapshot {
         let type_registry = type_registry.read();
         let mut rid_map = rollback_id_map(world);
 
+        // first, we write all entities
         for rollback_entity in self.entities.iter() {
             // find the corresponding current entity or create new entity, if it doesn't exist
             let entity = *rid_map
@@ -121,23 +138,24 @@ impl WorldSnapshot {
 
                 if world.entity(entity).contains_type_id(type_id) {
                     // the entity in the world has such a component
-                    if let Some(component) = rollback_entity
+                    match rollback_entity
                         .components
                         .iter()
                         .find(|comp| comp.type_name() == registration.name())
                     {
                         // if we have data saved in the snapshot, overwrite the world
-                        reflect_component.apply_component(world, entity, &**component);
-                    } else {
+                        Some(component) => {
+                            reflect_component.apply_component(world, entity, &**component)
+                        }
                         // if we don't have any data saved, we need to remove that component from the entity
-                        reflect_component.remove_component(world, entity);
+                        None => reflect_component.remove_component(world, entity),
                     }
                 } else {
                     // the entity in the world has no such component
                     if let Some(component) = rollback_entity
                         .components
                         .iter()
-                        .find(|comp| comp.type_id() == type_id)
+                        .find(|comp| comp.type_name() == registration.name())
                     {
                         // if we have data saved in the snapshot, add the component to the entity
                         reflect_component.add_component(world, entity, &**component);
@@ -153,6 +171,48 @@ impl WorldSnapshot {
         // despawn entities which have a rollback component but where not present in the snapshot
         for (_, v) in rid_map.iter() {
             world.despawn(*v);
+        }
+
+        // then, we write all resources
+        for registration in type_registry.iter() {
+            let reflect_resource = match registration.data::<ReflectResource>() {
+                Some(res) => res,
+                None => {
+                    println!("DIDNT WORK {}", registration.name());
+                    continue;
+                }
+            };
+
+            match reflect_resource.reflect_resource(world) {
+                // the world has such a resource
+                Some(_) => {
+                    // check if we have saved such a resource
+                    match self
+                        .resources
+                        .iter()
+                        .find(|res| res.type_name() == registration.name())
+                    {
+                        // if both the world and the snapshot has the resource, apply the values
+                        Some(snapshot_res) => {
+                            reflect_resource.apply_resource(world, &**snapshot_res);
+                        }
+                        // if only the world has the resource, but it doesn't exist in the snapshot, remove the resource
+                        None => reflect_resource.remove_resource(world),
+                    }
+                }
+                // the world does not have this resource
+                None => {
+                    // if we have saved that resource, add it
+                    if let Some(snapshot_res) = self
+                        .resources
+                        .iter()
+                        .find(|res| res.type_name() == registration.name())
+                    {
+                        reflect_resource.add_resource(world, &**snapshot_res);
+                    }
+                    // if both the world and the snapshot does not have this resource, do nothing
+                }
+            }
         }
     }
 }

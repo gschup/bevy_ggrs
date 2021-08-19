@@ -1,12 +1,14 @@
 use bevy::{
     ecs::schedule::{IntoSystemDescriptor, ShouldRun, Stage},
     prelude::*,
-    reflect::GetTypeRegistration,
+    reflect::{FromType, GetTypeRegistration},
 };
 use ggrs::{P2PSession, P2PSpectatorSession, PlayerHandle, SyncTestSession};
 use ggrs_stage::GGRSStage;
+use reflect_resource::ReflectResource;
 
 pub(crate) mod ggrs_stage;
+pub(crate) mod reflect_resource;
 pub(crate) mod world_snapshot;
 
 /// Stage label for the Custom GGRS Stage.
@@ -108,7 +110,7 @@ pub trait GGRSApp {
     /// Registers a type of component for saving and loading during rollbacks.
     fn register_rollback_type<T>(&mut self) -> &mut Self
     where
-        T: GetTypeRegistration;
+        T: GetTypeRegistration + Reflect + Default;
 
     /// Adds a system that is executed as part of the ggrs update.
     fn add_rollback_system<Params>(
@@ -212,13 +214,22 @@ impl GGRSApp for App {
 
     fn register_rollback_type<T>(&mut self) -> &mut Self
     where
-        T: GetTypeRegistration,
+        T: GetTypeRegistration + Reflect + Default,
     {
         let ggrs_stage = self
             .schedule
             .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
             .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        ggrs_stage.type_registry.write().register::<T>();
+
+        let mut registry = ggrs_stage.type_registry.write();
+
+        registry.register::<T>();
+
+        let registration = registry.get_mut(std::any::TypeId::of::<T>()).unwrap();
+        registration.insert(<ReflectComponent as FromType<T>>::from_type());
+        registration.insert(<ReflectResource as FromType<T>>::from_type());
+        drop(registry);
+
         self
     }
 

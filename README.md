@@ -19,8 +19,7 @@ Since bevy_ggrs operates with a separate schedule, compatibility with other plug
 
 ## Development Status
 
-⚠️Disclaimer⚠️: This plugin currently depends on the latest bevy developments and is thus incompatible with bevy releases on crates.io. Once bevy 0.6 releases, I will also make a stable release!
-bevy_ggrs is in a very early stage. Once the most important issues are taken care of and bevy 0.6 is released, I will publish a first version to crates.io.
+⚠️Disclaimer⚠️: bevy_ggrs is in a very early stage. This plugin currently depends on the latest bevy developments and is thus incompatible with bevy releases on crates.io. Once bevy 0.6 releases, I will also make a stable release!
 
 ## Licensing
 

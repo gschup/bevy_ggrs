@@ -48,6 +48,7 @@ impl Debug for RollbackEntity {
 pub(crate) struct WorldSnapshot {
     entities: Vec<RollbackEntity>,
     pub resources: Vec<Box<dyn Reflect>>,
+    pub checksum: u64,
 }
 
 impl WorldSnapshot {
@@ -85,6 +86,12 @@ impl WorldSnapshot {
                         if let Some(component) = reflect_component.reflect_component(world, *entity)
                         {
                             assert_eq!(*entity, snapshot.entities[entities_offset + i].entity);
+                            // add the hash value of that component to the shapshot checksum, if that component supports hashing
+                            if let Some(hash) = component.reflect_hash() {
+                                snapshot.checksum += hash;
+                                println!("HASH {}: {}", component.type_name(), hash);
+                            }
+                            // add the component to the shapshot
                             snapshot.entities[entities_offset + i]
                                 .components
                                 .push(component.clone_value());
@@ -103,6 +110,12 @@ impl WorldSnapshot {
                 .and_then(|registration| registration.data::<ReflectResource>());
             if let Some(reflect_resource) = reflect_component {
                 if let Some(resource) = reflect_resource.reflect_resource(world) {
+                    // add the hash value of that resource to the shapshot checksum, if that resource supports hashing
+                    if let Some(hash) = resource.reflect_hash() {
+                        snapshot.checksum += hash;
+                        println!("HASH {}: {}", resource.type_name(), hash);
+                    }
+                    // add the resource to the shapshot
                     snapshot.resources.push(resource.clone_value());
                 }
             }

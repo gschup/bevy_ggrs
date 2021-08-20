@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_ggrs::{Rollback, RollbackIdProvider};
 use ggrs::{GameInput, PlayerHandle, SyncTestSession};
+use std::hash::Hash;
 
 const BLUE: Color = Color::rgb(0.8, 0.6, 0.2);
 const ORANGE: Color = Color::rgb(0., 0.35, 0.8);
@@ -33,7 +34,7 @@ pub struct Velocity {
 }
 
 // You can also register resources
-#[derive(Default, Reflect)]
+#[derive(Default, Reflect, Hash)]
 #[reflect(Component)]
 pub struct FrameCount {
     pub frame: u32,

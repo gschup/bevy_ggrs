@@ -194,14 +194,14 @@ impl GGRSStage {
     fn save_world(&mut self, cell: GameStateCell, frame: i32, world: &mut World) {
         assert_eq!(self.frame, frame);
 
-        // we don't use the buffer provided by GGRS
-        let state = GameState::new(self.frame, Some(Vec::new()), Some(0));
-        cell.save(state);
-
-        // instead we make a snapshot
+        // we make a snapshot of our world
         let snapshot = WorldSnapshot::from_world(&world, &self.type_registry);
 
-        // save the snapshot
+        // we don't use the buffer provided by GGRS
+        let state = GameState::new(self.frame, None, Some(snapshot.checksum));
+        cell.save(state);
+
+        // store the snapshot ourselves
         let pos = frame as usize % self.snapshots.len();
         self.snapshots[pos] = snapshot;
     }

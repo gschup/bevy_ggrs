@@ -1,3 +1,6 @@
+//! bevy_ggrs is a bevy plugin for the P2P rollback networking library GGRS.
+#![forbid(unsafe_code)] // let us try
+
 use bevy::{
     ecs::schedule::{IntoSystemDescriptor, ShouldRun, Stage},
     prelude::*,

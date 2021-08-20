@@ -44,7 +44,6 @@ cargo run --example box_game_spectator -- --local-port 7002 --num-players 2 --ho
 
 The same game, but without network functionality.
 Instead, the SyncTestSession focusses on simulating rollbacks and comparing checksums.
-**!WARNING: Checksums are currently not automatically generated in bevy_ggrs!**
 
 ### Launching BoxGame SyncTest
 

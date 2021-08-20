@@ -22,8 +22,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
 
     // start a GGRS SyncTest session, which will simulate rollbacks every frame
-    // WARNING: usually, SyncTestSession does compare checksums to validate game update determinism,
-    // but bevy_ggrs currently computes no checksums for gamestates
     let mut sync_sess =
         ggrs::start_synctest_session(opt.num_players as u32, INPUT_SIZE, opt.check_distance)?;
 

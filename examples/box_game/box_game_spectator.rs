@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     spec_sess.set_max_frames_behind(5)?; // when the spectator is more than this amount of frames behind, it will catch up
     spec_sess.set_catchup_speed(2)?; // set this to 1 if you don't want any catch-ups
 
-    // set change default expected update frequency (not super important in the spectator session)
+    // set default expected update frequency (not super important in the spectator session)
     spec_sess.set_fps(FPS)?;
 
     // start the GGRS session
@@ -53,12 +53,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_p2p_spectator_session(spec_sess)
         // define frequency of game logic update
         .with_rollback_run_criteria(FixedTimestep::steps_per_second(FPS as f64))
-        // define system that creates a compact input representation
+        // define system that represents your inputs as a byte vector, so GGRS can send the inputs around (not actually sending anything in synctest)
         .with_input_system(input.system())
         // register components that will be loaded/saved
         .register_rollback_type::<Transform>()
         .register_rollback_type::<Velocity>()
         // you can also register resources
+        .insert_resource(FrameCount { frame: 0 })
         .register_rollback_type::<FrameCount>()
         // these systems will be executed as part of the advance frame update
         .add_rollback_system(move_cube_system)

@@ -6,6 +6,7 @@ mod box_game;
 use box_game::*;
 
 const INPUT_SIZE: usize = std::mem::size_of::<u8>();
+const FPS: u32 = 60;
 
 // structopt will read command line parameters for u
 #[derive(StructOpt)]
@@ -21,7 +22,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
 
     // start a GGRS SyncTest session, which will simulate rollbacks every frame
-
     // WARNING: usually, SyncTestSession does compare checksums to validate game update determinism,
     // but bevy_ggrs currently computes no checksums for gamestates
     let mut sync_sess =
@@ -34,20 +34,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     App::new()
         .insert_resource(Msaa { samples: 4 })
-        .insert_resource(FrameCount { frame: 0 })
         .add_plugins(DefaultPlugins)
         .add_plugin(GGRSPlugin)
         .add_startup_system(setup_system)
         // add your GGRS session
         .with_synctest_session(sync_sess)
         // define frequency of game logic update
-        .with_rollback_run_criteria(FixedTimestep::steps_per_second(60.0))
-        // define system that creates a compact input representation
+        .with_rollback_run_criteria(FixedTimestep::steps_per_second(FPS as f64))
+        // define system that represents your inputs as a byte vector, so GGRS can send the inputs around
         .with_input_system(input.system())
         // register components that will be loaded/saved
         .register_rollback_type::<Transform>()
         .register_rollback_type::<Velocity>()
         // you can also register resources
+        .insert_resource(FrameCount { frame: 0 })
         .register_rollback_type::<FrameCount>()
         // these systems will be executed as part of the advance frame update
         .add_rollback_system(move_cube_system)

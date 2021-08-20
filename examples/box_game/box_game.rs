@@ -39,7 +39,8 @@ pub struct FrameCount {
     pub frame: u32,
 }
 
-// all players get the same input for the synctest, handle is ignored
+// you need to provide a system that represents your inputs as a byte vector, so GGRS can send the inputs around
+// here, we just set bits manually, but you can find other ways to encode to bytes (for example by serializing)
 #[allow(dead_code)]
 pub fn input(_handle: In<PlayerHandle>, keyboard_input: Res<Input<KeyCode>>) -> Vec<u8> {
     let mut input: u8 = 0;
@@ -57,8 +58,6 @@ pub fn input(_handle: In<PlayerHandle>, keyboard_input: Res<Input<KeyCode>>) -> 
         input |= INPUT_RIGHT;
     }
 
-    // if your inpute takes more than 8 bit to encode, find some way to encode to bytes
-    // (for example by serializing)
     vec![input]
 }
 
@@ -102,6 +101,7 @@ pub fn setup_system(
             })
             .insert(Player { handle })
             .insert(Velocity::default())
+            // this component indicates bevy_GGRS that parts of this entity should be saved and loaded
             .insert(Rollback::new(rip.next_id()));
     }
 
@@ -117,6 +117,7 @@ pub fn setup_system(
     });
 }
 
+// Example system, manipulating a resource, will be added to the rollback schedule.
 // Increases the frame count by 1 every update step. If loading and saving resources works correctly,
 // you should see this resource rolling back, counting back up and finally increasing by 1 every update step
 #[allow(dead_code)]
@@ -124,7 +125,7 @@ pub fn increase_frame_system(mut frame_count: ResMut<FrameCount>) {
     frame_count.frame += 1;
 }
 
-// System that moves the cubes, added as a rollback system above.
+// Example system that moves the cubes, will be added to the rollback schedule.
 // Filtering for the rollback component is a good way to make sure your game logic systems
 // only mutate components that are being saved/loaded.
 #[allow(dead_code)]
@@ -157,7 +158,7 @@ pub fn move_cube_system(
         }
         v.y *= FRICTION;
 
-        // constrain velocity
+        // constrain velocity (this way allows for fast diagonal movement, but its just an example)
         v.x = v.x.min(MAX_SPEED);
         v.x = v.x.max(-MAX_SPEED);
         v.y = v.y.min(MAX_SPEED);

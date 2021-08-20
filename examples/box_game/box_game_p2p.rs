@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // set input delay for the local player
     p2p_sess.set_frame_delay(2, local_handle)?;
 
-    // set change default expected update frequency (affects synchronization timings between players)
+    // set default expected update frequency (affects synchronization timings between players)
     p2p_sess.set_fps(FPS)?;
 
     // start the GGRS session
@@ -70,13 +70,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // add your GGRS session
         .with_p2p_session(p2p_sess)
         // define frequency of game logic update
-        .with_rollback_run_criteria(FixedTimestep::steps_per_second(60.0))
-        // define system that creates a compact input representation
+        .with_rollback_run_criteria(FixedTimestep::steps_per_second(FPS as f64))
+        // define system that represents your inputs as a byte vector, so GGRS can send the inputs around
         .with_input_system(input.system())
         // register components that will be loaded/saved
         .register_rollback_type::<Transform>()
         .register_rollback_type::<Velocity>()
         // you can also register resources
+        .insert_resource(FrameCount { frame: 0 })
         .register_rollback_type::<FrameCount>()
         // these systems will be executed as part of the advance frame update
         .add_rollback_system(move_cube_system)

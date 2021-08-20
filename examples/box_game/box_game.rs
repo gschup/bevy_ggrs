@@ -26,16 +26,16 @@ pub struct Player {
 
 // Components that should be saved/loaded need to implement the `Reflect` trait
 #[derive(Default, Reflect)]
-#[reflect(Component)]
 pub struct Velocity {
     pub x: f32,
     pub y: f32,
     pub z: f32,
 }
 
-// You can also register resources
+// You can also register resources. If your Component / Resource implements Hash, you can make use of `#[reflect(Hash)]`
+// in order to allow a GGRS `SyncTestSession` to construct a checksum for a world snapshot
 #[derive(Default, Reflect, Hash)]
-#[reflect(Component)]
+#[reflect(Hash)]
 pub struct FrameCount {
     pub frame: u32,
 }

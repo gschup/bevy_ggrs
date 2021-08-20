@@ -44,6 +44,9 @@ impl Debug for RollbackEntity {
     }
 }
 
+/// Holds registered components of `Rollback` tagged entities, as well as registered resources to save and load from/to the real bevy world.
+/// The `checksum` is the sum of hash-values from all hashable objects. It is a sum for the checksum to be order insensitive. This of course
+/// is not the best checksum to ever exist, but it is a starting point.
 #[derive(Default)]
 pub(crate) struct WorldSnapshot {
     entities: Vec<RollbackEntity>,
@@ -89,7 +92,6 @@ impl WorldSnapshot {
                             // add the hash value of that component to the shapshot checksum, if that component supports hashing
                             if let Some(hash) = component.reflect_hash() {
                                 snapshot.checksum += hash;
-                                //println!("HASH {}: {}", component.type_name(), hash);
                             }
                             // add the component to the shapshot
                             snapshot.entities[entities_offset + i]
@@ -113,7 +115,6 @@ impl WorldSnapshot {
                     // add the hash value of that resource to the shapshot checksum, if that resource supports hashing
                     if let Some(hash) = resource.reflect_hash() {
                         snapshot.checksum += hash;
-                        //println!("HASH {}: {}", resource.type_name(), hash);
                     }
                     // add the resource to the shapshot
                     snapshot.resources.push(resource.clone_value());

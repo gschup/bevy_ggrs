@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_ggrs::{Rollback, RollbackIdProvider};
-use ggrs::{GameInput, PlayerHandle, SyncTestSession};
+use ggrs::{GameInput, P2PSession, P2PSpectatorSession, PlayerHandle, SyncTestSession};
 use std::hash::Hash;
 
 const BLUE: Color = Color::rgb(0.8, 0.6, 0.2);
@@ -69,8 +69,16 @@ pub fn setup_system(
     mut rip: ResMut<RollbackIdProvider>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    session: Res<SyncTestSession>,
+    p2p_session: Option<Res<P2PSession>>,
+    synctest_session: Option<Res<SyncTestSession>>,
+    spectator_session: Option<Res<P2PSpectatorSession>>,
 ) {
+    let num_players = p2p_session
+        .map(|s| s.num_players())
+        .or_else(|| synctest_session.map(|s| s.num_players()))
+        .or_else(|| spectator_session.map(|s| s.num_players()))
+        .expect("No GGRS session found");
+
     // plane
     commands.spawn_bundle(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: PLANE_SIZE })),
@@ -83,8 +91,8 @@ pub fn setup_system(
     // When loading entities from the past, this extra id is necessary to connect entities over different game states
     let r = PLANE_SIZE / 4.;
 
-    for handle in 0..session.num_players() {
-        let rot = handle as f32 / session.num_players() as f32 * 2. * std::f32::consts::PI;
+    for handle in 0..num_players {
+        let rot = handle as f32 / num_players as f32 * 2. * std::f32::consts::PI;
         let x = r * rot.cos();
         let z = r * rot.sin();
 

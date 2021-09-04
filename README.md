@@ -21,6 +21,10 @@ Since bevy_ggrs operates with a separate schedule, compatibility with other plug
 
 ⚠️Disclaimer⚠️: bevy_ggrs is in a very early stage. This plugin currently depends on the latest bevy developments and is thus incompatible with bevy releases on crates.io. Once bevy 0.6 releases, I will also make a stable release!
 
+## Thanks
+
+to [bevy_backroll](https://github.com/HouraiTeahouse/backroll-rs/tree/main/bevy_backroll) and [bevy_rollback](https://github.com/jamescarterbell/bevy_rollback) for figuring out pieces of the puzzle that made bevy_GGRS possible. Special thanks to the helpful folks in the bevy discord, providing useful help and pointers all over the place.
+
 ## Licensing
 
 Bevy_GGRS is dual-licensed under either

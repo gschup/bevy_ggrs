@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use bevy::{core::FixedTimestep, prelude::*};
 use bevy_ggrs::{GGRSApp, GGRSPlugin};
-use ggrs::PlayerType;
+use ggrs::{P2PSession, PlayerType};
 use structopt::StructOpt;
 
 mod box_game;
@@ -21,6 +21,8 @@ struct Opt {
     #[structopt(short, long)]
     spectators: Vec<SocketAddr>,
 }
+
+struct NetworkStatsTimer(Timer);
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // read cmd line arguments
@@ -82,7 +84,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // these systems will be executed as part of the advance frame update
         .add_rollback_system(move_cube_system)
         .add_rollback_system(increase_frame_system)
+        //print some network stats
+        .insert_resource(NetworkStatsTimer(Timer::from_seconds(2.0, true)))
+        .add_system(print_network_stats_system)
         .run();
 
     Ok(())
+}
+
+fn print_network_stats_system(
+    time: Res<Time>,
+    mut timer: ResMut<NetworkStatsTimer>,
+    p2p_session: Option<Res<P2PSession>>,
+) {
+    // print only when timer runs out
+    if timer.0.tick(time.delta()).just_finished() {
+        if let Some(sess) = p2p_session {
+            let num_players = sess.num_players() as usize;
+            for i in 0..num_players {
+                if let Ok(stats) = sess.network_stats(i) {
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        println!("NetworkStats for player {}: {:?}", i, stats);
+                    }
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        //TODO
+                    }
+                }
+            }
+        }
+    }
 }

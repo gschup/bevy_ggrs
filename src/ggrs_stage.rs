@@ -143,7 +143,14 @@ impl GGRSStage {
             Some(mut session) => {
                 if self.frames_to_skip > 0 {
                     self.frames_to_skip -= 1;
-                    println!("Skipping a frame: WaitRecommendation");
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        println!("Skipping a frame: WaitRecommendation");
+                    }
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        //TODO
+                    }
                     return;
                 }
                 // get newest info from remotes
@@ -154,7 +161,14 @@ impl GGRSStage {
                     match session.advance_frame(local_handle, &input) {
                         Ok(requests) => request_vec = Some(requests),
                         Err(GGRSError::PredictionThreshold) => {
-                            println!("Skipping a frame: PredictionThreshold.")
+                            #[cfg(not(target_arch = "wasm32"))]
+                            {
+                                println!("Skipping a frame: PredictionThreshold.")
+                            }
+                            #[cfg(target_arch = "wasm32")]
+                            {
+                                //TODO
+                            }
                         }
                         Err(e) => println!("{}", e),
                     };

@@ -103,14 +103,7 @@ fn print_network_stats_system(
             let num_players = sess.num_players() as usize;
             for i in 0..num_players {
                 if let Ok(stats) = sess.network_stats(i) {
-                    #[cfg(not(target_arch = "wasm32"))]
-                    {
-                        println!("NetworkStats for player {}: {:?}", i, stats);
-                    }
-                    #[cfg(target_arch = "wasm32")]
-                    {
-                        //TODO
-                    }
+                    println!("NetworkStats for player {}: {:?}", i, stats);
                 }
             }
         }

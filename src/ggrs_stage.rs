@@ -108,14 +108,7 @@ impl GGRSStage {
 
                 // display all events
                 for event in session.events() {
-                    #[cfg(not(target_arch = "wasm32"))]
-                    {
-                        println!("GGRS Event: {:?}", event);
-                    }
-                    #[cfg(target_arch = "wasm32")]
-                    {
-                        //TODO
-                    }
+                    println!("GGRS Event: {:?}", event);
                 }
             }
             None => {
@@ -150,14 +143,9 @@ impl GGRSStage {
             Some(mut session) => {
                 if self.frames_to_skip > 0 {
                     self.frames_to_skip -= 1;
-                    #[cfg(not(target_arch = "wasm32"))]
-                    {
-                        println!("Skipping a frame: WaitRecommendation");
-                    }
-                    #[cfg(target_arch = "wasm32")]
-                    {
-                        //TODO
-                    }
+
+                    println!("Skipping a frame: WaitRecommendation");
+
                     return;
                 }
                 // get newest info from remotes
@@ -168,14 +156,7 @@ impl GGRSStage {
                     match session.advance_frame(local_handle, &input) {
                         Ok(requests) => request_vec = Some(requests),
                         Err(GGRSError::PredictionThreshold) => {
-                            #[cfg(not(target_arch = "wasm32"))]
-                            {
-                                println!("Skipping a frame: PredictionThreshold.")
-                            }
-                            #[cfg(target_arch = "wasm32")]
-                            {
-                                //TODO
-                            }
+                            println!("Skipping a frame: PredictionThreshold.")
                         }
                         Err(e) => println!("{}", e),
                     };
@@ -183,14 +164,7 @@ impl GGRSStage {
 
                 // display all events
                 for event in session.events() {
-                    #[cfg(not(target_arch = "wasm32"))]
-                    {
-                        println!("GGRS Event: {:?}", event);
-                    }
-                    #[cfg(target_arch = "wasm32")]
-                    {
-                        //TODO
-                    }
+                    println!("GGRS Event: {:?}", event);
 
                     if let GGRSEvent::WaitRecommendation { skip_frames } = event {
                         self.frames_to_skip += skip_frames

@@ -71,6 +71,19 @@ impl RollbackIdProvider {
     }
 }
 
+fn ggrs_poll_system(
+    p2p_session: Option<ResMut<P2PSession>>,
+    spectator_session: Option<ResMut<P2PSpectatorSession>>,
+) {
+    if let Some(mut sess) = p2p_session {
+        sess.poll_remote_clients();
+    }
+
+    if let Some(mut sess) = spectator_session {
+        sess.poll_remote_clients();
+    }
+}
+
 /// Provides all functionality for the GGRS p2p rollback networking library.
 pub struct GGRSPlugin;
 
@@ -84,6 +97,8 @@ impl Plugin for GGRSPlugin {
         app.add_stage_before(CoreStage::Update, GGRS_UPDATE, ggrs_stage);
         // insert a rollback id provider
         app.insert_resource(RollbackIdProvider::default());
+        // insert a system that polls endpoints as often as possible
+        app.add_system(ggrs_poll_system);
     }
 }
 

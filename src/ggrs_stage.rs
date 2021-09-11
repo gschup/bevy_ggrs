@@ -131,7 +131,7 @@ impl GGRSStage {
         } else {
             None
         }
-        .expect("No GGRS SyncTestSession found. Please start a session and add it as a resource.");
+        .expect("No GGRS P2PSession found. Please start a session and add it as a resource.");
 
         let input = self
             .input_system

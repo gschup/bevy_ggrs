@@ -2,6 +2,7 @@ use std::net::SocketAddr;
 
 use bevy::{core::FixedTimestep, prelude::*};
 use bevy_ggrs::{GGRSApp, GGRSPlugin};
+use ggrs::P2PSpectatorSession;
 use structopt::StructOpt;
 
 mod box_game;
@@ -27,12 +28,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     assert!(opt.num_players > 0);
 
     // create a GGRS session for a spectator
-    let mut spec_sess = ggrs::start_p2p_spectator_session(
-        opt.num_players as u32,
-        INPUT_SIZE,
-        opt.local_port,
-        opt.host,
-    )?;
+    let mut spec_sess =
+        P2PSpectatorSession::new(opt.num_players as u32, INPUT_SIZE, opt.local_port, opt.host)?;
 
     // change catch-up parameters, if desired
     spec_sess.set_max_frames_behind(5)?; // when the spectator is more than this amount of frames behind, it will catch up

@@ -1,5 +1,6 @@
 use bevy::{core::FixedTimestep, prelude::*};
 use bevy_ggrs::{GGRSApp, GGRSPlugin};
+use ggrs::SyncTestSession;
 use structopt::StructOpt;
 
 mod box_game;
@@ -23,7 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // start a GGRS SyncTest session, which will simulate rollbacks every frame
     let mut sync_sess =
-        ggrs::start_synctest_session(opt.num_players as u32, INPUT_SIZE, opt.check_distance)?;
+        SyncTestSession::new(opt.num_players as u32, INPUT_SIZE, opt.check_distance)?;
 
     // set input delay for any player you want (if you want)
     for i in 0..opt.num_players {

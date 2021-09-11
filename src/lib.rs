@@ -2,11 +2,14 @@
 #![forbid(unsafe_code)] // let us try
 
 use bevy::{
-    ecs::schedule::{IntoSystemDescriptor, ShouldRun, Stage},
+    ecs::{
+        schedule::{IntoSystemDescriptor, ShouldRun, Stage},
+        system::Command,
+    },
     prelude::*,
     reflect::{FromType, GetTypeRegistration},
 };
-use ggrs::{P2PSession, P2PSpectatorSession, PlayerHandle, SyncTestSession};
+use ggrs::{P2PSession, P2PSpectatorSession, PlayerHandle, SessionState, SyncTestSession};
 use ggrs_stage::GGRSStage;
 use reflect_resource::ReflectResource;
 
@@ -175,31 +178,19 @@ pub trait GGRSApp {
 
 impl GGRSApp for App {
     fn with_synctest_session(&mut self, session: SyncTestSession) -> &mut Self {
-        let ggrs_stage = self
-            .schedule
-            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
-            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        ggrs_stage.session_type = SessionType::SyncTestSession;
+        self.insert_resource(SessionType::SyncTestSession);
         self.insert_resource(session);
         self
     }
 
     fn with_p2p_session(&mut self, session: P2PSession) -> &mut Self {
-        let ggrs_stage = self
-            .schedule
-            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
-            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        ggrs_stage.session_type = SessionType::P2PSession;
+        self.insert_resource(SessionType::P2PSession);
         self.insert_resource(session);
         self
     }
 
     fn with_p2p_spectator_session(&mut self, session: P2PSpectatorSession) -> &mut Self {
-        let ggrs_stage = self
-            .schedule
-            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
-            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        ggrs_stage.session_type = SessionType::P2PSpectatorSession;
+        self.insert_resource(SessionType::P2PSpectatorSession);
         self.insert_resource(session);
         self
     }
@@ -339,5 +330,62 @@ impl GGRSApp for App {
             .expect("No GGRSStage found! Did you install the GGRSPlugin?");
         ggrs_stage.schedule.add_stage_before(target, label, stage);
         self
+    }
+}
+
+pub trait CommandsExt {
+    fn start_p2p_session(&mut self, session: P2PSession);
+    fn start_p2p_spectator_session(&mut self, session: P2PSpectatorSession);
+    fn start_synctest_session(&mut self, session: SyncTestSession);
+}
+
+impl CommandsExt for Commands<'_, '_> {
+    fn start_p2p_session(&mut self, session: P2PSession) {
+        self.add(StartP2PSessionCommand(session));
+    }
+
+    fn start_p2p_spectator_session(&mut self, session: P2PSpectatorSession) {
+        self.add(StartP2PSpectatorSessionCommand(session));
+    }
+
+    fn start_synctest_session(&mut self, session: SyncTestSession) {
+        self.add(StartSyncTestSessionCommand(session));
+    }
+}
+
+struct StartP2PSpectatorSessionCommand(P2PSpectatorSession);
+
+impl Command for StartP2PSessionCommand {
+    fn write(mut self, world: &mut World) {
+        // caller is responsible that the session is either already running...
+        if self.0.current_state() == SessionState::Initializing {
+            // ...or ready to be started
+            self.0.start_session().unwrap();
+        }
+        world.insert_resource(self.0);
+        world.insert_resource(SessionType::P2PSession);
+    }
+}
+
+struct StartP2PSessionCommand(P2PSession);
+
+impl Command for StartP2PSpectatorSessionCommand {
+    fn write(mut self, world: &mut World) {
+        // caller is responsible that the session is either already running...
+        if self.0.current_state() == SessionState::Initializing {
+            // ...or ready to be started
+            self.0.start_session().unwrap();
+        }
+        world.insert_resource(self.0);
+        world.insert_resource(SessionType::P2PSpectatorSession);
+    }
+}
+
+struct StartSyncTestSessionCommand(SyncTestSession);
+
+impl Command for StartSyncTestSessionCommand {
+    fn write(self, world: &mut World) {
+        world.insert_resource(self.0);
+        world.insert_resource(SessionType::SyncTestSession);
     }
 }

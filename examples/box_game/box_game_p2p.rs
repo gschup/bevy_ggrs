@@ -27,7 +27,6 @@ struct NetworkStatsTimer(Timer);
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // read cmd line arguments
     let opt = Opt::from_args();
-    let mut local_handle = 0;
     let num_players = opt.players.len();
     assert!(num_players > 0);
 
@@ -37,37 +36,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // turn on sparse saving
     p2p_sess.set_sparse_saving(true)?;
 
-    // add players
-    for (i, player_addr) in opt.players.iter().enumerate() {
-        // local player
-        if player_addr == "localhost" {
-            p2p_sess.add_player(PlayerType::Local, i)?;
-            local_handle = i;
-        } else {
-            // remote players
-            let remote_addr: SocketAddr = player_addr.parse()?;
-            p2p_sess.add_player(PlayerType::Remote(remote_addr), i)?;
-        }
-    }
-
-    // optionally, add spectators
-    for (i, spec_addr) in opt.spectators.iter().enumerate() {
-        p2p_sess.add_player(PlayerType::Spectator(*spec_addr), num_players + i)?;
-    }
-
-    // set input delay for the local player
-    p2p_sess.set_frame_delay(2, local_handle)?;
-
-    // set default expected update frequency (affects synchronization timings between players)
-    p2p_sess.set_fps(FPS)?;
-
-    // start the GGRS session
-    p2p_sess.start_session()?;
-
     App::new()
         .insert_resource(Msaa { samples: 4 })
+        .insert_resource(opt)
         .add_plugins(DefaultPlugins)
         .add_plugin(GGRSPlugin)
+        .add_startup_system(start_p2p_session)
         .add_startup_system(setup_system)
         // add your GGRS session
         .with_p2p_session(p2p_sess)
@@ -90,6 +64,43 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .run();
 
     Ok(())
+}
+
+fn start_p2p_session(mut p2p_sess: ResMut<P2PSession>, opt: Res<Opt>) {
+    let mut local_handle = 0;
+    let num_players = p2p_sess.num_players() as usize;
+
+    // add players
+    for (i, player_addr) in opt.players.iter().enumerate() {
+        // local player
+        if player_addr == "localhost" {
+            p2p_sess.add_player(PlayerType::Local, i).unwrap();
+            local_handle = i;
+        } else {
+            // remote players
+            let remote_addr: SocketAddr =
+                player_addr.parse().expect("Invalid remote player address");
+            p2p_sess
+                .add_player(PlayerType::Remote(remote_addr), i)
+                .unwrap();
+        }
+    }
+
+    // optionally, add spectators
+    for (i, spec_addr) in opt.spectators.iter().enumerate() {
+        p2p_sess
+            .add_player(PlayerType::Spectator(*spec_addr), num_players + i)
+            .unwrap();
+    }
+
+    // set input delay for the local player
+    p2p_sess.set_frame_delay(2, local_handle).unwrap();
+
+    // set default expected update frequency (affects synchronization timings between players)
+    p2p_sess.set_fps(FPS).expect("Invalid fps");
+
+    // start the GGRS session
+    p2p_sess.start_session().unwrap();
 }
 
 fn print_network_stats_system(

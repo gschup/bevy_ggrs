@@ -178,30 +178,18 @@ pub trait GGRSApp {
 
 impl GGRSApp for App {
     fn with_synctest_session(&mut self, session: SyncTestSession) -> &mut Self {
-        let ggrs_stage = self
-            .schedule
-            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
-            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
         self.insert_resource(SessionType::SyncTestSession);
         self.insert_resource(session);
         self
     }
 
     fn with_p2p_session(&mut self, session: P2PSession) -> &mut Self {
-        let ggrs_stage = self
-            .schedule
-            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
-            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
         self.insert_resource(SessionType::P2PSession);
         self.insert_resource(session);
         self
     }
 
     fn with_p2p_spectator_session(&mut self, session: P2PSpectatorSession) -> &mut Self {
-        let ggrs_stage = self
-            .schedule
-            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
-            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
         self.insert_resource(SessionType::P2PSpectatorSession);
         self.insert_resource(session);
         self

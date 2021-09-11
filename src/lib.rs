@@ -179,7 +179,7 @@ impl GGRSApp for App {
             .schedule
             .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
             .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        ggrs_stage.session_type = SessionType::SyncTestSession;
+        self.insert_resource(SessionType::SyncTestSession);
         self.insert_resource(session);
         self
     }
@@ -189,7 +189,7 @@ impl GGRSApp for App {
             .schedule
             .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
             .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        ggrs_stage.session_type = SessionType::P2PSession;
+        self.insert_resource(SessionType::P2PSession);
         self.insert_resource(session);
         self
     }
@@ -199,7 +199,7 @@ impl GGRSApp for App {
             .schedule
             .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
             .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        ggrs_stage.session_type = SessionType::P2PSpectatorSession;
+        self.insert_resource(SessionType::P2PSpectatorSession);
         self.insert_resource(session);
         self
     }

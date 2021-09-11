@@ -9,7 +9,6 @@ use crate::{world_snapshot::WorldSnapshot, SessionType};
 /// The GGRSStage handles updating, saving and loading the game state.
 #[derive(Default)]
 pub(crate) struct GGRSStage {
-    pub(crate) session_type: SessionType,
     /// Inside this schedule, all rollback systems are registered.
     pub(crate) schedule: Schedule,
     /// Used to register all types considered when loading and saving
@@ -38,10 +37,12 @@ impl Stage for GGRSStage {
         }
 
         // depending on the session type, doing a single update looks a bit different
-        match self.session_type {
-            SessionType::SyncTestSession => self.run_synctest(world),
-            SessionType::P2PSession => self.run_p2p(world),
-            SessionType::P2PSpectatorSession => self.run_spectator(world),
+        let session = world.get_resource();
+        match session {
+            Some(SessionType::SyncTestSession) => self.run_synctest(world),
+            Some(SessionType::P2PSession) => self.run_p2p(world),
+            Some(SessionType::P2PSpectatorSession) => self.run_spectator(world),
+            None => {} // No session has been started yet
         }
     }
 }

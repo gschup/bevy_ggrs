@@ -3,7 +3,7 @@ use bevy::{
     reflect::{Reflect, TypeRegistry},
     utils::HashMap,
 };
-use std::fmt::Debug;
+use std::{fmt::Debug, num::Wrapping};
 
 use crate::reflect_resource::ReflectResource;
 use crate::Rollback;
@@ -91,7 +91,9 @@ impl WorldSnapshot {
                             assert_eq!(*entity, snapshot.entities[entities_offset + i].entity);
                             // add the hash value of that component to the shapshot checksum, if that component supports hashing
                             if let Some(hash) = component.reflect_hash() {
-                                snapshot.checksum += hash;
+                                // wrapping semantics to avoid overflow
+                                snapshot.checksum =
+                                    (Wrapping(snapshot.checksum) + Wrapping(hash)).0;
                             }
                             // add the component to the shapshot
                             snapshot.entities[entities_offset + i]

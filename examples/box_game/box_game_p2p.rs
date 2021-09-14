@@ -41,6 +41,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     App::new()
         .insert_resource(Msaa { samples: 4 })
+        .insert_resource(WindowDescriptor {
+            width: 720.,
+            height: 720.,
+            title: "GGRS Box Game".to_owned(),
+            vsync: false,
+            ..Default::default()
+        })
         .insert_resource(opt)
         .add_plugins(DefaultPlugins)
         .add_plugin(GGRSPlugin)

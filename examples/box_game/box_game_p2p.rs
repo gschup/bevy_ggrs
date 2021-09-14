@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use bevy::{core::FixedTimestep, prelude::*};
+use bevy::prelude::*;
 use bevy_ggrs::{GGRSApp, GGRSPlugin};
 use ggrs::{P2PSession, PlayerType};
 use structopt::StructOpt;
@@ -33,8 +33,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // create a GGRS P2P session
     let mut p2p_sess = P2PSession::new(num_players as u32, INPUT_SIZE, opt.local_port)?;
 
-    // set FPS (default is 60, so this doesn't change anything as is)
-    p2p_sess.set_fps(FPS as u32)?;
+    // set default expected update frequency (affects synchronization timings between players)
+    p2p_sess.set_fps(FPS).expect("Invalid fps");
 
     // turn on sparse saving
     p2p_sess.set_sparse_saving(true)?;
@@ -48,8 +48,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .add_startup_system(setup_system)
         // add your GGRS session
         .with_p2p_session(p2p_sess)
-        // define frequency of game logic update
-        .with_rollback_run_criteria(FixedTimestep::steps_per_second(FPS as f64))
+        // define frequency of rollback game logic update
+        .with_fps(FPS)
         // define system that represents your inputs as a byte vector, so GGRS can send the inputs around
         .with_input_system(input.system())
         // register components that will be loaded/saved
@@ -98,9 +98,6 @@ fn start_p2p_session(mut p2p_sess: ResMut<P2PSession>, opt: Res<Opt>) {
 
     // set input delay for the local player
     p2p_sess.set_frame_delay(2, local_handle).unwrap();
-
-    // set default expected update frequency (affects synchronization timings between players)
-    p2p_sess.set_fps(FPS).expect("Invalid fps");
 
     // start the GGRS session
     p2p_sess.start_session().unwrap();

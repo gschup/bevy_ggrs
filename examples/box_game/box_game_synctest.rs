@@ -1,4 +1,4 @@
-use bevy::{core::FixedTimestep, prelude::*};
+use bevy::prelude::*;
 use bevy_ggrs::{GGRSApp, GGRSPlugin};
 use ggrs::SyncTestSession;
 use structopt::StructOpt;
@@ -38,8 +38,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .add_startup_system(setup_system)
         // add your GGRS session
         .with_synctest_session(sync_sess)
-        // define frequency of game logic update
-        .with_rollback_run_criteria(FixedTimestep::steps_per_second(FPS as f64))
+        // define frequency of rollback game logic update
+        .with_fps(FPS)
         // define system that represents your inputs as a byte vector, so GGRS can send the inputs around
         .with_input_system(input.system())
         // register components that will be loaded/saved

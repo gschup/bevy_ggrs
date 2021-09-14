@@ -3,7 +3,7 @@
 
 use bevy::{
     ecs::{
-        schedule::{IntoSystemDescriptor, ShouldRun, Stage},
+        schedule::{IntoSystemDescriptor, Stage},
         system::Command,
     },
     prelude::*,
@@ -74,19 +74,6 @@ impl RollbackIdProvider {
     }
 }
 
-fn ggrs_poll_system(
-    p2p_session: Option<ResMut<P2PSession>>,
-    spectator_session: Option<ResMut<P2PSpectatorSession>>,
-) {
-    if let Some(mut sess) = p2p_session {
-        sess.poll_remote_clients();
-    }
-
-    if let Some(mut sess) = spectator_session {
-        sess.poll_remote_clients();
-    }
-}
-
 /// Provides all functionality for the GGRS p2p rollback networking library.
 pub struct GGRSPlugin;
 
@@ -95,13 +82,10 @@ impl Plugin for GGRSPlugin {
         // everything for the GGRS stage, where all rollback systems will be executed
         let mut schedule = Schedule::default();
         schedule.add_stage(ROLLBACK_DEFAULT, SystemStage::single_threaded());
-        let mut ggrs_stage = GGRSStage::default();
-        ggrs_stage.schedule = schedule;
+        let ggrs_stage = GGRSStage::new(schedule);
         app.add_stage_before(CoreStage::Update, GGRS_UPDATE, ggrs_stage);
         // insert a rollback id provider
         app.insert_resource(RollbackIdProvider::default());
-        // insert a system that polls endpoints as often as possible
-        app.add_system(ggrs_poll_system);
     }
 }
 
@@ -116,17 +100,14 @@ pub trait GGRSApp {
     /// Adds the given `ggrs::P2PSpectatorSession` to your app.
     fn with_p2p_spectator_session(&mut self, sess: P2PSpectatorSession) -> &mut Self;
 
-    /// Sets the run criteria for the ggrs update, including all rollback systems. If this is never called, the session will never run.
-    fn with_rollback_run_criteria(
-        &mut self,
-        run_criteria: impl System<In = (), Out = ShouldRun>,
-    ) -> &mut Self;
-
     /// Registers a given system as the input system. This system should provide encoded inputs for a given player.
     fn with_input_system(
         &mut self,
         input_fn: impl System<In = PlayerHandle, Out = Vec<u8>>,
     ) -> &mut Self;
+
+    /// Sets the fixed update frequency
+    fn with_fps(&mut self, fps: u32) -> &mut Self;
 
     /// Registers a type of component for saving and loading during rollbacks.
     fn register_rollback_type<T>(&mut self) -> &mut Self
@@ -195,19 +176,6 @@ impl GGRSApp for App {
         self
     }
 
-    fn with_rollback_run_criteria(
-        &mut self,
-        mut run_criteria: impl System<In = (), Out = ShouldRun>,
-    ) -> &mut Self {
-        run_criteria.initialize(&mut self.world);
-        let ggrs_stage = self
-            .schedule
-            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
-            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        ggrs_stage.run_criteria = Some(Box::new(run_criteria));
-        self
-    }
-
     fn with_input_system(
         &mut self,
         mut input_system: impl System<In = PlayerHandle, Out = Vec<u8>>,
@@ -218,6 +186,15 @@ impl GGRSApp for App {
             .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
             .expect("No GGRSStage found! Did you install the GGRSPlugin?");
         ggrs_stage.input_system = Some(Box::new(input_system));
+        self
+    }
+
+    fn with_fps(&mut self, fps: u32) -> &mut Self {
+        let ggrs_stage = self
+            .schedule
+            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
+            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
+        ggrs_stage.fps = fps;
         self
     }
 

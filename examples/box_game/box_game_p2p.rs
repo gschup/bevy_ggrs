@@ -33,8 +33,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // create a GGRS P2P session
     let mut p2p_sess = P2PSession::new(num_players as u32, INPUT_SIZE, opt.local_port)?;
 
-        // set FPS (default is 60, so this doesn't change anything as is)
-        p2p_sess.set_fps(FPS as u32)?;
+    // set FPS (default is 60, so this doesn't change anything as is)
+    p2p_sess.set_fps(FPS as u32)?;
 
     // turn on sparse saving
     p2p_sess.set_sparse_saving(true)?;

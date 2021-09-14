@@ -15,9 +15,9 @@ categories = ["network-programming", "game-development"]
 
 [dependencies]
 bevy = { git = "https://github.com/bevyengine/bevy.git", branch = "main", default-features = false }
-ggrs = "0.5"
 instant = "0.1"
-#ggrs = { git = "https://github.com/gschup/ggrs.git", branch = "main" }
+#ggrs = "0.5"
+ggrs = { git = "https://github.com/gschup/ggrs.git", branch = "main" }
 
 [dev-dependencies]
 structopt = "0.3"

@@ -1,7 +1,7 @@
 use bevy::{prelude::*, reflect::TypeRegistry};
 use ggrs::{
-    GGRSError, GGRSEvent, GGRSRequest, GameInput, GameState, GameStateCell, P2PSession,
-    P2PSpectatorSession, PlayerHandle, SessionState, SyncTestSession, MAX_PREDICTION_FRAMES,
+    GGRSError, GGRSRequest, GameInput, GameState, GameStateCell, P2PSession, P2PSpectatorSession,
+    PlayerHandle, SessionState, SyncTestSession, MAX_PREDICTION_FRAMES,
 };
 use instant::{Duration, Instant};
 
@@ -24,14 +24,18 @@ pub(crate) struct GGRSStage {
     /// internal time control variables
     last_update: Instant,
     accumulator: Duration,
-    frames_to_skip: u32,
+    /// boolean to see if we should run slow to let remote clients catch up
+    run_slow: bool,
 }
 
 impl Stage for GGRSStage {
     fn run(&mut self, world: &mut World) {
         // get delta time from last run() call and accumulate it
         let delta = Instant::now().duration_since(self.last_update);
-        let fps_delta = 1. / self.fps as f64;
+        let mut fps_delta = 1. / self.fps as f64;
+        if self.run_slow {
+            fps_delta *= 1.1;
+        }
         self.accumulator = self.accumulator.saturating_add(delta);
         self.last_update = Instant::now();
 
@@ -73,7 +77,7 @@ impl GGRSStage {
             fps: 60,
             last_update: Instant::now(),
             accumulator: Duration::ZERO,
-            frames_to_skip: 0,
+            run_slow: false,
         }
     }
 
@@ -168,13 +172,6 @@ impl GGRSStage {
 
         match world.get_resource_mut::<P2PSession>() {
             Some(mut session) => {
-                if self.frames_to_skip > 0 {
-                    self.frames_to_skip -= 1;
-
-                    println!("Skipping a frame: WaitRecommendation");
-
-                    return;
-                }
                 // if session is ready, try to advance the frame
                 if session.current_state() == SessionState::Running {
                     match session.advance_frame(local_handle, &input) {
@@ -186,13 +183,12 @@ impl GGRSStage {
                     };
                 }
 
+                // if we are ahead, run slow
+                self.run_slow = session.frames_ahead() > 0;
+
                 // display all events
                 for event in session.events() {
                     println!("GGRS Event: {:?}", event);
-
-                    if let GGRSEvent::WaitRecommendation { skip_frames } = event {
-                        self.frames_to_skip += skip_frames
-                    }
                 }
             }
             None => {

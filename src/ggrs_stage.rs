@@ -21,6 +21,7 @@ pub(crate) struct GGRSStage {
     pub(crate) fps: u32,
     /// counts the number of frames that have been executed
     frame: i32,
+    /// internal time control variables
     last_update: Instant,
     accumulator: Duration,
     frames_to_skip: u32,
@@ -42,8 +43,8 @@ impl Stage for GGRSStage {
             sess.poll_remote_clients();
         }
 
-        // if we accumulated enough time, do a step
-        if self.accumulator.as_secs_f64() > fps_delta {
+        // if we accumulated enough time, do steps
+        while self.accumulator.as_secs_f64() > fps_delta {
             // decrease accumulator
             self.accumulator = self
                 .accumulator

@@ -1,4 +1,8 @@
-# Bevy_GGRS
+# [![GGRS LOGO](./ggrs_logo.png)](https://gschup.github.io/ggrs/)
+
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/gschup/bevy_ggrs/Rust?style=for-the-badge)
+
+## Bevy GGRS
 
 Bevy plugin for the 👉[GGRS](https://github.com/gschup/ggrs) P2P rollback networking library.
 The plugin creates a custom stage with a separate schedule, which handles correctly advancing the gamestate, including rollbacks.

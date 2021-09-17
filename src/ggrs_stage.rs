@@ -85,12 +85,12 @@ impl GGRSStage {
         let mut request_vec = None;
 
         // find out how many players are in this synctest
-        let num_players = if let Some(session) = world.get_resource::<SyncTestSession>() {
-            Some(session.num_players())
-        } else {
-            None
-        }
-        .expect("No GGRS SyncTestSession found. Please start a session and add it as a resource.");
+        let num_players = world
+            .get_resource::<SyncTestSession>()
+            .map(|session| session.num_players())
+            .expect(
+                "No GGRS SyncTestSession found. Please start a session and add it as a resource.",
+            );
 
         // get inputs for all players
         let mut inputs = Vec::new();
@@ -218,7 +218,7 @@ impl GGRSStage {
         assert_eq!(self.frame, frame);
 
         // we make a snapshot of our world
-        let snapshot = WorldSnapshot::from_world(&world, &self.type_registry);
+        let snapshot = WorldSnapshot::from_world(world, &self.type_registry);
 
         // we don't use the buffer provided by GGRS
         let state = GameState::new(self.frame, None, Some(snapshot.checksum));

@@ -64,7 +64,7 @@ pub struct RollbackIdProvider {
 impl RollbackIdProvider {
     /// Returns an unused, unique id.
     pub fn next_id(&mut self) -> u32 {
-        if self.next_id >= u32::MAX {
+        if self.next_id == u32::MAX {
             // TODO: do something smart?
             panic!("RollbackIdProvider: u32::MAX has been reached.");
         }

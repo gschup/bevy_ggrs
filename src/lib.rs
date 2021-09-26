@@ -101,9 +101,9 @@ pub trait GGRSApp {
     fn with_p2p_spectator_session(&mut self, sess: P2PSpectatorSession) -> &mut Self;
 
     /// Registers a given system as the input system. This system should provide encoded inputs for a given player.
-    fn with_input_system(
+    fn with_input_system<Params>(
         &mut self,
-        input_fn: impl System<In = PlayerHandle, Out = Vec<u8>>,
+        input_system: impl IntoSystem<PlayerHandle, Vec<u8>, Params>,
     ) -> &mut Self;
 
     /// Sets the fixed update frequency
@@ -176,10 +176,11 @@ impl GGRSApp for App {
         self
     }
 
-    fn with_input_system(
+    fn with_input_system<Params>(
         &mut self,
-        mut input_system: impl System<In = PlayerHandle, Out = Vec<u8>>,
+        input_system: impl IntoSystem<PlayerHandle, Vec<u8>, Params>,
     ) -> &mut Self {
+        let mut input_system = input_system.system();
         input_system.initialize(&mut self.world);
         let ggrs_stage = self
             .schedule

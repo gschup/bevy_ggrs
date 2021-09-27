@@ -28,8 +28,15 @@ pub(crate) struct GGRSStage {
     run_slow: bool,
 }
 
+/// Marker resource that triggers resetting the stage session state
+pub(crate) struct GGRSStageResetSession;
+
 impl Stage for GGRSStage {
     fn run(&mut self, world: &mut World) {
+        if let Some(_) = world.remove_resource::<GGRSStageResetSession>() {
+            self.reset_session();
+        }
+
         // get delta time from last run() call and accumulate it
         let delta = Instant::now().duration_since(self.last_update);
         let mut fps_delta = 1. / self.fps as f64;
@@ -79,6 +86,13 @@ impl GGRSStage {
             accumulator: Duration::ZERO,
             run_slow: false,
         }
+    }
+
+    pub(crate) fn reset_session(&mut self) {
+        self.last_update = Instant::now();
+        self.accumulator = Duration::ZERO;
+        self.frame = 0;
+        self.run_slow = false;
     }
 
     fn run_synctest(&mut self, world: &mut World) {

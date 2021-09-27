@@ -10,7 +10,7 @@ use bevy::{
     reflect::{FromType, GetTypeRegistration},
 };
 use ggrs::{P2PSession, P2PSpectatorSession, PlayerHandle, SessionState, SyncTestSession};
-use ggrs_stage::GGRSStage;
+use ggrs_stage::{GGRSStage, GGRSStageResetSession};
 use reflect_resource::ReflectResource;
 
 pub(crate) mod ggrs_stage;
@@ -315,6 +315,7 @@ pub trait CommandsExt {
     fn start_p2p_session(&mut self, session: P2PSession);
     fn start_p2p_spectator_session(&mut self, session: P2PSpectatorSession);
     fn start_synctest_session(&mut self, session: SyncTestSession);
+    fn stop_session(&mut self);
 }
 
 impl CommandsExt for Commands<'_, '_> {
@@ -328,6 +329,10 @@ impl CommandsExt for Commands<'_, '_> {
 
     fn start_synctest_session(&mut self, session: SyncTestSession) {
         self.add(StartSyncTestSessionCommand(session));
+    }
+
+    fn stop_session(&mut self) {
+        self.add(StopSessionCommand);
     }
 }
 
@@ -365,5 +370,17 @@ impl Command for StartSyncTestSessionCommand {
     fn write(self, world: &mut World) {
         world.insert_resource(self.0);
         world.insert_resource(SessionType::SyncTestSession);
+    }
+}
+
+struct StopSessionCommand;
+
+impl Command for StopSessionCommand {
+    fn write(self, world: &mut World) {
+        world.remove_resource::<SessionType>();
+        world.remove_resource::<P2PSession>();
+        world.remove_resource::<SyncTestSession>();
+        world.remove_resource::<P2PSpectatorSession>();
+        world.insert_resource(GGRSStageResetSession);
     }
 }

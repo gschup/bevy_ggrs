@@ -138,10 +138,10 @@ pub trait GGRSApp {
     ) -> &mut Self;
 
     /// Adds a stage into the GGRS schedule.
-    fn add_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self;
+    fn add_rollback_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self;
 
     /// Adds a stage into the GGRS schedule after another stage inside the GGRS schedule.
-    fn add_stage_after<S: Stage>(
+    fn add_rollback_stage_after<S: Stage>(
         &mut self,
         target: impl StageLabel,
         label: impl StageLabel,
@@ -149,7 +149,7 @@ pub trait GGRSApp {
     ) -> &mut Self;
 
     /// Adds a stage into the GGRS schedule before another stage inside the GGRS schedule.
-    fn add_stage_before<S: Stage>(
+    fn add_rollback_stage_before<S: Stage>(
         &mut self,
         target: impl StageLabel,
         label: impl StageLabel,
@@ -273,7 +273,7 @@ impl GGRSApp for App {
         self
     }
 
-    fn add_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
+    fn add_rollback_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
         let ggrs_stage = self
             .schedule
             .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
@@ -282,7 +282,7 @@ impl GGRSApp for App {
         self
     }
 
-    fn add_stage_after<S: Stage>(
+    fn add_rollback_stage_after<S: Stage>(
         &mut self,
         target: impl StageLabel,
         label: impl StageLabel,
@@ -296,7 +296,7 @@ impl GGRSApp for App {
         self
     }
 
-    fn add_stage_before<S: Stage>(
+    fn add_rollback_stage_before<S: Stage>(
         &mut self,
         target: impl StageLabel,
         label: impl StageLabel,

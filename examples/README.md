@@ -31,7 +31,7 @@ For the spectator, the following command-line arguments exist:
 - `--num-players / -n`: number of players that will participate in the game
 - `--host / -h`: address of the host
 
-For example, to run a two-player game,
+For example, to run a two-player game with a spectator,
 run these commands in separate terminals:
 
 ```shell

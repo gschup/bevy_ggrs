@@ -59,7 +59,7 @@ impl WorldSnapshot {
         let mut snapshot = WorldSnapshot::default();
         let type_registry = type_registry.read();
 
-        // create a rollback entity for every entity tagged with rollback
+        // create a `RollbackEntity` for every entity tagged with rollback
         for archetype in world.archetypes().iter() {
             let entities_offset = snapshot.entities.len();
             for entity in archetype.entities() {
@@ -105,7 +105,7 @@ impl WorldSnapshot {
             }
         }
 
-        // go through all recources and clone those that are registered
+        // go through all resources and clone those that are registered
         for component_id in world.archetypes().resource().unique_components().indices() {
             let reflect_component = world
                 .components()
@@ -116,7 +116,7 @@ impl WorldSnapshot {
                 if let Some(resource) = reflect_resource.reflect_resource(world) {
                     // add the hash value of that resource to the shapshot checksum, if that resource supports hashing
                     if let Some(hash) = resource.reflect_hash() {
-                        snapshot.checksum += hash;
+                        snapshot.checksum = (Wrapping(snapshot.checksum) + Wrapping(hash)).0;
                     }
                     // add the resource to the shapshot
                     snapshot.resources.push(resource.clone_value());

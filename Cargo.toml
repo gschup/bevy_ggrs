@@ -21,6 +21,7 @@ ggrs = { git = "https://github.com/gschup/ggrs.git", branch = "main" }
 
 [dev-dependencies]
 structopt = "0.3"
+rand = "0.8.4"
 bevy = { git = "https://github.com/bevyengine/bevy.git", branch = "main"}
 
 # Examples

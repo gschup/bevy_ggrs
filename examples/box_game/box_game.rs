@@ -189,12 +189,8 @@ pub fn move_cube_system(
         // uncomment this to introduce a non-deterministic update
         // this should raise a checksum mismatch when you run synctest_checksum
         //
-        // extern "C" {
-        //     fn rand() -> i32;
-        // }
-        // unsafe {
-        //     t.translation.x += (-2 + (rand() % 5)) as f32 / 100.0;
-        //     t.translation.z += (-2 + (rand() % 5)) as f32 / 100.0;
-        // }
+        // use rand::Rng;
+        // t.translation.x += rand::thread_rng().gen_range(-0.1..0.1);
+        // t.translation.z += rand::thread_rng().gen_range(-0.1..0.1);
     }
 }

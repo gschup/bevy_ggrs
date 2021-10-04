@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_ggrs::{GGRSApp, GGRSPlugin, ROLLBACK_DEFAULT, Rollback};
+use bevy_ggrs::{GGRSApp, GGRSPlugin, Rollback, ROLLBACK_DEFAULT};
 use ggrs::SyncTestSession;
 use structopt::StructOpt;
 
@@ -24,7 +24,7 @@ struct Opt {
 // in order to allow a GGRS `SyncTestSession` to construct a checksum for a world snapshot
 // Here we create a general purpose checksum component to construct a checksum for types that cannot make use of `#[reflect(Hash)]` like bevy::Transform
 // You can uncomment the non-deterministic code in move_cube_system (box_game.rs) to test checksum mismatches.
-#[derive(Default, Reflect, Hash)]
+#[derive(Default, Reflect, Hash, Component)]
 #[reflect(Hash)]
 struct Checksum {
     value: u64,

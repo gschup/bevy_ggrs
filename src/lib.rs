@@ -38,6 +38,7 @@ impl Default for SessionType {
 
 /// Add this component to all entities you want to be loaded/saved on rollback.
 /// The `id` has to be unique. Consider using the `RollbackIdProvider` resource.
+#[derive(Component)]
 pub struct Rollback {
     id: u32,
 }
@@ -112,7 +113,7 @@ pub trait GGRSApp {
     /// Registers a type of component for saving and loading during rollbacks.
     fn register_rollback_type<T>(&mut self) -> &mut Self
     where
-        T: GetTypeRegistration + Reflect + Default;
+        T: GetTypeRegistration + Reflect + Default + Component;
 
     /// Adds a system that is executed as part of the ggrs update.
     fn add_rollback_system<Params>(
@@ -201,7 +202,7 @@ impl GGRSApp for App {
 
     fn register_rollback_type<T>(&mut self) -> &mut Self
     where
-        T: GetTypeRegistration + Reflect + Default,
+        T: GetTypeRegistration + Reflect + Default + Component,
     {
         let ggrs_stage = self
             .schedule

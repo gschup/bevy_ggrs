@@ -185,5 +185,12 @@ pub fn move_cube_system(
         t.translation.x = t.translation.x.min((PLANE_SIZE - CUBE_SIZE) * 0.5);
         t.translation.z = t.translation.z.max(-1. * (PLANE_SIZE - CUBE_SIZE) * 0.5);
         t.translation.z = t.translation.z.min((PLANE_SIZE - CUBE_SIZE) * 0.5);
+
+        // uncomment this to introduce a non-deterministic update
+        // this should raise a checksum mismatch when you run synctest_checksum
+        //
+        // use rand::Rng;
+        // t.translation.x += rand::thread_rng().gen_range(-0.1..0.1);
+        // t.translation.z += rand::thread_rng().gen_range(-0.1..0.1);
     }
 }

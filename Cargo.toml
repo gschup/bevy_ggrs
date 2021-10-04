@@ -21,6 +21,7 @@ ggrs = { git = "https://github.com/gschup/ggrs.git", branch = "main" }
 
 [dev-dependencies]
 structopt = "0.3"
+rand = "0.8.4"
 bevy = { git = "https://github.com/bevyengine/bevy.git", branch = "main"}
 
 # Examples
@@ -35,3 +36,7 @@ path = "examples/box_game/box_game_p2p.rs"
 [[example]]
 name = "box_game_spectator"
 path = "examples/box_game/box_game_spectator.rs"
+
+[[example]]
+name = "box_game_synctest_checksum"
+path = "examples/box_game/box_game_synctest_checksum.rs"

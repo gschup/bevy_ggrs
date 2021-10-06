@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_ggrs::{GGRSApp, GGRSPlugin, Rollback, ROLLBACK_DEFAULT};
+use bevy_ggrs::{GGRSApp, GGRSPlugin, Rollback};
 use ggrs::SyncTestSession;
 use structopt::StructOpt;
 
@@ -8,7 +8,7 @@ use box_game::*;
 
 const INPUT_SIZE: usize = std::mem::size_of::<u8>();
 const FPS: u32 = 60;
-const GAME_STAGE: &str = "game";
+const ROLLBACK_DEFAULT: &str = "rollback_default";
 const CHECKSUM_STAGE: &str = "checksum";
 
 // structopt will read command line parameters for u
@@ -101,12 +101,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .insert_resource(FrameCount { frame: 0 })
         .register_rollback_type::<FrameCount>()
         // these systems will be executed as part of the advance frame update
-        // we also create two stages to make sure game systems are ran before the checksum system
-        .add_rollback_stage_after(ROLLBACK_DEFAULT, GAME_STAGE, SystemStage::parallel())
-        .add_rollback_stage_after(GAME_STAGE, CHECKSUM_STAGE, SystemStage::parallel())
-        .add_rollback_system_to_stage(GAME_STAGE, move_cube_system)
-        .add_rollback_system_to_stage(GAME_STAGE, increase_frame_system)
-        .add_rollback_system_to_stage(CHECKSUM_STAGE, compute_checksum_system)
+        .with_rollback_schedule(
+            Schedule::default()
+                .with_stage(
+                    ROLLBACK_DEFAULT,
+                    SystemStage::single_threaded()
+                        .with_system(move_cube_system)
+                        .with_system(increase_frame_system),
+                )
+                .with_stage_after(
+                    ROLLBACK_DEFAULT,
+                    CHECKSUM_STAGE,
+                    SystemStage::parallel().with_system(compute_checksum_system),
+                ),
+        )
         .run();
 
     Ok(())

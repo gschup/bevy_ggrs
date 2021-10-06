@@ -7,6 +7,9 @@ use instant::{Duration, Instant};
 
 use crate::{world_snapshot::WorldSnapshot, SessionType};
 
+/// Marker resource that triggers resetting the stage session state
+pub(crate) struct GGRSStageResetSession;
+
 /// The GGRSStage handles updating, saving and loading the game state.
 pub(crate) struct GGRSStage {
     /// Inside this schedule, all rollback systems are registered.
@@ -27,9 +30,6 @@ pub(crate) struct GGRSStage {
     /// boolean to see if we should run slow to let remote clients catch up
     run_slow: bool,
 }
-
-/// Marker resource that triggers resetting the stage session state
-pub(crate) struct GGRSStageResetSession;
 
 impl Stage for GGRSStage {
     fn run(&mut self, world: &mut World) {
@@ -74,9 +74,9 @@ impl Stage for GGRSStage {
 }
 
 impl GGRSStage {
-    pub(crate) fn new(schedule: Schedule) -> Self {
+    pub(crate) fn new() -> Self {
         Self {
-            schedule,
+            schedule: Schedule::default(),
             type_registry: TypeRegistry::default(),
             input_system: None,
             snapshots: Default::default(),
@@ -95,7 +95,7 @@ impl GGRSStage {
         self.run_slow = false;
     }
 
-    fn run_synctest(&mut self, world: &mut World) {
+    pub(crate) fn run_synctest(&mut self, world: &mut World) {
         let mut request_vec = None;
 
         // find out how many players are in this synctest
@@ -134,7 +134,7 @@ impl GGRSStage {
         }
     }
 
-    fn run_spectator(&mut self, world: &mut World) {
+    pub(crate) fn run_spectator(&mut self, world: &mut World) {
         let mut request_vec = None;
 
         // run spectator session, no input necessary
@@ -167,7 +167,7 @@ impl GGRSStage {
         }
     }
 
-    fn run_p2p(&mut self, world: &mut World) {
+    pub(crate) fn run_p2p(&mut self, world: &mut World) {
         let mut request_vec = None;
 
         // get input for the local player
@@ -181,7 +181,7 @@ impl GGRSStage {
         let input = self
             .input_system
             .as_mut()
-            .expect("No input system found. Please use AppBuilder::with_input_sampler_system.")
+            .expect("No input system found. Please use AppBuilder::with_input_system.")
             .run(local_handle, world);
 
         match world.get_resource_mut::<P2PSession>() {
@@ -218,7 +218,7 @@ impl GGRSStage {
         }
     }
 
-    fn handle_requests(&mut self, requests: Vec<GGRSRequest>, world: &mut World) {
+    pub(crate) fn handle_requests(&mut self, requests: Vec<GGRSRequest>, world: &mut World) {
         for request in requests {
             match request {
                 GGRSRequest::SaveGameState { cell, frame } => self.save_world(cell, frame, world),
@@ -228,7 +228,7 @@ impl GGRSStage {
         }
     }
 
-    fn save_world(&mut self, cell: GameStateCell, frame: i32, world: &mut World) {
+    pub(crate) fn save_world(&mut self, cell: GameStateCell, frame: i32, world: &mut World) {
         assert_eq!(self.frame, frame);
 
         // we make a snapshot of our world
@@ -243,7 +243,7 @@ impl GGRSStage {
         self.snapshots[pos] = snapshot;
     }
 
-    fn load_world(&mut self, cell: GameStateCell, world: &mut World) {
+    pub(crate) fn load_world(&mut self, cell: GameStateCell, world: &mut World) {
         // since we haven't actually used the cell provided by GGRS
         let state = cell.load();
         self.frame = state.frame;
@@ -256,7 +256,7 @@ impl GGRSStage {
         snapshot_to_load.write_to_world(world, &self.type_registry);
     }
 
-    fn advance_frame(&mut self, inputs: Vec<GameInput>, world: &mut World) {
+    pub(crate) fn advance_frame(&mut self, inputs: Vec<GameInput>, world: &mut World) {
         world.insert_resource(inputs);
         self.schedule.run_once(world);
         world.remove_resource::<Vec<GameInput>>();

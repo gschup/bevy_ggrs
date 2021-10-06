@@ -8,6 +8,7 @@ use box_game::*;
 
 const INPUT_SIZE: usize = std::mem::size_of::<u8>();
 const FPS: u32 = 60;
+const ROLLBACK_DEFAULT: &str = "rollback_default";
 
 // structopt will read command line parameters for u
 #[derive(StructOpt)]
@@ -56,8 +57,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .insert_resource(FrameCount { frame: 0 })
         .register_rollback_type::<FrameCount>()
         // these systems will be executed as part of the advance frame update
-        .add_rollback_system(move_cube_system)
-        .add_rollback_system(increase_frame_system)
+        .with_rollback_schedule(
+            Schedule::default().with_stage(
+                ROLLBACK_DEFAULT,
+                SystemStage::single_threaded()
+                    .with_system(move_cube_system)
+                    .with_system(increase_frame_system),
+            ),
+        )
         .run();
 
     Ok(())

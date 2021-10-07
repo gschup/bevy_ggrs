@@ -104,7 +104,7 @@ pub trait GGRSApp {
     ) -> &mut Self;
 
     /// Sets the fixed update frequency
-    fn with_fps(&mut self, fps: u32) -> &mut Self;
+    fn with_update_frequency(&mut self, update_frequency: u32) -> &mut Self;
 
     /// Registers a type of component for saving and loading during rollbacks.
     fn register_rollback_type<T>(&mut self) -> &mut Self
@@ -136,7 +136,7 @@ impl GGRSApp for App {
             .schedule
             .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
             .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        ggrs_stage.schedule = schedule;
+        ggrs_stage.set_schedule(schedule);
         self
     }
 
@@ -154,12 +154,12 @@ impl GGRSApp for App {
         self
     }
 
-    fn with_fps(&mut self, fps: u32) -> &mut Self {
+    fn with_update_frequency(&mut self, update_frequency: u32) -> &mut Self {
         let ggrs_stage = self
             .schedule
             .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
             .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        ggrs_stage.fps = fps;
+        ggrs_stage.set_update_frequency(update_frequency);
         self
     }
 

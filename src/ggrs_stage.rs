@@ -13,7 +13,7 @@ pub(crate) struct GGRSStageResetSession;
 /// The GGRSStage handles updating, saving and loading the game state.
 pub(crate) struct GGRSStage {
     /// Inside this schedule, all rollback systems are registered.
-    pub(crate) schedule: Schedule,
+    schedule: Schedule,
     /// Used to register all types considered when loading and saving
     pub(crate) type_registry: TypeRegistry,
     /// This system is used to get an encoded representation of the input that GGRS can handle
@@ -21,11 +21,12 @@ pub(crate) struct GGRSStage {
     /// Instead of using GGRS's internal storage for encoded save states, we save the world here, avoiding encoding into `Vec<u8>`.
     snapshots: [WorldSnapshot; MAX_PREDICTION_FRAMES as usize + 2],
     /// fixed FPS our logic is running with
-    pub(crate) fps: u32,
+    update_frequency: u32,
     /// counts the number of frames that have been executed
     frame: i32,
     /// internal time control variables
     last_update: Instant,
+    /// accumulated time. once enough time has been accumulated, an update is executed
     accumulator: Duration,
     /// boolean to see if we should run slow to let remote clients catch up
     run_slow: bool,
@@ -39,7 +40,7 @@ impl Stage for GGRSStage {
 
         // get delta time from last run() call and accumulate it
         let delta = Instant::now().duration_since(self.last_update);
-        let mut fps_delta = 1. / self.fps as f64;
+        let mut fps_delta = 1. / self.update_frequency as f64;
         if self.run_slow {
             fps_delta *= 1.1;
         }
@@ -81,7 +82,7 @@ impl GGRSStage {
             input_system: None,
             snapshots: Default::default(),
             frame: 0,
-            fps: 60,
+            update_frequency: 60,
             last_update: Instant::now(),
             accumulator: Duration::ZERO,
             run_slow: false,
@@ -261,5 +262,19 @@ impl GGRSStage {
         self.schedule.run_once(world);
         world.remove_resource::<Vec<GameInput>>();
         self.frame += 1;
+    }
+
+    /*
+    pub(crate) const fn update_frequency(&self) -> u32 {
+        self.update_frequency
+    }
+    */
+
+    pub(crate) fn set_update_frequency(&mut self, update_frequency: u32) {
+        self.update_frequency = update_frequency
+    }
+
+    pub(crate) fn set_schedule(&mut self, schedule: Schedule) {
+        self.schedule = schedule;
     }
 }

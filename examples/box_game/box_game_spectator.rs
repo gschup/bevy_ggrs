@@ -57,7 +57,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // add your GGRS session
         .with_p2p_spectator_session(spec_sess)
         // define frequency of rollback game logic update
-        .with_fps(FPS)
+        .with_update_frequency(FPS)
         // define system that represents your inputs as a byte vector, so GGRS can send the inputs around (not actually sending anything in synctest)
         .with_input_system(input)
         // register components that will be loaded/saved

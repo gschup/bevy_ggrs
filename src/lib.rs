@@ -2,7 +2,7 @@
 #![forbid(unsafe_code)] // let us try
 
 use bevy::{
-    ecs::system::Command,
+    ecs::system::{Command, Resource},
     prelude::*,
     reflect::{FromType, GetTypeRegistration},
 };
@@ -110,6 +110,11 @@ pub trait GGRSApp {
     fn register_rollback_type<T>(&mut self) -> &mut Self
     where
         T: GetTypeRegistration + Reflect + Default + Component;
+
+    // Inserts a resource in bevy with saving and loading during rollbacks.
+    fn insert_rollback_resource<T>(&mut self, resource: T) -> &mut Self
+    where
+        T: GetTypeRegistration + Reflect + Default + Component + Resource;
 }
 
 impl GGRSApp for App {
@@ -182,6 +187,13 @@ impl GGRSApp for App {
         drop(registry);
 
         self
+    }
+
+    fn insert_rollback_resource<T>(&mut self, resource: T) -> &mut Self
+    where
+        T: GetTypeRegistration + Reflect + Default + Component + Resource,
+    {
+        self.insert_resource(resource).register_rollback_type::<T>()
     }
 }
 

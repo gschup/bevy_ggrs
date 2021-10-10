@@ -53,9 +53,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // register components that will be loaded/saved
         .register_rollback_type::<Transform>()
         .register_rollback_type::<Velocity>()
-        // you can also register resources
-        .insert_resource(FrameCount { frame: 0 })
-        .register_rollback_type::<FrameCount>()
+        // you can also insert resources that will be loaded/saved
+        .insert_rollback_resource(FrameCount { frame: 0 })
         // these systems will be executed as part of the advance frame update
         .with_rollback_schedule(
             Schedule::default().with_stage(

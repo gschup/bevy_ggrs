@@ -23,6 +23,8 @@ ggrs = "0.5.1"
 structopt = "0.3"
 rand = "0.8.4"
 bevy = { git = "https://github.com/bevyengine/bevy.git", branch = "main"}
+serde = "1.0.130"
+serde_json = "1.0"
 
 # Examples
 [[example]]
@@ -40,3 +42,7 @@ path = "examples/box_game/box_game_spectator.rs"
 [[example]]
 name = "box_game_synctest_checksum"
 path = "examples/box_game/box_game_synctest_checksum.rs"
+
+[[example]]
+name = "fighting_game"
+path = "examples/fighting_game/fighting_game.rs"

@@ -72,9 +72,10 @@ cargo run --example box_game_synctest_checksum -- --num-players 2 --check-distan
 
 ## Fighting Game 
 
-Fighthing game is a more advanced example game for BevyGGRS that includes collisions and health.
-Currently WIP. Desyncing can occur when a character moves fast, it would seem to be a problem with the sprite timer used
-to control animations (look at the TakeHit and Dash state).
+Fighthing game is an example game for BevyGGRS that includes collisions and health,
+generously provided by [TuckerBMorgan](https://github.com/TuckerBMorgan).
+WIP, can crash sometimes. Desyncing can occur when a character moves fast, 
+it would seem to be a problem with the sprite timer used to control animations.
 
 ### Launching Fighting Game P2P 
 

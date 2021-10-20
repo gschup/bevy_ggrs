@@ -1,16 +1,13 @@
-use bevy::prelude::*;
 use crate::systems::*;
 use crate::*;
 
 #[derive(Default, Component)]
 pub struct ShouldRenderHitBoxes {
-    should_render: bool
+    should_render: bool,
 }
 
 #[derive(Default, Copy, Clone, Component)]
-pub struct DebugBox {
-
-}
+pub struct DebugBox {}
 
 pub fn hit_box_setup_system(
     mut commands: Commands,
@@ -18,7 +15,6 @@ pub fn hit_box_setup_system(
     mut texture_handles: ResMut<TextureAtlasDictionary>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    
     let hitbox_texture_handle = asset_server.load("sprites/hitbox.png");
     let hurtbox_texture_handle = asset_server.load("sprites/hurtbox.png");
     texture_handles.debug_hit_box_texture = materials.add(hitbox_texture_handle.clone().into());
@@ -27,13 +23,14 @@ pub fn hit_box_setup_system(
     for _ in 0..4 {
         let sprite_transform = Transform::from_translation(Vec3::new(0.0, 0.0, 0.0));
 
-        commands.spawn_bundle(SpriteBundle {
-            material: texture_handles.debug_hit_box_texture.clone(),
-            transform: sprite_transform,
-            ..Default::default()
-        }).insert(DebugBox::default());
+        commands
+            .spawn_bundle(SpriteBundle {
+                material: texture_handles.debug_hit_box_texture.clone(),
+                transform: sprite_transform,
+                ..Default::default()
+            })
+            .insert(DebugBox::default());
     }
-    
 }
 
 pub fn hitbox_debug_system(
@@ -42,9 +39,9 @@ pub fn hitbox_debug_system(
     collider_set_component: Res<ColliderSetComponent>,
     texture_handles: ResMut<TextureAtlasDictionary>,
     mut debug_query: Query<(&mut Transform, &DebugBox, Entity), Without<PlayerState>>,
-    player_query: Query<(&PlayerState, &Transform, &ScreenSideEnum), Without<DebugBox>>
+    player_query: Query<(&PlayerState, &Transform, &ScreenSideEnum), Without<DebugBox>>,
 ) {
-   
+
     /*
     if should_render_hit_box.should_render {
         // move all of the current hit boxes away from the middle of the screen, not great but EH
@@ -80,7 +77,7 @@ pub fn hitbox_debug_system(
                 transform.translation = collider_offset + player_transform.translation;
                 transform.scale.x = collider.dimension.x;
                 transform.scale.y = collider.dimension.y;
-                commands.entity(entity).insert(texture_handle);        
+                commands.entity(entity).insert(texture_handle);
             }
         }
     }

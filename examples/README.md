@@ -68,3 +68,23 @@ BoxGame SyncTest (Checksum) is launched by a single command-line argument:
 ```shell
 cargo run --example box_game_synctest_checksum -- --num-players 2 --check-distance 7
 ```
+
+
+### Fighting Game 
+
+Fighthing game is a more advanced example for BevyGGRS that includes collision testing and health
+Dsyncing can occur when character move fast, it would seem to be a problem with the sprite timer used
+to control animations(look at the TakeHit and Dash state)
+
+### Launching Fighting Game P2P 
+
+Only the p2p case is supported, no spectator yet
+
+- `--local-port / -l`: local port the client is listening to
+- `--players / -p`: a list of player addresses, with the local player being identified by `localhost`
+
+Examples of launching two seperate clients
+```shell
+cargo run --example fighting_game -- --local-port 7000 --players localhost 127.0.0.1:7001
+cargo run --example fighting_game -- --local-port 7001 --players 127.0.0.1:7000 localhost
+```

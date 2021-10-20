@@ -70,15 +70,15 @@ cargo run --example box_game_synctest_checksum -- --num-players 2 --check-distan
 ```
 
 
-### Fighting Game 
+## Fighting Game 
 
-Fighthing game is a more advanced example for BevyGGRS that includes collision testing and health
-Dsyncing can occur when character move fast, it would seem to be a problem with the sprite timer used
-to control animations(look at the TakeHit and Dash state)
+Fighthing game is a more advanced example game for BevyGGRS that includes collisions and health.
+Currently WIP. Desyncing can occur when a character moves fast, it would seem to be a problem with the sprite timer used
+to control animations (look at the TakeHit and Dash state).
 
 ### Launching Fighting Game P2P 
 
-Only the p2p case is supported, no spectator yet
+Only the P2P case is supported, no spectator yet
 
 - `--local-port / -l`: local port the client is listening to
 - `--players / -p`: a list of player addresses, with the local player being identified by `localhost`

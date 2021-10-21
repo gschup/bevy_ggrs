@@ -166,7 +166,7 @@ pub fn match_setup(
                     transform: p1_transform,
                     ..Default::default()
                 })
-                .insert(Timer::from_seconds(0.05, true))
+                .insert(SpriteTimer::new(3))
                 .insert(PlayerState::new(i as usize, PlayerStateEnum::Idle))
                 .insert(Rollback::new(rip.next_id()))
                 .insert(Player1::default())
@@ -194,7 +194,7 @@ pub fn match_setup(
                     transform: p1_transform,
                     ..Default::default()
                 })
-                .insert(Timer::from_seconds(0.05, true))
+                .insert(SpriteTimer::new(3))
                 .insert(PlayerState::new(i as usize, PlayerStateEnum::Idle))
                 .insert(Rollback::new(rip.next_id()))
                 .insert(Player2::default())

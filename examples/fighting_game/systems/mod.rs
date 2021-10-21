@@ -1,4 +1,3 @@
-mod cloud_system;
 mod collision_system;
 mod health_system;
 mod input_system;
@@ -10,7 +9,6 @@ mod startup_systems;
 
 mod hitbox_debug_system;
 
-pub use self::cloud_system::*;
 pub use self::collision_system::*;
 pub use self::health_system::*;
 pub use self::hitbox_debug_system::*;

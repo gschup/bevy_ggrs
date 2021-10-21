@@ -274,7 +274,7 @@ pub fn player_state_system(
                         transform: new_transform,
                         ..Default::default()
                     })
-                    .insert(CloudComponent::new(player_state.player_id));
+                    .insert(CloudComponent);
             }
         }
 

@@ -34,6 +34,10 @@ pub struct TextureAtlasDictionary {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub struct PlayerSystem;
+
+#[derive(Default, Component)]
+pub struct CloudComponent;
+
 const ROLLBACK_DEFAULT: &str = "rollback_default";
 
 const FPS: u32 = 60;
@@ -65,7 +69,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .insert_resource(ColliderSetComponent::from_file(&collider_both))
         .insert_resource(InputEvents::default())
         .insert_resource(TextureAtlasDictionary::default())
-        .insert_resource(ShouldRenderHitBoxes::default())
         .add_startup_system(start_p2p_session)
         .add_startup_system(match_setup)
         .add_startup_system(hit_box_setup_system)
@@ -84,7 +87,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .with_system(collision_system)
                     .with_system(player_state_system)
                     .with_system(player_movement_system)
-                    .with_system(cloud_system)
                     .with_system(sprite_system),
             ),
         )
@@ -93,8 +95,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             SystemSet::new()
                 .with_run_criteria(game_is_fighting_state)
                 .with_system(screen_side_system)
-                .with_system(health_system_ui)
-                .with_system(hitbox_debug_system),
+                .with_system(health_system_ui),
         )
         .add_system_set(
             SystemSet::new()
@@ -165,7 +166,6 @@ impl SpriteTimer {
 }
 
 fn sprite_system(
-    time: Res<Time>,
     texture_atlases: Res<Assets<TextureAtlas>>,
     mut query: Query<(
         &mut SpriteTimer,

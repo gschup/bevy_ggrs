@@ -129,11 +129,46 @@ pub fn game_is_reset_state(state: Res<State<GameState>>) -> ShouldRun {
     }
 }
 
+#[derive(Copy, Clone, Component, Default, Reflect)]
+pub struct SpriteTimer {
+    total_frames: usize,
+    current_frame: usize,
+    finished: bool,
+}
+
+impl SpriteTimer {
+    pub fn new(total_frames: usize) -> SpriteTimer {
+        SpriteTimer {
+            total_frames,
+            current_frame: 0,
+            finished: false,
+        }
+    }
+
+    pub fn tick(&mut self) {
+        self.finished = false;
+        self.current_frame += 1;
+        if self.current_frame == self.total_frames {
+            self.finished = true;
+            self.current_frame = 0;
+        }
+    }
+
+    pub fn finished(&mut self) -> bool {
+        self.finished
+    }
+
+    pub fn reset(&mut self) {
+        self.current_frame = 0;
+        self.finished = false;
+    }
+}
+
 fn sprite_system(
     time: Res<Time>,
     texture_atlases: Res<Assets<TextureAtlas>>,
     mut query: Query<(
-        &mut Timer,
+        &mut SpriteTimer,
         &mut TextureAtlasSprite,
         &Handle<TextureAtlas>,
         &mut PlayerState,
@@ -144,7 +179,7 @@ fn sprite_system(
         query.iter_mut()
     {
         //Update the timer
-        timer.tick(time.delta());
+        timer.tick();
         let texture_atlas = texture_atlases.get(texture_atlas_handle).unwrap();
         //An odd place to do this, but ok for now, make sure the sprite is facing the right direciton
         match screen_side {

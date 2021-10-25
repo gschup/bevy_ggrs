@@ -55,8 +55,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     App::new()
         .insert_resource(WindowDescriptor {
             title: "MKP Fighting".to_string(),
-            width: 1600.,
-            height: 400.,
             vsync: true,
             ..Default::default()
         })

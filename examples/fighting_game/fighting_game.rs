@@ -53,7 +53,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let collider_both = Path::new("./assets/hitboxes/character_1.json");
     App::new()
-        .add_plugins(DefaultPlugins)
         .insert_resource(WindowDescriptor {
             title: "MKP Fighting".to_string(),
             width: 1600.,
@@ -61,6 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             vsync: true,
             ..Default::default()
         })
+        .add_plugins(DefaultPlugins)
         .add_plugin(GGRSPlugin)
         .insert_resource(opt)
         .add_state(GameState::Setup)

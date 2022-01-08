@@ -7,7 +7,6 @@ description = "Bevy plugin for the GGRS P2P rollback networking library"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/gschup/bevy_ggrs"
-homepage = "https://gschup.github.io/ggrs/"
 keywords = ["gamedev", "networking", "ggpo", "rollback", "bevy", "ggrs"]
 categories = ["network-programming", "game-development"]
 

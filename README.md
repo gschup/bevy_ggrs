@@ -1,5 +1,6 @@
 # [![GGRS LOGO](./ggrs_logo.png)](https://gschup.github.io/ggrs/)
 
+[![crates.io](https://img.shields.io/crates/v/bevy_ggrs?style=for-the-badge)](https://crates.io/crates/bevy_ggrs)
 ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/gschup/bevy_ggrs/Rust?style=for-the-badge)
 
 ## Bevy GGRS
@@ -21,9 +22,11 @@ When the default schedule runs the `GGRSStage`, it polls the session and execute
 
 Since bevy_ggrs operates with a separate schedule, compatibility with other plugins might be complicated to achieve out of the box, as all gamestate-relevant systems needs to somehow end up inside the internal GGRS schedule to be updated together the rest of the game systems.
 
-## Development Status
+## Compatible Versions
 
-⚠️Disclaimer⚠️: bevy_ggrs is in a very early stage. This plugin currently depends on the latest bevy developments and is thus incompatible with bevy releases on crates.io. Once bevy 0.6 releases, I will also make a stable release!
+|bevy|bevy_ggrs|
+|---|---|
+|0.6|0.1|
 
 ## Thanks
 

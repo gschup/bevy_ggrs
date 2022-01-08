@@ -28,7 +28,7 @@ struct RollbackEntity {
 impl Default for RollbackEntity {
     fn default() -> Self {
         Self {
-            entity: Entity::new(0),
+            entity: Entity::from_raw(0),
             ..Default::default()
         }
     }
@@ -194,7 +194,6 @@ impl WorldSnapshot {
             let reflect_resource = match registration.data::<ReflectResource>() {
                 Some(res) => res,
                 None => {
-                    println!("DIDNT WORK {}", registration.name());
                     continue;
                 }
             };

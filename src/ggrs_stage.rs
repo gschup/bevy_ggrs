@@ -1,7 +1,7 @@
 use bevy::{prelude::*, reflect::TypeRegistry};
 use ggrs::{
     GGRSError, GGRSRequest, GameInput, GameState, GameStateCell, P2PSession, P2PSpectatorSession,
-    PlayerHandle, SessionState, SyncTestSession, MAX_PREDICTION_FRAMES,
+    PlayerHandle, SessionState, SyncTestSession,
 };
 use instant::{Duration, Instant};
 
@@ -18,8 +18,8 @@ pub(crate) struct GGRSStage {
     pub(crate) type_registry: TypeRegistry,
     /// This system is used to get an encoded representation of the input that GGRS can handle
     pub(crate) input_system: Option<Box<dyn System<In = PlayerHandle, Out = Vec<u8>>>>,
-    /// Instead of using GGRS's internal storage for encoded save states, we save the world here, avoiding encoding into `Vec<u8>`.
-    snapshots: [WorldSnapshot; MAX_PREDICTION_FRAMES as usize + 2],
+    /// Instead of using GGRS's internal storage for encoded save states, we save the world here, avoiding serialization into `Vec<u8>`.
+    snapshots: Vec<WorldSnapshot>,
     /// fixed FPS our logic is running with
     update_frequency: u32,
     /// counts the number of frames that have been executed
@@ -80,7 +80,7 @@ impl GGRSStage {
             schedule: Schedule::default(),
             type_registry: TypeRegistry::default(),
             input_system: None,
-            snapshots: Default::default(),
+            snapshots: Vec::new(),
             frame: 0,
             update_frequency: 60,
             last_update: Instant::now(),
@@ -94,10 +94,25 @@ impl GGRSStage {
         self.accumulator = Duration::ZERO;
         self.frame = 0;
         self.run_slow = false;
+        self.snapshots = Vec::new();
     }
 
     pub(crate) fn run_synctest(&mut self, world: &mut World) {
         let mut request_vec = None;
+
+        // if our snapshot vector is not initialized, resize it accordingly
+        if self.snapshots.len() == 0 {
+            // find out what the maximum prediction window is in this synctest
+            let max_pred = world
+                .get_resource::<SyncTestSession>()
+                .map(|session| session.max_prediction())
+                .expect(
+                "No GGRS SyncTestSession found. Please start a session and add it as a resource.",
+                );
+            for _ in 0..max_pred {
+                self.snapshots.push(WorldSnapshot::default());
+            }
+        }
 
         // find out how many players are in this synctest
         let num_players = world
@@ -171,6 +186,20 @@ impl GGRSStage {
     pub(crate) fn run_p2p(&mut self, world: &mut World) {
         let mut request_vec = None;
 
+        // if our snapshot vector is not initialized, resize it accordingly
+        if self.snapshots.len() == 0 {
+            // find out what the maximum prediction window is in this synctest
+            let max_pred = world
+                .get_resource::<P2PSession>()
+                .map(|session| session.max_prediction())
+                .expect(
+                    "No GGRS P2PSession found. Please start a session and add it as a resource.",
+                );
+            for _ in 0..max_pred {
+                self.snapshots.push(WorldSnapshot::default());
+            }
+        }
+
         // get input for the local player
         let local_handle = if let Some(session) = world.get_resource::<P2PSession>() {
             session.local_player_handle()
@@ -223,7 +252,7 @@ impl GGRSStage {
         for request in requests {
             match request {
                 GGRSRequest::SaveGameState { cell, frame } => self.save_world(cell, frame, world),
-                GGRSRequest::LoadGameState { cell } => self.load_world(cell, world),
+                GGRSRequest::LoadGameState { cell, .. } => self.load_world(cell, world),
                 GGRSRequest::AdvanceFrame { inputs } => self.advance_frame(inputs, world),
             }
         }

@@ -9,6 +9,7 @@ mod box_game;
 use box_game::*;
 
 const INPUT_SIZE: usize = std::mem::size_of::<u8>();
+const MAX_ROLLBACK_LENGTH: usize = 16;
 const FPS: u32 = 60;
 const ROLLBACK_DEFAULT: &str = "rollback_default";
 
@@ -32,13 +33,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     assert!(num_players > 0);
 
     // create a GGRS P2P session
-    let mut p2p_sess = P2PSession::new(num_players as u32, INPUT_SIZE, opt.local_port)?;
+    let mut p2p_sess = P2PSession::new(
+        num_players as u32,
+        INPUT_SIZE,
+        MAX_ROLLBACK_LENGTH,
+        opt.local_port,
+    )?;
 
     // set default expected update frequency (affects synchronization timings between players)
     p2p_sess.set_fps(FPS).expect("Invalid fps");
 
-    // turn on sparse saving
-    p2p_sess.set_sparse_saving(true)?;
+    // turn on sparse saving, if desired
+    // p2p_sess.set_sparse_saving(true)?;
 
     App::new()
         .insert_resource(Msaa { samples: 4 })

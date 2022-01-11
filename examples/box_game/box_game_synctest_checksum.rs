@@ -7,6 +7,7 @@ mod box_game;
 use box_game::*;
 
 const INPUT_SIZE: usize = std::mem::size_of::<u8>();
+const MAX_ROLLBACK_LENGTH: usize = 16;
 const FPS: u32 = 60;
 const ROLLBACK_DEFAULT: &str = "rollback_default";
 const CHECKSUM_STAGE: &str = "checksum";
@@ -17,7 +18,7 @@ struct Opt {
     #[structopt(short, long)]
     num_players: usize,
     #[structopt(short, long)]
-    check_distance: u32,
+    check_distance: usize,
 }
 
 // If your Component / Resource implements Hash, you can make use of `#[reflect(Hash)]`
@@ -64,8 +65,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opt = Opt::from_args();
 
     // start a GGRS SyncTest session, which will simulate rollbacks every frame
-    let mut sync_sess =
-        SyncTestSession::new(opt.num_players as u32, INPUT_SIZE, opt.check_distance)?;
+    let mut sync_sess = SyncTestSession::new(
+        opt.num_players as u32,
+        INPUT_SIZE,
+        MAX_ROLLBACK_LENGTH,
+        opt.check_distance,
+    )?;
 
     // set input delay for any player you want (if you want)
     for i in 0..opt.num_players {

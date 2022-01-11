@@ -1,6 +1,6 @@
 [package]
 name = "bevy_ggrs"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Georg Schuppe <georg.schuppe@gmail.com>"]
 edition = "2021"
 description = "Bevy plugin for the GGRS P2P rollback networking library"
@@ -15,7 +15,7 @@ categories = ["network-programming", "game-development"]
 [dependencies]
 bevy = { version = "0.6", default-features = false }
 instant = "0.1"
-ggrs = "0.6"
+ggrs = "0.7.1"
 
 [dev-dependencies]
 structopt = "0.3"

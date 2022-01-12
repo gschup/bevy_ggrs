@@ -15,7 +15,7 @@ categories = ["network-programming", "game-development"]
 [dependencies]
 bevy = { version = "0.6", default-features = false }
 instant = "0.1"
-ggrs = "0.7.1"
+ggrs = "0.7.2"
 
 [dev-dependencies]
 structopt = "0.3"

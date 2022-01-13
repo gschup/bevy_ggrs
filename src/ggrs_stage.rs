@@ -265,10 +265,10 @@ impl GGRSStage {
         let snapshot = WorldSnapshot::from_world(world, &self.type_registry);
 
         // we don't use the buffer provided by GGRS
-        let state = GameState::new(self.frame, None, Some(snapshot.checksum));
+        let state = GameState::new_with_checksum(self.frame, None, snapshot.checksum);
         cell.save(state);
 
-        // store the snapshot ourselves
+        // store the snapshot ourselves (since the snapshots don't implement clone)
         let pos = frame as usize % self.snapshots.len();
         self.snapshots[pos] = snapshot;
     }

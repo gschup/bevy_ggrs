@@ -15,7 +15,7 @@ const INPUT_LEFT: u8 = 1 << 2;
 const INPUT_RIGHT: u8 = 1 << 3;
 
 const MOVEMENT_SPEED: f32 = 0.005;
-const MAX_SPEED: f32 = 0.1;
+const MAX_SPEED: f32 = 0.05;
 const FRICTION: f32 = 0.9;
 const PLANE_SIZE: f32 = 5.0;
 const CUBE_SIZE: f32 = 0.2;
@@ -168,13 +168,14 @@ pub fn move_cube_system(
         }
         v.y *= FRICTION;
 
-        // constrain velocity (this way allows for fast diagonal movement, but its just an example)
-        v.x = v.x.min(MAX_SPEED);
-        v.x = v.x.max(-MAX_SPEED);
-        v.y = v.y.min(MAX_SPEED);
-        v.y = v.y.max(-MAX_SPEED);
-        v.z = v.z.min(MAX_SPEED);
-        v.z = v.z.max(-MAX_SPEED);
+        // constrain velocity
+        let mag = (v.x * v.x + v.y * v.y + v.z * v.z).sqrt();
+        if mag > MAX_SPEED {
+            let factor = MAX_SPEED / mag;
+            v.x *= factor;
+            v.y *= factor;
+            v.z *= factor;
+        }
 
         // apply velocity
         t.translation.x += v.x;

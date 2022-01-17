@@ -24,9 +24,9 @@ Since bevy_ggrs operates with a separate schedule, compatibility with other plug
 
 ## Compatible Versions
 
-|bevy|bevy_ggrs|
-|---|---|
-|0.6|0.1|
+|bevy|bevy_ggrs|ggrs|
+|---|---|---|
+|0.6|>=0.1.3|0.8|
 
 ## Thanks
 

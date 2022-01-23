@@ -88,10 +88,16 @@ pub trait GGRSApp {
     fn with_synctest_session(&mut self, sess: SyncTestSession) -> &mut Self;
 
     /// Adds the given `ggrs::P2PSession` to your app.
-    fn with_p2p_session(&mut self, sess: P2PSession) -> &mut Self;
+    fn with_p2p_session<A: 'static + Eq + Send + Sync>(
+        &mut self,
+        sess: P2PSession<Vec<u8>, A>,
+    ) -> &mut Self;
 
     /// Adds the given `ggrs::P2PSpectatorSession` to your app.
-    fn with_p2p_spectator_session(&mut self, sess: P2PSpectatorSession) -> &mut Self;
+    fn with_p2p_spectator_session<A: 'static + Eq + Send + Sync>(
+        &mut self,
+        sess: P2PSpectatorSession<A>,
+    ) -> &mut Self;
 
     /// Adds a schedule into the GGRSStage that holds the game logic systems. This schedule should contain all
     /// systems you want to be executed during frame advances.
@@ -124,13 +130,19 @@ impl GGRSApp for App {
         self
     }
 
-    fn with_p2p_session(&mut self, session: P2PSession) -> &mut Self {
+    fn with_p2p_session<A: 'static + Eq + Send + Sync>(
+        &mut self,
+        session: P2PSession<Vec<u8>, A>,
+    ) -> &mut Self {
         self.insert_resource(SessionType::P2PSession);
         self.insert_resource(session);
         self
     }
 
-    fn with_p2p_spectator_session(&mut self, session: P2PSpectatorSession) -> &mut Self {
+    fn with_p2p_spectator_session<A: 'static + Eq + Send + Sync>(
+        &mut self,
+        session: P2PSpectatorSession<A>,
+    ) -> &mut Self {
         self.insert_resource(SessionType::P2PSpectatorSession);
         self.insert_resource(session);
         self
@@ -198,14 +210,17 @@ impl GGRSApp for App {
 }
 
 pub trait CommandsExt {
-    fn start_p2p_session(&mut self, session: P2PSession);
+    fn start_p2p_session<A: 'static + Eq + Send + Sync>(&mut self, session: P2PSession<Vec<u8>, A>);
     fn start_p2p_spectator_session(&mut self, session: P2PSpectatorSession);
     fn start_synctest_session(&mut self, session: SyncTestSession);
     fn stop_session(&mut self);
 }
 
 impl CommandsExt for Commands<'_, '_> {
-    fn start_p2p_session(&mut self, session: P2PSession) {
+    fn start_p2p_session<A: 'static + Eq + Send + Sync>(
+        &mut self,
+        session: P2PSession<Vec<u8>, A>,
+    ) {
         self.add(StartP2PSessionCommand(session));
     }
 
@@ -222,9 +237,12 @@ impl CommandsExt for Commands<'_, '_> {
     }
 }
 
-struct StartP2PSpectatorSessionCommand(P2PSpectatorSession);
+struct StartP2PSessionCommand<A: 'static + Eq + Send + Sync>(P2PSession<Vec<u8>, A>);
+struct StartP2PSpectatorSessionCommand<A: 'static + Eq + Send + Sync>(P2PSpectatorSession<A>);
+struct StartSyncTestSessionCommand(SyncTestSession);
+struct StopSessionCommand;
 
-impl Command for StartP2PSessionCommand {
+impl<A: 'static + Eq + Send + Sync> Command for StartP2PSessionCommand<A> {
     fn write(mut self, world: &mut World) {
         // caller is responsible that the session is either already running...
         if self.0.current_state() == SessionState::Initializing {
@@ -236,9 +254,7 @@ impl Command for StartP2PSessionCommand {
     }
 }
 
-struct StartP2PSessionCommand(P2PSession);
-
-impl Command for StartP2PSpectatorSessionCommand {
+impl<A: 'static + Eq + Send + Sync> Command for StartP2PSpectatorSessionCommand<A> {
     fn write(mut self, world: &mut World) {
         // caller is responsible that the session is either already running...
         if self.0.current_state() == SessionState::Initializing {
@@ -250,16 +266,12 @@ impl Command for StartP2PSpectatorSessionCommand {
     }
 }
 
-struct StartSyncTestSessionCommand(SyncTestSession);
-
 impl Command for StartSyncTestSessionCommand {
     fn write(self, world: &mut World) {
         world.insert_resource(self.0);
         world.insert_resource(SessionType::SyncTestSession);
     }
 }
-
-struct StopSessionCommand;
 
 impl Command for StopSessionCommand {
     fn write(self, world: &mut World) {

@@ -29,3 +29,7 @@ serde_json = "1.0"
 [[example]]
 name = "box_game_p2p"
 path = "examples/box_game/box_game_p2p.rs"
+
+[[example]]
+name = "box_game_spectator"
+path = "examples/box_game/box_game_spectator.rs"

@@ -112,7 +112,7 @@ pub trait GGRSApp {
     fn with_p2p_session<T: Config>(&mut self, sess: P2PSession<T>) -> &mut Self;
 
     /// Adds the given `ggrs::P2PSpectatorSession` to your app.
-    fn with_p2p_spectator_session<T: Config>(&mut self, sess: SpectatorSession<T>) -> &mut Self;
+    fn with_spectator_session<T: Config>(&mut self, sess: SpectatorSession<T>) -> &mut Self;
 
     /// Adds a schedule into the GGRSStage that holds the game logic systems. This schedule should contain all
     /// systems you want to be executed during frame advances.
@@ -146,7 +146,7 @@ impl GGRSApp for App {
         self
     }
 
-    fn with_p2p_spectator_session<T: Config>(&mut self, session: SpectatorSession<T>) -> &mut Self {
+    fn with_spectator_session<T: Config>(&mut self, session: SpectatorSession<T>) -> &mut Self {
         self.insert_resource(SessionType::SpectatorSession);
         self.insert_resource(session);
         self

@@ -2,14 +2,12 @@ use std::net::SocketAddr;
 
 use bevy::prelude::*;
 use bevy_ggrs::{GGRSApp, GGRSPlugin};
-use ggrs::{P2PSession, PlayerType};
+use ggrs::{P2PSession, PlayerType, SessionBuilder, UdpNonBlockingSocket};
 use structopt::StructOpt;
 
 mod box_game;
 use box_game::*;
 
-const INPUT_SIZE: usize = std::mem::size_of::<u8>();
-const MAX_ROLLBACK_LENGTH: usize = 16;
 const FPS: u32 = 60;
 const ROLLBACK_DEFAULT: &str = "rollback_default";
 
@@ -32,19 +30,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let num_players = opt.players.len();
     assert!(num_players > 0);
 
-    // create a GGRS P2P session
-    let mut p2p_sess = P2PSession::new(
-        num_players as u32,
-        INPUT_SIZE,
-        MAX_ROLLBACK_LENGTH,
-        opt.local_port,
-    )?;
+    // create a GGRS session
+    let mut sess_build = SessionBuilder::<GGRSConfig>::new()
+        .with_num_players(num_players)
+        .with_max_prediction_window(12) // (optional) set max prediction window
+        .with_input_delay(2); // (optional) set input delay for the local player
 
-    // set default expected update frequency (affects synchronization timings between players)
-    p2p_sess.set_fps(FPS).expect("Invalid fps");
+    // add players
+    for (i, player_addr) in opt.players.iter().enumerate() {
+        // local player
+        if player_addr == "localhost" {
+            sess_build = sess_build.add_player(PlayerType::Local, i)?;
+        } else {
+            // remote players
+            let remote_addr: SocketAddr = player_addr.parse()?;
+            sess_build = sess_build.add_player(PlayerType::Remote(remote_addr), i)?;
+        }
+    }
 
-    // turn on sparse saving, if desired
-    // p2p_sess.set_sparse_saving(true)?;
+    // optionally, add spectators
+    for (i, spec_addr) in opt.spectators.iter().enumerate() {
+        sess_build = sess_build.add_player(PlayerType::Spectator(*spec_addr), num_players + i)?;
+    }
+
+    // start the GGRS session
+    let socket = UdpNonBlockingSocket::bind_to_port(opt.local_port)?;
+    let sess = sess_build.start_p2p_session(socket)?;
 
     App::new()
         .insert_resource(Msaa { samples: 4 })
@@ -57,25 +68,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .insert_resource(opt)
         .add_plugins(DefaultPlugins)
-        .add_plugin(GGRSPlugin)
-        .add_startup_system(start_p2p_session)
+        .add_plugin(GGRSPlugin::<GGRSConfig>::default())
         .add_startup_system(setup_system)
         // add your GGRS session
-        .with_p2p_session(p2p_sess)
+        .with_p2p_session(sess)
         // define frequency of rollback game logic update
-        .with_update_frequency(FPS)
+        .with_update_frequency::<GGRSConfig>(FPS)
         // define system that represents your inputs as a byte vector, so GGRS can send the inputs around
-        .with_input_system(input)
+        .with_input_system::<GGRSConfig, _>(input.system())
         // register components that will be loaded/saved
         .register_rollback_type::<Transform>()
         .register_rollback_type::<Velocity>()
         // you can also insert resources that will be loaded/saved
-        .insert_rollback_resource(FrameCount { frame: 0 })
+        .insert_resource(FrameCount { frame: 0 })
+        .register_rollback_type::<FrameCount>()
         // these systems will be executed as part of the advance frame update
-        .with_rollback_schedule(
+        .with_rollback_schedule::<GGRSConfig>(
             Schedule::default().with_stage(
                 ROLLBACK_DEFAULT,
-                SystemStage::single_threaded()
+                SystemStage::parallel()
                     .with_system(move_cube_system)
                     .with_system(increase_frame_system),
             ),
@@ -83,49 +94,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         //print some network stats
         .insert_resource(NetworkStatsTimer(Timer::from_seconds(2.0, true)))
         .add_system(print_network_stats_system)
+        .add_system(print_events_system)
         .run();
 
     Ok(())
 }
 
-fn start_p2p_session(mut p2p_sess: ResMut<P2PSession>, opt: Res<Opt>) {
-    let mut local_handle = 0;
-    let num_players = p2p_sess.num_players() as usize;
-
-    // add players
-    for (i, player_addr) in opt.players.iter().enumerate() {
-        // local player
-        if player_addr == "localhost" {
-            p2p_sess.add_player(PlayerType::Local, i).unwrap();
-            local_handle = i;
-        } else {
-            // remote players
-            let remote_addr: SocketAddr =
-                player_addr.parse().expect("Invalid remote player address");
-            p2p_sess
-                .add_player(PlayerType::Remote(remote_addr), i)
-                .unwrap();
-        }
+fn print_events_system(mut session: ResMut<P2PSession<GGRSConfig>>) {
+    for event in session.events() {
+        println!("GGRS Event: {:?}", event);
     }
-
-    // optionally, add spectators
-    for (i, spec_addr) in opt.spectators.iter().enumerate() {
-        p2p_sess
-            .add_player(PlayerType::Spectator(*spec_addr), num_players + i)
-            .unwrap();
-    }
-
-    // set input delay for the local player
-    p2p_sess.set_frame_delay(2, local_handle).unwrap();
-
-    // start the GGRS session
-    p2p_sess.start_session().unwrap();
 }
 
 fn print_network_stats_system(
     time: Res<Time>,
     mut timer: ResMut<NetworkStatsTimer>,
-    p2p_session: Option<Res<P2PSession>>,
+    p2p_session: Option<Res<P2PSession<GGRSConfig>>>,
 ) {
     // print only when timer runs out
     if timer.0.tick(time.delta()).just_finished() {

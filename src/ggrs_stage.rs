@@ -1,23 +1,26 @@
+use crate::{world_snapshot::WorldSnapshot, SessionType};
 use bevy::{prelude::*, reflect::TypeRegistry};
 use ggrs::{
-    GGRSError, GGRSRequest, GameInput, GameState, GameStateCell, P2PSession, P2PSpectatorSession,
-    PlayerHandle, SessionState, SyncTestSession,
+    Config, GGRSError, GGRSRequest, GameState, GameStateCell, P2PSession, PlayerHandle,
+    PlayerInput, SessionState, SpectatorSession, SyncTestSession,
 };
 use instant::{Duration, Instant};
-
-use crate::{world_snapshot::WorldSnapshot, SessionType};
+use std::marker::PhantomData;
 
 /// Marker resource that triggers resetting the stage session state
 pub(crate) struct GGRSStageResetSession;
 
 /// The GGRSStage handles updating, saving and loading the game state.
-pub(crate) struct GGRSStage {
+pub(crate) struct GGRSStage<T>
+where
+    T: Config,
+{
     /// Inside this schedule, all rollback systems are registered.
     schedule: Schedule,
     /// Used to register all types considered when loading and saving
     pub(crate) type_registry: TypeRegistry,
     /// This system is used to get an encoded representation of the input that GGRS can handle
-    pub(crate) input_system: Option<Box<dyn System<In = PlayerHandle, Out = Vec<u8>>>>,
+    pub(crate) input_system: Option<Box<dyn System<In = PlayerHandle, Out = T::Input>>>,
     /// Instead of using GGRS's internal storage for encoded save states, we save the world here, avoiding serialization into `Vec<u8>`.
     snapshots: Vec<WorldSnapshot>,
     /// fixed FPS our logic is running with
@@ -30,11 +33,12 @@ pub(crate) struct GGRSStage {
     accumulator: Duration,
     /// boolean to see if we should run slow to let remote clients catch up
     run_slow: bool,
+    phantom_data: PhantomData<T>,
 }
 
-impl Stage for GGRSStage {
+impl<T: Config + Send + Sync> Stage for GGRSStage<T> {
     fn run(&mut self, world: &mut World) {
-        if let Some(_) = world.remove_resource::<GGRSStageResetSession>() {
+        if world.remove_resource::<GGRSStageResetSession>().is_some() {
             self.reset_session();
         }
 
@@ -48,10 +52,10 @@ impl Stage for GGRSStage {
         self.last_update = Instant::now();
 
         // no matter what, poll remotes and send responses
-        if let Some(mut sess) = world.get_resource_mut::<P2PSession>() {
+        if let Some(mut sess) = world.get_resource_mut::<P2PSession<T>>() {
             sess.poll_remote_clients();
         }
-        if let Some(mut sess) = world.get_resource_mut::<P2PSpectatorSession>() {
+        if let Some(mut sess) = world.get_resource_mut::<SpectatorSession<T>>() {
             sess.poll_remote_clients();
         }
 
@@ -67,14 +71,14 @@ impl Stage for GGRSStage {
             match session {
                 Some(SessionType::SyncTestSession) => self.run_synctest(world),
                 Some(SessionType::P2PSession) => self.run_p2p(world),
-                Some(SessionType::P2PSpectatorSession) => self.run_spectator(world),
+                Some(SessionType::SpectatorSession) => self.run_spectator(world),
                 None => {} // No session has been started yet
             }
         }
     }
 }
 
-impl GGRSStage {
+impl<T: Config> GGRSStage<T> {
     pub(crate) fn new() -> Self {
         Self {
             schedule: Schedule::default(),
@@ -86,6 +90,7 @@ impl GGRSStage {
             last_update: Instant::now(),
             accumulator: Duration::ZERO,
             run_slow: false,
+            phantom_data: Default::default(),
         }
     }
 
@@ -101,10 +106,10 @@ impl GGRSStage {
         let mut request_vec = None;
 
         // if our snapshot vector is not initialized, resize it accordingly
-        if self.snapshots.len() == 0 {
+        if self.snapshots.is_empty() {
             // find out what the maximum prediction window is in this synctest
             let max_pred = world
-                .get_resource::<SyncTestSession>()
+                .get_resource::<SyncTestSession<T>>()
                 .map(|session| session.max_prediction())
                 .expect(
                 "No GGRS SyncTestSession found. Please start a session and add it as a resource.",
@@ -116,7 +121,7 @@ impl GGRSStage {
 
         // find out how many players are in this synctest
         let num_players = world
-            .get_resource::<SyncTestSession>()
+            .get_resource::<SyncTestSession<T>>()
             .map(|session| session.num_players())
             .expect(
                 "No GGRS SyncTestSession found. Please start a session and add it as a resource.",
@@ -134,11 +139,16 @@ impl GGRSStage {
         }
 
         // try to advance the frame
-        match world.get_resource_mut::<SyncTestSession>() {
-            Some(mut session) => match session.advance_frame(&inputs) {
-                Ok(requests) => request_vec = Some(requests),
-                Err(e) => println!("{}", e),
-            },
+        match world.get_resource_mut::<SyncTestSession<T>>() {
+            Some(mut session) => {
+                for (player_handle, &input) in inputs.iter().enumerate() {
+                    session.add_local_input(player_handle, input).unwrap();
+                }
+                match session.advance_frame() {
+                    Ok(requests) => request_vec = Some(requests),
+                    Err(e) => println!("{}", e),
+                }
+            }
             None => {
                 println!("No GGRS SyncTestSession found. Please start a session and add it as a resource.")
             }
@@ -154,7 +164,7 @@ impl GGRSStage {
         let mut request_vec = None;
 
         // run spectator session, no input necessary
-        match world.get_resource_mut::<P2PSpectatorSession>() {
+        match world.get_resource_mut::<SpectatorSession<T>>() {
             Some(mut session) => {
                 // if session is ready, try to advance the frame
                 if session.current_state() == SessionState::Running {
@@ -165,11 +175,6 @@ impl GGRSStage {
                         }
                         Err(e) => println!("{}", e),
                     };
-                }
-
-                // display all events
-                for event in session.events() {
-                    println!("GGRS Event: {:?}", event);
                 }
             }
             None => {
@@ -187,10 +192,10 @@ impl GGRSStage {
         let mut request_vec = None;
 
         // if our snapshot vector is not initialized, resize it accordingly
-        if self.snapshots.len() == 0 {
+        if self.snapshots.is_empty() {
             // find out what the maximum prediction window is in this synctest
             let max_pred = world
-                .get_resource::<P2PSession>()
+                .get_resource::<P2PSession<T>>()
                 .map(|session| session.max_prediction())
                 .expect(
                     "No GGRS P2PSession found. Please start a session and add it as a resource.",
@@ -200,25 +205,33 @@ impl GGRSStage {
             }
         }
 
-        // get input for the local player
-        let local_handle = if let Some(session) = world.get_resource::<P2PSession>() {
-            session.local_player_handle()
-        } else {
-            None
+        // get local player handles
+        let local_handles = world
+            .get_resource::<P2PSession<T>>()
+            .map(|session| session.local_player_handles())
+            .expect("No GGRS P2PSession found. Please start a session and add it as a resource.");
+
+        // get local player inputs
+        let mut local_inputs = Vec::new();
+        for &local_handle in &local_handles {
+            let input = self
+                .input_system
+                .as_mut()
+                .expect("No input system found. Please use AppBuilder::with_input_system.")
+                .run(local_handle, world);
+            local_inputs.push(input);
         }
-        .expect("No GGRS P2PSession found. Please start a session and add it as a resource.");
 
-        let input = self
-            .input_system
-            .as_mut()
-            .expect("No input system found. Please use AppBuilder::with_input_system.")
-            .run(local_handle, world);
-
-        match world.get_resource_mut::<P2PSession>() {
+        match world.get_resource_mut::<P2PSession<T>>() {
             Some(mut session) => {
                 // if session is ready, try to advance the frame
                 if session.current_state() == SessionState::Running {
-                    match session.advance_frame(local_handle, &input) {
+                    for i in 0..local_inputs.len() {
+                        session
+                            .add_local_input(local_handles[i], local_inputs[i])
+                            .unwrap();
+                    }
+                    match session.advance_frame() {
                         Ok(requests) => request_vec = Some(requests),
                         Err(GGRSError::PredictionThreshold) => {
                             println!("Skipping a frame: PredictionThreshold.")
@@ -229,11 +242,6 @@ impl GGRSStage {
 
                 // if we are ahead, run slow
                 self.run_slow = session.frames_ahead() > 0;
-
-                // display all events
-                for event in session.events() {
-                    println!("GGRS Event: {:?}", event);
-                }
             }
             None => {
                 println!(
@@ -248,7 +256,7 @@ impl GGRSStage {
         }
     }
 
-    pub(crate) fn handle_requests(&mut self, requests: Vec<GGRSRequest>, world: &mut World) {
+    pub(crate) fn handle_requests(&mut self, requests: Vec<GGRSRequest<T>>, world: &mut World) {
         for request in requests {
             match request {
                 GGRSRequest::SaveGameState { cell, frame } => self.save_world(cell, frame, world),
@@ -258,7 +266,12 @@ impl GGRSStage {
         }
     }
 
-    pub(crate) fn save_world(&mut self, cell: GameStateCell, frame: i32, world: &mut World) {
+    pub(crate) fn save_world(
+        &mut self,
+        cell: GameStateCell<T::State>,
+        frame: i32,
+        world: &mut World,
+    ) {
         assert_eq!(self.frame, frame);
 
         // we make a snapshot of our world
@@ -273,7 +286,7 @@ impl GGRSStage {
         self.snapshots[pos] = snapshot;
     }
 
-    pub(crate) fn load_world(&mut self, cell: GameStateCell, world: &mut World) {
+    pub(crate) fn load_world(&mut self, cell: GameStateCell<T::State>, world: &mut World) {
         // since we haven't actually used the cell provided by GGRS
         let state = cell.load();
         self.frame = state.frame;
@@ -286,18 +299,12 @@ impl GGRSStage {
         snapshot_to_load.write_to_world(world, &self.type_registry);
     }
 
-    pub(crate) fn advance_frame(&mut self, inputs: Vec<GameInput>, world: &mut World) {
+    pub(crate) fn advance_frame(&mut self, inputs: Vec<PlayerInput<T::Input>>, world: &mut World) {
         world.insert_resource(inputs);
         self.schedule.run_once(world);
-        world.remove_resource::<Vec<GameInput>>();
+        world.remove_resource::<Vec<PlayerInput<T::Input>>>();
         self.frame += 1;
     }
-
-    /*
-    pub(crate) const fn update_frequency(&self) -> u32 {
-        self.update_frequency
-    }
-    */
 
     pub(crate) fn set_update_frequency(&mut self, update_frequency: u32) {
         self.update_frequency = update_frequency

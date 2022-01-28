@@ -31,7 +31,14 @@ For the spectator, the following command-line arguments exist:
 - `--num-players / -n`: number of players that will participate in the game
 - `--host / -h`: address of the host
 
-For example, to run a two-player game with a spectator,
+For example, to run a two-player game, run these commands in separate terminals:
+
+```shell
+cargo run --example box_game_p2p -- --local-port 7000 --players localhost 127.0.0.1:7001
+cargo run --example box_game_p2p -- --local-port 7001 --players 127.0.0.1:7000 localhost
+```
+
+In order to run a two-player game with a spectator,
 run these commands in separate terminals:
 
 ```shell

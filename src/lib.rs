@@ -2,13 +2,14 @@
 #![forbid(unsafe_code)] // let us try
 
 use bevy::{
-    ecs::system::{Command, Resource},
+    ecs::system::Command,
     prelude::*,
-    reflect::{FromType, GetTypeRegistration},
+    reflect::{FromType, GetTypeRegistration, TypeRegistry},
 };
-use ggrs::{P2PSession, P2PSpectatorSession, PlayerHandle, SessionState, SyncTestSession};
+use ggrs::{Config, P2PSession, PlayerHandle, SpectatorSession, SyncTestSession};
 use ggrs_stage::{GGRSStage, GGRSStageResetSession};
 use reflect_resource::ReflectResource;
+use std::marker::PhantomData;
 
 pub(crate) mod ggrs_stage;
 pub(crate) mod reflect_resource;
@@ -22,7 +23,7 @@ pub const GGRS_UPDATE: &str = "ggrs_update";
 pub enum SessionType {
     SyncTestSession,
     P2PSession,
-    P2PSpectatorSession,
+    SpectatorSession,
 }
 
 impl Default for SessionType {
@@ -70,215 +71,176 @@ impl RollbackIdProvider {
     }
 }
 
-/// Provides all functionality for the GGRS p2p rollback networking library.
-pub struct GGRSPlugin;
+#[derive(Default)]
+pub struct RollbackTypeRegistry {
+    pub registry: TypeRegistry,
+}
 
-impl Plugin for GGRSPlugin {
+/// Provides all functionality for the GGRS p2p rollback networking library.
+pub struct GGRSPlugin<T>
+where
+    T: Config,
+{
+    phantom_data: PhantomData<T>,
+}
+
+impl<T: Config> Default for GGRSPlugin<T> {
+    fn default() -> Self {
+        Self {
+            phantom_data: Default::default(),
+        }
+    }
+}
+
+impl<T: Config + Send + Sync> Plugin for GGRSPlugin<T> {
     fn build(&self, app: &mut App) {
         // ggrs stage
-        app.add_stage_before(CoreStage::Update, GGRS_UPDATE, GGRSStage::new());
+        app.add_stage_before(CoreStage::Update, GGRS_UPDATE, GGRSStage::<T>::new());
         // insert a rollback id provider
         app.insert_resource(RollbackIdProvider::default());
+        // insert rollback type registry
+        app.insert_resource(RollbackTypeRegistry::default());
     }
 }
 
 /// Extension trait for the `App`.
 pub trait GGRSApp {
     /// Adds the given `ggrs::SyncTestSession` to your app.
-    fn with_synctest_session(&mut self, sess: SyncTestSession) -> &mut Self;
+    fn with_synctest_session<T: Config>(&mut self, sess: SyncTestSession<T>) -> &mut Self;
 
     /// Adds the given `ggrs::P2PSession` to your app.
-    fn with_p2p_session<A: 'static + Eq + Send + Sync>(
-        &mut self,
-        sess: P2PSession<Vec<u8>, A>,
-    ) -> &mut Self;
+    fn with_p2p_session<T: Config>(&mut self, sess: P2PSession<T>) -> &mut Self;
 
     /// Adds the given `ggrs::P2PSpectatorSession` to your app.
-    fn with_p2p_spectator_session<A: 'static + Eq + Send + Sync>(
-        &mut self,
-        sess: P2PSpectatorSession<A>,
-    ) -> &mut Self;
+    fn with_p2p_spectator_session<T: Config>(&mut self, sess: SpectatorSession<T>) -> &mut Self;
 
     /// Adds a schedule into the GGRSStage that holds the game logic systems. This schedule should contain all
     /// systems you want to be executed during frame advances.
-    fn with_rollback_schedule(&mut self, schedule: Schedule) -> &mut Self;
+    fn with_rollback_schedule<T: Config>(&mut self, schedule: Schedule) -> &mut Self;
 
     /// Registers a given system as the input system. This system should provide encoded inputs for a given player.
-    fn with_input_system<Params>(
-        &mut self,
-        input_system: impl IntoSystem<PlayerHandle, Vec<u8>, Params>,
-    ) -> &mut Self;
+    fn with_input_system<T, S>(&mut self, input_system: S) -> &mut Self
+    where
+        T: Config,
+        S: System<In = PlayerHandle, Out = T::Input> + Send + Sync + 'static;
 
     /// Sets the fixed update frequency
-    fn with_update_frequency(&mut self, update_frequency: u32) -> &mut Self;
+    fn with_update_frequency<T: Config>(&mut self, update_frequency: u32) -> &mut Self;
 
     /// Registers a type of component for saving and loading during rollbacks.
-    fn register_rollback_type<T>(&mut self) -> &mut Self
+    fn register_rollback_type<Type>(&mut self) -> &mut Self
     where
-        T: GetTypeRegistration + Reflect + Default + Component;
-
-    // Inserts a resource in bevy with saving and loading during rollbacks.
-    fn insert_rollback_resource<T>(&mut self, resource: T) -> &mut Self
-    where
-        T: GetTypeRegistration + Reflect + Default + Component + Resource;
+        Type: GetTypeRegistration + Reflect + Default + Component;
 }
 
 impl GGRSApp for App {
-    fn with_synctest_session(&mut self, session: SyncTestSession) -> &mut Self {
+    fn with_synctest_session<T: Config>(&mut self, session: SyncTestSession<T>) -> &mut Self {
         self.insert_resource(SessionType::SyncTestSession);
         self.insert_resource(session);
         self
     }
 
-    fn with_p2p_session<A: 'static + Eq + Send + Sync>(
-        &mut self,
-        session: P2PSession<Vec<u8>, A>,
-    ) -> &mut Self {
+    fn with_p2p_session<T: Config>(&mut self, session: P2PSession<T>) -> &mut Self {
         self.insert_resource(SessionType::P2PSession);
         self.insert_resource(session);
         self
     }
 
-    fn with_p2p_spectator_session<A: 'static + Eq + Send + Sync>(
-        &mut self,
-        session: P2PSpectatorSession<A>,
-    ) -> &mut Self {
-        self.insert_resource(SessionType::P2PSpectatorSession);
+    fn with_p2p_spectator_session<T: Config>(&mut self, session: SpectatorSession<T>) -> &mut Self {
+        self.insert_resource(SessionType::SpectatorSession);
         self.insert_resource(session);
         self
     }
 
-    fn with_rollback_schedule(&mut self, schedule: Schedule) -> &mut Self {
+    fn with_rollback_schedule<T: Config>(&mut self, schedule: Schedule) -> &mut Self {
         let ggrs_stage = self
             .schedule
-            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
+            .get_stage_mut::<GGRSStage<T>>(&GGRS_UPDATE)
             .expect("No GGRSStage found! Did you install the GGRSPlugin?");
         ggrs_stage.set_schedule(schedule);
         self
     }
 
-    fn with_input_system<Params>(
-        &mut self,
-        input_system: impl IntoSystem<PlayerHandle, Vec<u8>, Params>,
-    ) -> &mut Self {
+    fn with_input_system<T, S>(&mut self, input_system: S) -> &mut Self
+    where
+        T: Config,
+        S: System<In = PlayerHandle, Out = T::Input> + Send + Sync + 'static,
+    {
         let mut input_system = input_system.system();
         input_system.initialize(&mut self.world);
         let ggrs_stage = self
             .schedule
-            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
+            .get_stage_mut::<GGRSStage<T>>(&GGRS_UPDATE)
             .expect("No GGRSStage found! Did you install the GGRSPlugin?");
         ggrs_stage.input_system = Some(Box::new(input_system));
         self
     }
 
-    fn with_update_frequency(&mut self, update_frequency: u32) -> &mut Self {
+    fn with_update_frequency<T: Config>(&mut self, update_frequency: u32) -> &mut Self {
         let ggrs_stage = self
             .schedule
-            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
+            .get_stage_mut::<GGRSStage<T>>(&GGRS_UPDATE)
             .expect("No GGRSStage found! Did you install the GGRSPlugin?");
         ggrs_stage.set_update_frequency(update_frequency);
         self
     }
 
-    fn register_rollback_type<T>(&mut self) -> &mut Self
+    fn register_rollback_type<Type>(&mut self) -> &mut Self
     where
-        T: GetTypeRegistration + Reflect + Default + Component,
+        Type: GetTypeRegistration + Reflect + Default + Component,
     {
-        let ggrs_stage = self
-            .schedule
-            .get_stage_mut::<GGRSStage>(&GGRS_UPDATE)
-            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
+        let rollback_registry = self
+            .world
+            .get_resource_mut::<RollbackTypeRegistry>()
+            .expect("No RollbackTypeRegistry found! Did you install the GGRSPlugin?");
+        let mut registry = rollback_registry.registry.write();
 
-        let mut registry = ggrs_stage.type_registry.write();
+        registry.register::<Type>();
 
-        registry.register::<T>();
-
-        let registration = registry.get_mut(std::any::TypeId::of::<T>()).unwrap();
-        registration.insert(<ReflectComponent as FromType<T>>::from_type());
-        registration.insert(<ReflectResource as FromType<T>>::from_type());
+        let registration = registry.get_mut(std::any::TypeId::of::<Type>()).unwrap();
+        registration.insert(<ReflectComponent as FromType<Type>>::from_type());
+        registration.insert(<ReflectResource as FromType<Type>>::from_type());
         drop(registry);
 
         self
     }
-
-    fn insert_rollback_resource<T>(&mut self, resource: T) -> &mut Self
-    where
-        T: GetTypeRegistration + Reflect + Default + Component + Resource,
-    {
-        self.insert_resource(resource).register_rollback_type::<T>()
-    }
 }
 
-pub trait CommandsExt {
-    fn start_p2p_session<A: 'static + Eq + Send + Sync>(&mut self, session: P2PSession<Vec<u8>, A>);
-    fn start_p2p_spectator_session(&mut self, session: P2PSpectatorSession);
-    fn start_synctest_session(&mut self, session: SyncTestSession);
+pub trait CommandsExt<T>
+where
+    T: Config,
+{
     fn stop_session(&mut self);
 }
 
-impl CommandsExt for Commands<'_, '_> {
-    fn start_p2p_session<A: 'static + Eq + Send + Sync>(
-        &mut self,
-        session: P2PSession<Vec<u8>, A>,
-    ) {
-        self.add(StartP2PSessionCommand(session));
-    }
-
-    fn start_p2p_spectator_session(&mut self, session: P2PSpectatorSession) {
-        self.add(StartP2PSpectatorSessionCommand(session));
-    }
-
-    fn start_synctest_session(&mut self, session: SyncTestSession) {
-        self.add(StartSyncTestSessionCommand(session));
-    }
-
+impl<T: Config + Send + Sync> CommandsExt<T> for Commands<'_, '_> {
     fn stop_session(&mut self) {
-        self.add(StopSessionCommand);
+        self.add(StopSessionCommand::<T>::new());
     }
 }
 
-struct StartP2PSessionCommand<A: 'static + Eq + Send + Sync>(P2PSession<Vec<u8>, A>);
-struct StartP2PSpectatorSessionCommand<A: 'static + Eq + Send + Sync>(P2PSpectatorSession<A>);
-struct StartSyncTestSessionCommand(SyncTestSession);
-struct StopSessionCommand;
+#[derive(Default)]
+struct StopSessionCommand<T>
+where
+    T: Config,
+{
+    phantom_data: PhantomData<T>,
+}
 
-impl<A: 'static + Eq + Send + Sync> Command for StartP2PSessionCommand<A> {
-    fn write(mut self, world: &mut World) {
-        // caller is responsible that the session is either already running...
-        if self.0.current_state() == SessionState::Initializing {
-            // ...or ready to be started
-            self.0.start_session().unwrap();
+impl<T: Config> StopSessionCommand<T> {
+    pub(crate) fn new() -> Self {
+        Self {
+            phantom_data: PhantomData::<T>::default(),
         }
-        world.insert_resource(self.0);
-        world.insert_resource(SessionType::P2PSession);
     }
 }
 
-impl<A: 'static + Eq + Send + Sync> Command for StartP2PSpectatorSessionCommand<A> {
-    fn write(mut self, world: &mut World) {
-        // caller is responsible that the session is either already running...
-        if self.0.current_state() == SessionState::Initializing {
-            // ...or ready to be started
-            self.0.start_session().unwrap();
-        }
-        world.insert_resource(self.0);
-        world.insert_resource(SessionType::P2PSpectatorSession);
-    }
-}
-
-impl Command for StartSyncTestSessionCommand {
-    fn write(self, world: &mut World) {
-        world.insert_resource(self.0);
-        world.insert_resource(SessionType::SyncTestSession);
-    }
-}
-
-impl Command for StopSessionCommand {
+impl<T: Config + Send + Sync> Command for StopSessionCommand<T> {
     fn write(self, world: &mut World) {
         world.remove_resource::<SessionType>();
-        world.remove_resource::<P2PSession>();
-        world.remove_resource::<SyncTestSession>();
-        world.remove_resource::<P2PSpectatorSession>();
+        world.remove_resource::<P2PSession<T>>();
+        world.remove_resource::<SyncTestSession<T>>();
+        world.remove_resource::<SpectatorSession<T>>();
         world.insert_resource(GGRSStageResetSession);
     }
 }

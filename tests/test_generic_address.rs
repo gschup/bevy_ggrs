@@ -1,52 +1,22 @@
 mod stubs;
 
-use crate::stubs::FakeSocket;
+use crate::stubs::{FakeSocket, StubConfig};
 use bevy::prelude::*;
 use bevy_ggrs::{GGRSApp, GGRSPlugin};
-use ggrs::P2PSession;
-use stubs::*;
+use ggrs::{GGRSError, PlayerType, SessionBuilder};
 
 #[test]
-fn test_create_generic_addr_session() {
+fn test_create_generic_addr_bevy_app() -> Result<(), GGRSError> {
     let fake_socket = FakeSocket::new();
-    let _sess = P2PSession::<Vec<u8>, String>::new_with_socket(
-        2,
-        stubs::INPUT_SIZE,
-        stubs::MAX_PRED_FRAMES,
-        fake_socket,
-    );
-}
-
-#[test]
-fn test_create_generic_addr_bevy_app() {
-    let fake_socket = FakeSocket::new();
-    let mut sess = P2PSession::<Vec<u8>, String>::new_with_socket(
-        2,
-        stubs::INPUT_SIZE,
-        stubs::MAX_PRED_FRAMES,
-        fake_socket,
-    );
-
-    // set default expected update frequency (affects synchronization timings between players)
-    sess.set_fps(60).unwrap();
-
-    App::new().add_plugin(GGRSPlugin).with_p2p_session(sess);
-}
-
-#[test]
-fn test_start_sess_generic_addr_bevy_app() {
-    let fake_socket = FakeSocket::new();
-    let mut sess = P2PSession::<Vec<u8>, String>::new_with_socket(
-        2,
-        stubs::INPUT_SIZE,
-        stubs::MAX_PRED_FRAMES,
-        fake_socket,
-    );
-
-    sess.set_fps(60).unwrap();
+    let sess = SessionBuilder::<StubConfig>::new()
+        .with_num_players(2)
+        .add_player(PlayerType::Local, 0)?
+        .add_player(PlayerType::Remote("fake_addr".to_owned()), 1)?
+        .start_p2p_session(fake_socket)?;
 
     App::new()
-        .add_plugin(GGRSPlugin)
-        .with_p2p_session(sess)
-        .add_startup_system(start_p2p_session);
+        .add_plugin(GGRSPlugin::<StubConfig>::default())
+        .with_p2p_session(sess);
+
+    Ok(())
 }

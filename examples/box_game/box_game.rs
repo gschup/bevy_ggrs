@@ -1,7 +1,8 @@
 use bevy::prelude::*;
 use bevy_ggrs::{Rollback, RollbackIdProvider};
-use ggrs::{GameInput, P2PSession, P2PSpectatorSession, PlayerHandle, SyncTestSession};
-use std::hash::Hash;
+use bytemuck::{Pod, Zeroable};
+use ggrs::{Config, P2PSession, PlayerHandle, PlayerInput, SpectatorSession, SyncTestSession};
+use std::{hash::Hash, net::SocketAddr};
 
 const BLUE: Color = Color::rgb(0.8, 0.6, 0.2);
 const ORANGE: Color = Color::rgb(0., 0.35, 0.8);
@@ -20,9 +21,23 @@ const FRICTION: f32 = 0.9;
 const PLANE_SIZE: f32 = 5.0;
 const CUBE_SIZE: f32 = 0.2;
 
+#[derive(Debug)]
+pub struct GGRSConfig;
+impl Config for GGRSConfig {
+    type Input = BoxInput;
+    type State = u8;
+    type Address = SocketAddr;
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, PartialEq, Pod, Zeroable)]
+pub struct BoxInput {
+    pub inp: u8,
+}
+
 #[derive(Default, Component)]
 pub struct Player {
-    pub handle: u32,
+    pub handle: usize,
 }
 
 // Components that should be saved/loaded need to implement the `Reflect` trait
@@ -41,10 +56,7 @@ pub struct FrameCount {
     pub frame: u32,
 }
 
-// you need to provide a system that represents your inputs as a byte vector, so GGRS can send the inputs around
-// here, we just set bits manually, but you can find other ways to encode to bytes (for example by serializing)
-#[allow(dead_code)]
-pub fn input(_handle: In<PlayerHandle>, keyboard_input: Res<Input<KeyCode>>) -> Vec<u8> {
+pub fn input(_handle: In<PlayerHandle>, keyboard_input: Res<Input<KeyCode>>) -> BoxInput {
     let mut input: u8 = 0;
 
     if keyboard_input.pressed(KeyCode::W) {
@@ -60,19 +72,17 @@ pub fn input(_handle: In<PlayerHandle>, keyboard_input: Res<Input<KeyCode>>) -> 
         input |= INPUT_RIGHT;
     }
 
-    vec![input]
+    BoxInput { inp: input }
 }
 
-/// set up a simple 3D scene
-#[allow(dead_code)]
 pub fn setup_system(
     mut commands: Commands,
     mut rip: ResMut<RollbackIdProvider>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    p2p_session: Option<Res<P2PSession>>,
-    synctest_session: Option<Res<SyncTestSession>>,
-    spectator_session: Option<Res<P2PSpectatorSession>>,
+    p2p_session: Option<Res<P2PSession<GGRSConfig>>>,
+    synctest_session: Option<Res<SyncTestSession<GGRSConfig>>>,
+    spectator_session: Option<Res<SpectatorSession<GGRSConfig>>>,
 ) {
     let num_players = p2p_session
         .map(|s| s.num_players())
@@ -141,10 +151,10 @@ pub fn increase_frame_system(mut frame_count: ResMut<FrameCount>) {
 #[allow(dead_code)]
 pub fn move_cube_system(
     mut query: Query<(&mut Transform, &mut Velocity, &Player), With<Rollback>>,
-    inputs: Res<Vec<GameInput>>,
+    inputs: Res<Vec<PlayerInput<BoxInput>>>,
 ) {
     for (mut t, mut v, p) in query.iter_mut() {
-        let input = inputs[p.handle as usize].buffer[0];
+        let input = inputs[p.handle as usize].input.inp;
         // set velocity through key presses
         if input & INPUT_UP != 0 && input & INPUT_DOWN == 0 {
             v.z -= MOVEMENT_SPEED;

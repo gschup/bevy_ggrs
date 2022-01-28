@@ -1,8 +1,19 @@
-use bevy::prelude::*;
-use ggrs::{NonBlockingSocket, P2PSession, PlayerType};
+use bytemuck::{Pod, Zeroable};
+use ggrs::{Config, NonBlockingSocket};
 
-pub const INPUT_SIZE: usize = std::mem::size_of::<u32>();
-pub const MAX_PRED_FRAMES: usize = 8;
+pub struct StubConfig;
+
+impl Config for StubConfig {
+    type Input = StubInput;
+    type State = u8;
+    type Address = String;
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, PartialEq, Pod, Zeroable)]
+pub struct StubInput {
+    pub inp: u32,
+}
 
 pub struct FakeSocket;
 
@@ -13,23 +24,9 @@ impl FakeSocket {
 }
 
 impl NonBlockingSocket<String> for FakeSocket {
-    fn send_to(&mut self, _msg: &ggrs::UdpMessage, _addr: &String) {}
+    fn send_to(&mut self, _msg: &ggrs::Message, _addr: &String) {}
 
-    fn receive_all_messages(&mut self) -> Vec<(String, ggrs::UdpMessage)> {
+    fn receive_all_messages(&mut self) -> Vec<(String, ggrs::Message)> {
         vec![]
     }
-}
-
-// systems
-pub fn start_p2p_session(mut p2p_sess: ResMut<P2PSession<Vec<u8>, String>>) {
-    p2p_sess.add_player(PlayerType::Local, 0).unwrap();
-    let remote_addr = "dummy_addr".to_owned();
-    p2p_sess
-        .add_player(PlayerType::Remote(remote_addr), 1)
-        .unwrap();
-    let spec_addr = "dummy_addr".to_owned();
-    p2p_sess
-        .add_player(PlayerType::Spectator(spec_addr), 2)
-        .unwrap();
-    p2p_sess.start_session().unwrap();
 }

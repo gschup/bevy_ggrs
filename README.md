@@ -26,6 +26,7 @@ Since bevy_ggrs operates with a separate schedule, compatibility with other plug
 
 |bevy|bevy_ggrs|ggrs|
 |---|---|---|
+|0.6|main|main|
 |0.6|>=0.1.3|0.8|
 
 ## Thanks

@@ -5,7 +5,6 @@ use ggrs::{
     PlayerInput, SessionState, SpectatorSession, SyncTestSession,
 };
 use instant::{Duration, Instant};
-use std::marker::PhantomData;
 
 /// Marker resource that triggers resetting the stage session state
 pub(crate) struct GGRSStageResetSession;
@@ -33,7 +32,6 @@ where
     accumulator: Duration,
     /// boolean to see if we should run slow to let remote clients catch up
     run_slow: bool,
-    phantom_data: PhantomData<T>,
 }
 
 impl<T: Config + Send + Sync> Stage for GGRSStage<T> {
@@ -90,7 +88,6 @@ impl<T: Config> GGRSStage<T> {
             last_update: Instant::now(),
             accumulator: Duration::ZERO,
             run_slow: false,
-            phantom_data: Default::default(),
         }
     }
 

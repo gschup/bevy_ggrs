@@ -72,11 +72,13 @@ impl RollbackIdProvider {
     }
 }
 
+/// This registry is used to save all types that will be rolled back with GGRS.
 #[derive(Default)]
 pub struct RollbackTypeRegistry {
     pub registry: TypeRegistry,
 }
 
+/// A builder to configure GGRS for a bevy app.
 pub struct GGRSPlugin<T: Config + Send + Sync> {
     input_system: Option<Box<dyn System<In = PlayerHandle, Out = T::Input>>>,
     fps: u32,
@@ -85,6 +87,7 @@ pub struct GGRSPlugin<T: Config + Send + Sync> {
 }
 
 impl<T: Config + Send + Sync> GGRSPlugin<T> {
+    /// Create a new instance of the builder.
     pub fn new() -> Self {
         Self {
             input_system: None,
@@ -94,11 +97,13 @@ impl<T: Config + Send + Sync> GGRSPlugin<T> {
         }
     }
 
+    /// Change the update frequency of the rollback stage.
     pub fn with_update_frequency(mut self, fps: u32) -> Self {
         self.fps = fps;
         self
     }
 
+    /// Registers a system that takes player handles as input and returns the associated inputs for that player.
     pub fn with_input_system<Params>(
         mut self,
         input_fn: impl IntoSystem<PlayerHandle, T::Input, Params>,

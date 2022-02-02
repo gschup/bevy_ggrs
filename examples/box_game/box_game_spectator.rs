@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     .with_system(increase_frame_system),
             ),
         )
-        // you can also insert resources that will be loaded/saved
+        // make it happen in the bevy app
         .build(&mut app);
 
     // continue building/running the app like you normally would

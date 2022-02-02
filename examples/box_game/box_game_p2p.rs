@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use bevy::prelude::*;
-use bevy_ggrs::{GGRSApp, GGRSPlugin};
+use bevy_ggrs::{GGRSPlugin, SessionType};
 use ggrs::{P2PSession, PlayerType, SessionBuilder, UdpNonBlockingSocket};
 use structopt::StructOpt;
 
@@ -57,8 +57,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let socket = UdpNonBlockingSocket::bind_to_port(opt.local_port)?;
     let sess = sess_build.start_p2p_session(socket)?;
 
-    App::new()
-        .insert_resource(Msaa { samples: 4 })
+    let mut app = App::new();
+    GGRSPlugin::<GGRSConfig>::new()
+        // define frequency of rollback game logic update
+        .with_update_frequency(FPS)
+        // define system that returns inputs given a player handle, so GGRS can send the inputs around
+        .with_input_system(input)
+        // register types of compontents AND resources you want to be rolled back
+        .register_rollback_type::<Transform>()
+        .register_rollback_type::<Velocity>()
+        .register_rollback_type::<FrameCount>()
+        // these systems will be executed as part of the advance frame update
+        .with_rollback_schedule(
+            Schedule::default().with_stage(
+                ROLLBACK_DEFAULT,
+                SystemStage::parallel()
+                    .with_system(move_cube_system)
+                    .with_system(increase_frame_system),
+            ),
+        )
+        // you can also insert resources that will be loaded/saved
+        .build(&mut app);
+
+    // continue building/running the app like you normally would
+    app.insert_resource(Msaa { samples: 4 })
         .insert_resource(WindowDescriptor {
             width: 720.,
             height: 720.,
@@ -68,30 +90,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .insert_resource(opt)
         .add_plugins(DefaultPlugins)
-        .add_plugin(GGRSPlugin::<GGRSConfig>::default())
         .add_startup_system(setup_system)
         // add your GGRS session
-        .with_p2p_session(sess)
-        // define frequency of rollback game logic update
-        .with_update_frequency::<GGRSConfig>(FPS)
-        // define system that represents your inputs as a byte vector, so GGRS can send the inputs around
-        .with_input_system::<GGRSConfig, _>(input.system())
-        // register components that will be loaded/saved
-        .register_rollback_type::<Transform>()
-        .register_rollback_type::<Velocity>()
-        // you can also insert resources that will be loaded/saved
+        .insert_resource(sess)
+        .insert_resource(SessionType::P2PSession)
+        // register a resource that will be rolled back
         .insert_resource(FrameCount { frame: 0 })
-        .register_rollback_type::<FrameCount>()
-        // these systems will be executed as part of the advance frame update
-        .with_rollback_schedule::<GGRSConfig>(
-            Schedule::default().with_stage(
-                ROLLBACK_DEFAULT,
-                SystemStage::parallel()
-                    .with_system(move_cube_system)
-                    .with_system(increase_frame_system),
-            ),
-        )
-        //print some network stats
+        //print some network stats - not part of the rollback schedule as it does not need to be rolled back
         .insert_resource(NetworkStatsTimer(Timer::from_seconds(2.0, true)))
         .add_system(print_network_stats_system)
         .add_system(print_events_system)

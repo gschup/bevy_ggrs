@@ -19,7 +19,7 @@ where
     /// Used to register all types considered when loading and saving
     pub(crate) type_registry: TypeRegistry,
     /// This system is used to get an encoded representation of the input that GGRS can handle
-    pub(crate) input_system: Option<Box<dyn System<In = PlayerHandle, Out = T::Input>>>,
+    pub(crate) input_system: Box<dyn System<In = PlayerHandle, Out = T::Input>>,
     /// Instead of using GGRS's internal storage for encoded save states, we save the world here, avoiding serialization into `Vec<u8>`.
     snapshots: Vec<WorldSnapshot>,
     /// fixed FPS our logic is running with
@@ -77,11 +77,11 @@ impl<T: Config + Send + Sync> Stage for GGRSStage<T> {
 }
 
 impl<T: Config> GGRSStage<T> {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(input_system: Box<dyn System<In = PlayerHandle, Out = T::Input>>) -> Self {
         Self {
             schedule: Schedule::default(),
             type_registry: TypeRegistry::default(),
-            input_system: None,
+            input_system,
             snapshots: Vec::new(),
             frame: 0,
             update_frequency: 60,
@@ -127,11 +127,7 @@ impl<T: Config> GGRSStage<T> {
         // get inputs for all players
         let mut inputs = Vec::new();
         for handle in 0..num_players as usize {
-            let input = self
-                .input_system
-                .as_mut()
-                .expect("No input system found. Please use AppBuilder::with_input_sampler_system.")
-                .run(handle, world);
+            let input = self.input_system.run(handle, world);
             inputs.push(input);
         }
 
@@ -211,11 +207,7 @@ impl<T: Config> GGRSStage<T> {
         // get local player inputs
         let mut local_inputs = Vec::new();
         for &local_handle in &local_handles {
-            let input = self
-                .input_system
-                .as_mut()
-                .expect("No input system found. Please use AppBuilder::with_input_system.")
-                .run(local_handle, world);
+            let input = self.input_system.run(local_handle, world);
             local_inputs.push(input);
         }
 

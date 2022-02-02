@@ -17,6 +17,7 @@ pub(crate) mod world_snapshot;
 
 /// Stage label for the Custom GGRS Stage.
 pub const GGRS_UPDATE: &str = "ggrs_update";
+const DEFAULT_FPS: u32 = 60;
 
 /// Defines the Session that the GGRS Plugin should expect as a resource.
 /// Use `with_session_type(type)` to set accordingly.
@@ -76,124 +77,42 @@ pub struct RollbackTypeRegistry {
     pub registry: TypeRegistry,
 }
 
-/// Provides all functionality for the GGRS p2p rollback networking library.
-pub struct GGRSPlugin<T>
-where
-    T: Config,
-{
-    phantom_data: PhantomData<T>,
+pub struct GGRSPlugin<T: Config + Send + Sync> {
+    input_system: Option<Box<dyn System<In = PlayerHandle, Out = T::Input>>>,
+    fps: u32,
+    type_registry: RollbackTypeRegistry,
+    schedule: Schedule,
 }
 
-impl<T: Config> Default for GGRSPlugin<T> {
-    fn default() -> Self {
+impl<T: Config + Send + Sync> GGRSPlugin<T> {
+    pub fn new() -> Self {
         Self {
-            phantom_data: Default::default(),
+            input_system: None,
+            fps: DEFAULT_FPS,
+            type_registry: RollbackTypeRegistry::default(),
+            schedule: Default::default(),
         }
     }
-}
 
-impl<T: Config + Send + Sync> Plugin for GGRSPlugin<T> {
-    fn build(&self, app: &mut App) {
-        // ggrs stage
-        app.add_stage_before(CoreStage::Update, GGRS_UPDATE, GGRSStage::<T>::new());
-        // insert a rollback id provider
-        app.insert_resource(RollbackIdProvider::default());
-        // insert rollback type registry
-        app.insert_resource(RollbackTypeRegistry::default());
+    pub fn with_update_frequency(mut self, fps: u32) -> Self {
+        self.fps = fps;
+        self
     }
-}
 
-/// Extension trait for the `App`.
-pub trait GGRSApp {
-    /// Adds the given `ggrs::SyncTestSession` to your app.
-    fn with_synctest_session<T: Config>(&mut self, sess: SyncTestSession<T>) -> &mut Self;
-
-    /// Adds the given `ggrs::P2PSession` to your app.
-    fn with_p2p_session<T: Config>(&mut self, sess: P2PSession<T>) -> &mut Self;
-
-    /// Adds the given `ggrs::P2PSpectatorSession` to your app.
-    fn with_spectator_session<T: Config>(&mut self, sess: SpectatorSession<T>) -> &mut Self;
-
-    /// Adds a schedule into the GGRSStage that holds the game logic systems. This schedule should contain all
-    /// systems you want to be executed during frame advances.
-    fn with_rollback_schedule<T: Config>(&mut self, schedule: Schedule) -> &mut Self;
-
-    /// Registers a given system as the input system. This system should provide encoded inputs for a given player.
-    fn with_input_system<T, S>(&mut self, input_system: S) -> &mut Self
-    where
-        T: Config,
-        S: System<In = PlayerHandle, Out = T::Input> + Send + Sync + 'static;
-
-    /// Sets the fixed update frequency
-    fn with_update_frequency<T: Config>(&mut self, update_frequency: u32) -> &mut Self;
+    pub fn with_input_system<Params>(
+        mut self,
+        input_fn: impl IntoSystem<PlayerHandle, T::Input, Params>,
+    ) -> Self {
+        self.input_system = Some(Box::new(input_fn.system()));
+        self
+    }
 
     /// Registers a type of component for saving and loading during rollbacks.
-    fn register_rollback_type<Type>(&mut self) -> &mut Self
-    where
-        Type: GetTypeRegistration + Reflect + Default + Component;
-}
-
-impl GGRSApp for App {
-    fn with_synctest_session<T: Config>(&mut self, session: SyncTestSession<T>) -> &mut Self {
-        self.insert_resource(SessionType::SyncTestSession);
-        self.insert_resource(session);
-        self
-    }
-
-    fn with_p2p_session<T: Config>(&mut self, session: P2PSession<T>) -> &mut Self {
-        self.insert_resource(SessionType::P2PSession);
-        self.insert_resource(session);
-        self
-    }
-
-    fn with_spectator_session<T: Config>(&mut self, session: SpectatorSession<T>) -> &mut Self {
-        self.insert_resource(SessionType::SpectatorSession);
-        self.insert_resource(session);
-        self
-    }
-
-    fn with_rollback_schedule<T: Config>(&mut self, schedule: Schedule) -> &mut Self {
-        let ggrs_stage = self
-            .schedule
-            .get_stage_mut::<GGRSStage<T>>(&GGRS_UPDATE)
-            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        ggrs_stage.set_schedule(schedule);
-        self
-    }
-
-    fn with_input_system<T, S>(&mut self, input_system: S) -> &mut Self
-    where
-        T: Config,
-        S: System<In = PlayerHandle, Out = T::Input> + Send + Sync + 'static,
-    {
-        let mut input_system = input_system.system();
-        input_system.initialize(&mut self.world);
-        let ggrs_stage = self
-            .schedule
-            .get_stage_mut::<GGRSStage<T>>(&GGRS_UPDATE)
-            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        ggrs_stage.input_system = Some(Box::new(input_system));
-        self
-    }
-
-    fn with_update_frequency<T: Config>(&mut self, update_frequency: u32) -> &mut Self {
-        let ggrs_stage = self
-            .schedule
-            .get_stage_mut::<GGRSStage<T>>(&GGRS_UPDATE)
-            .expect("No GGRSStage found! Did you install the GGRSPlugin?");
-        ggrs_stage.set_update_frequency(update_frequency);
-        self
-    }
-
-    fn register_rollback_type<Type>(&mut self) -> &mut Self
+    pub fn register_rollback_type<Type>(self) -> Self
     where
         Type: GetTypeRegistration + Reflect + Default + Component,
     {
-        let rollback_registry = self
-            .world
-            .get_resource_mut::<RollbackTypeRegistry>()
-            .expect("No RollbackTypeRegistry found! Did you install the GGRSPlugin?");
-        let mut registry = rollback_registry.registry.write();
+        let mut registry = self.type_registry.registry.write();
 
         registry.register::<Type>();
 
@@ -201,8 +120,31 @@ impl GGRSApp for App {
         registration.insert(<ReflectComponent as FromType<Type>>::from_type());
         registration.insert(<ReflectResource as FromType<Type>>::from_type());
         drop(registry);
-
         self
+    }
+
+    /// Adds a schedule into the GGRSStage that holds the game logic systems. This schedule should contain all
+    /// systems you want to be executed during frame advances.
+    pub fn with_rollback_schedule(mut self, schedule: Schedule) -> Self {
+        self.schedule = schedule;
+        self
+    }
+
+    /// Consumes the builder and makes changes on the bevy app according to the settings.
+    pub fn build(self, app: &mut App) {
+        let mut input_system = self
+            .input_system
+            .expect("Adding an input system through GGRSBuilder::with_input_system is required");
+        // ggrs stage
+        input_system.initialize(&mut app.world);
+        let mut stage = GGRSStage::<T>::new(input_system);
+        stage.set_update_frequency(self.fps);
+        stage.set_schedule(self.schedule);
+        app.add_stage_before(CoreStage::Update, GGRS_UPDATE, stage);
+        // insert a rollback id provider
+        app.insert_resource(RollbackIdProvider::default());
+        // insert rollback type registry
+        app.insert_resource(self.type_registry);
     }
 }
 
@@ -222,12 +164,12 @@ impl<T: Config + Send + Sync> CommandsExt<T> for Commands<'_, '_> {
 #[derive(Default)]
 struct StopSessionCommand<T>
 where
-    T: Config,
+    T: Config + Send + Sync,
 {
     phantom_data: PhantomData<T>,
 }
 
-impl<T: Config> StopSessionCommand<T> {
+impl<T: Config + Send + Sync> StopSessionCommand<T> {
     pub(crate) fn new() -> Self {
         Self {
             phantom_data: PhantomData::<T>::default(),

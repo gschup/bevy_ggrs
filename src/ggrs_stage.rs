@@ -135,7 +135,9 @@ impl<T: Config> GGRSStage<T> {
         match world.get_resource_mut::<SyncTestSession<T>>() {
             Some(mut session) => {
                 for (player_handle, &input) in inputs.iter().enumerate() {
-                    session.add_local_input(player_handle, input).unwrap();
+                    session
+                        .add_local_input(player_handle, input)
+                        .expect("All handles between 0 and num_players should be valid");
                 }
                 match session.advance_frame() {
                     Ok(requests) => request_vec = Some(requests),
@@ -218,7 +220,7 @@ impl<T: Config> GGRSStage<T> {
                     for i in 0..local_inputs.len() {
                         session
                             .add_local_input(local_handles[i], local_inputs[i])
-                            .unwrap();
+                            .expect("All handles in local_handles should be valid");
                     }
                     match session.advance_frame() {
                         Ok(requests) => request_vec = Some(requests),

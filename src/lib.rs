@@ -20,7 +20,6 @@ pub const GGRS_UPDATE: &str = "ggrs_update";
 const DEFAULT_FPS: u32 = 60;
 
 /// Defines the Session that the GGRS Plugin should expect as a resource.
-/// Use `with_session_type(type)` to set accordingly.
 pub enum SessionType {
     SyncTestSession,
     P2PSession,

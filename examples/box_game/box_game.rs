@@ -21,7 +21,8 @@ const FRICTION: f32 = 0.9;
 const PLANE_SIZE: f32 = 5.0;
 const CUBE_SIZE: f32 = 0.2;
 
-/// You need to define a config struct to bundle all the generics of GGRS. You can safely ignore `State` and leave it as u8 for this plugin.
+/// You need to define a config struct to bundle all the generics of GGRS. You can safely ignore `State` and leave it as u8 for all GGRS functionality.
+/// TODO: Find a way to hide the state type.
 #[derive(Debug)]
 pub struct GGRSConfig;
 impl Config for GGRSConfig {

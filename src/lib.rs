@@ -145,9 +145,8 @@ impl<T: Config + Send + Sync> GGRSPlugin<T> {
         stage.set_update_frequency(self.fps);
         stage.set_schedule(self.schedule);
         app.add_stage_before(CoreStage::Update, GGRS_UPDATE, stage);
-        // insert a rollback id provider
+        // other resources
         app.insert_resource(RollbackIdProvider::default());
-        // insert rollback type registry
         app.insert_resource(self.type_registry);
     }
 }

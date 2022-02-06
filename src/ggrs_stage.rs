@@ -100,111 +100,73 @@ impl<T: Config> GGRSStage<T> {
     }
 
     pub(crate) fn run_synctest(&mut self, world: &mut World) {
-        let mut request_vec = None;
+        let sess = world.get_resource::<SyncTestSession<T>>().expect(
+            "No GGRS SyncTestSession found. Please start a session and add it as a resource.",
+        );
 
         // if our snapshot vector is not initialized, resize it accordingly
         if self.snapshots.is_empty() {
-            // find out what the maximum prediction window is in this synctest
-            let max_pred = world
-                .get_resource::<SyncTestSession<T>>()
-                .map(|session| session.max_prediction())
-                .expect(
-                "No GGRS SyncTestSession found. Please start a session and add it as a resource.",
-                );
-            for _ in 0..max_pred {
+            for _ in 0..sess.max_prediction() {
                 self.snapshots.push(WorldSnapshot::default());
             }
         }
 
-        // find out how many players are in this synctest
-        let num_players = world
-            .get_resource::<SyncTestSession<T>>()
-            .map(|session| session.num_players())
-            .expect(
-                "No GGRS SyncTestSession found. Please start a session and add it as a resource.",
-            );
-
         // get inputs for all players
         let mut inputs = Vec::new();
-        for handle in 0..num_players as usize {
-            let input = self.input_system.run(handle, world);
-            inputs.push(input);
+        for handle in 0..sess.num_players() as usize {
+            inputs.push(self.input_system.run(handle, world));
         }
 
         // try to advance the frame
-        match world.get_resource_mut::<SyncTestSession<T>>() {
-            Some(mut session) => {
-                for (player_handle, &input) in inputs.iter().enumerate() {
-                    session
-                        .add_local_input(player_handle, input)
-                        .expect("All handles between 0 and num_players should be valid");
-                }
-                match session.advance_frame() {
-                    Ok(requests) => request_vec = Some(requests),
-                    Err(e) => println!("{}", e),
-                }
-            }
-            None => {
-                println!("No GGRS SyncTestSession found. Please start a session and add it as a resource.")
-            }
+        let mut sess = world.get_resource_mut::<SyncTestSession<T>>().expect(
+            "No GGRS SyncTestSession found. Please start a session and add it as a resource.",
+        );
+        for (player_handle, &input) in inputs.iter().enumerate() {
+            sess.add_local_input(player_handle, input)
+                .expect("All handles between 0 and num_players should be valid");
         }
-
-        // handle all requests
-        if let Some(requests) = request_vec {
-            self.handle_requests(requests, world);
+        match sess.advance_frame() {
+            Ok(requests) => self.handle_requests(requests, world),
+            Err(e) => println!("{}", e),
         }
     }
 
     pub(crate) fn run_spectator(&mut self, world: &mut World) {
-        let mut request_vec = None;
-
         // run spectator session, no input necessary
-        match world.get_resource_mut::<SpectatorSession<T>>() {
-            Some(mut session) => {
-                // if session is ready, try to advance the frame
-                if session.current_state() == SessionState::Running {
-                    match session.advance_frame() {
-                        Ok(requests) => request_vec = Some(requests),
-                        Err(GGRSError::PredictionThreshold) => {
-                            println!("P2PSpectatorSession: Waiting for input from host.")
-                        }
-                        Err(e) => println!("{}", e),
-                    };
-                }
-            }
-            None => {
-                println!("No GGRS P2PSpectatorSession found. Please start a session and add it as a resource.");
-            }
-        }
+        let mut sess = world.get_resource_mut::<SpectatorSession<T>>().expect(
+            "No GGRS P2PSpectatorSession found. Please start a session and add it as a resource.",
+        );
 
-        // handle all requests
-        if let Some(requests) = request_vec {
-            self.handle_requests(requests, world);
+        // if session is ready, try to advance the frame
+        if sess.current_state() == SessionState::Running {
+            match sess.advance_frame() {
+                Ok(requests) => self.handle_requests(requests, world),
+                Err(GGRSError::PredictionThreshold) => {
+                    println!("P2PSpectatorSession: Waiting for input from host.")
+                }
+                Err(e) => println!("{}", e),
+            };
         }
     }
 
     pub(crate) fn run_p2p(&mut self, world: &mut World) {
-        let mut request_vec = None;
+        let sess = world
+            .get_resource::<P2PSession<T>>()
+            .expect("No GGRS P2PSession found. Please start a session and add it as a resource.");
 
         // if our snapshot vector is not initialized, resize it accordingly
         if self.snapshots.is_empty() {
             // find out what the maximum prediction window is in this synctest
-            let max_pred = world
-                .get_resource::<P2PSession<T>>()
-                .map(|session| session.max_prediction())
-                .expect(
-                    "No GGRS P2PSession found. Please start a session and add it as a resource.",
-                );
-            for _ in 0..max_pred {
+            for _ in 0..sess.max_prediction() {
                 self.snapshots.push(WorldSnapshot::default());
             }
         }
 
+        // if we are ahead, run slow
+        self.run_slow = sess.frames_ahead() > 0;
+
         // get local player handles
-        let local_handles = world
-            .get_resource::<P2PSession<T>>()
-            .map(|session| session.local_player_handles())
-            .expect("No GGRS P2PSession found. Please start a session and add it as a resource.");
+        let local_handles = sess.local_player_handles();
 
         // get local player inputs
         let mut local_inputs = Vec::new();
@@ -213,37 +175,23 @@ impl<T: Config> GGRSStage<T> {
             local_inputs.push(input);
         }
 
-        match world.get_resource_mut::<P2PSession<T>>() {
-            Some(mut session) => {
-                // if session is ready, try to advance the frame
-                if session.current_state() == SessionState::Running {
-                    for i in 0..local_inputs.len() {
-                        session
-                            .add_local_input(local_handles[i], local_inputs[i])
-                            .expect("All handles in local_handles should be valid");
-                    }
-                    match session.advance_frame() {
-                        Ok(requests) => request_vec = Some(requests),
-                        Err(GGRSError::PredictionThreshold) => {
-                            println!("Skipping a frame: PredictionThreshold.")
-                        }
-                        Err(e) => println!("{}", e),
-                    };
+        let mut sess = world
+            .get_resource_mut::<P2PSession<T>>()
+            .expect("No GGRS P2PSession found. Please start a session and add it as a resource.");
+
+        // if session is ready, try to advance the frame
+        if sess.current_state() == SessionState::Running {
+            for i in 0..local_inputs.len() {
+                sess.add_local_input(local_handles[i], local_inputs[i])
+                    .expect("All handles in local_handles should be valid");
+            }
+            match sess.advance_frame() {
+                Ok(requests) => self.handle_requests(requests, world),
+                Err(GGRSError::PredictionThreshold) => {
+                    println!("Skipping a frame: PredictionThreshold.")
                 }
-
-                // if we are ahead, run slow
-                self.run_slow = session.frames_ahead() > 0;
-            }
-            None => {
-                println!(
-                    "No GGRS P2PSession found. Please start a session and add it as a resource."
-                );
-            }
-        }
-
-        // handle all requests
-        if let Some(requests) = request_vec {
-            self.handle_requests(requests, world);
+                Err(e) => println!("{}", e),
+            };
         }
     }
 

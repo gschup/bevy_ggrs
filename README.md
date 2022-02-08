@@ -11,6 +11,13 @@ It efficiently handles saving and loading of the gamestate by only snapshotting 
 
 For explanation on how to use it, check the 👉[examples](./examples/)!
 
+## Live Demonstrations
+
+[johanhelsing](https://github.com/johanhelsing) wrote and hosts multiple small demos/games written with GGRS, [Bevy](https://bevyengine.org/) and [matchbox](https://github.com/johanhelsing/matchbox) running in the browser. Try them out with a friend! Just click the link to get matched with another player! (You can also open the link in two separate windows to play against yourself)
+
+- [Demo](https://helsing.studio/box_game/)
+- [Small Game](https://helsing.studio/extreme/)
+
 ## How it works
 
 The GGRS plugin creates a custom `GGRSStage` which owns a separate schedule. Inside this schedule, the user can add stages and systems as they wish.

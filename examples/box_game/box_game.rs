@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy_ggrs::{Rollback, RollbackIdProvider};
 use bytemuck::{Pod, Zeroable};
-use ggrs::{Config, P2PSession, PlayerHandle, PlayerInput, SpectatorSession, SyncTestSession};
+use ggrs::{Config, InputStatus, P2PSession, PlayerHandle, SpectatorSession, SyncTestSession};
 use std::{hash::Hash, net::SocketAddr};
 
 const BLUE: Color = Color::rgb(0.8, 0.6, 0.2);
@@ -153,10 +153,10 @@ pub fn increase_frame_system(mut frame_count: ResMut<FrameCount>) {
 #[allow(dead_code)]
 pub fn move_cube_system(
     mut query: Query<(&mut Transform, &mut Velocity, &Player), With<Rollback>>,
-    inputs: Res<Vec<PlayerInput<BoxInput>>>,
+    inputs: Res<Vec<(BoxInput, InputStatus)>>,
 ) {
     for (mut t, mut v, p) in query.iter_mut() {
-        let input = inputs[p.handle as usize].input.inp;
+        let input = inputs[p.handle as usize].0.inp;
         // set velocity through key presses
         if input & INPUT_UP != 0 && input & INPUT_DOWN == 0 {
             v.z -= MOVEMENT_SPEED;

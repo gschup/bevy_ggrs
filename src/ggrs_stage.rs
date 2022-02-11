@@ -1,8 +1,8 @@
 use crate::{world_snapshot::WorldSnapshot, SessionType};
 use bevy::{prelude::*, reflect::TypeRegistry};
 use ggrs::{
-    Config, GGRSError, GGRSRequest, GameState, GameStateCell, P2PSession, PlayerHandle,
-    PlayerInput, SessionState, SpectatorSession, SyncTestSession,
+    Config, GGRSError, GGRSRequest, GameStateCell, InputStatus, P2PSession, PlayerHandle,
+    SessionState, SpectatorSession, SyncTestSession,
 };
 use instant::{Duration, Instant};
 
@@ -199,7 +199,7 @@ impl<T: Config> GGRSStage<T> {
         for request in requests {
             match request {
                 GGRSRequest::SaveGameState { cell, frame } => self.save_world(cell, frame, world),
-                GGRSRequest::LoadGameState { cell, .. } => self.load_world(cell, world),
+                GGRSRequest::LoadGameState { frame, .. } => self.load_world(frame, world),
                 GGRSRequest::AdvanceFrame { inputs } => self.advance_frame(inputs, world),
             }
         }
@@ -216,32 +216,33 @@ impl<T: Config> GGRSStage<T> {
         // we make a snapshot of our world
         let snapshot = WorldSnapshot::from_world(world, &self.type_registry);
 
-        // we don't use the buffer provided by GGRS
-        let state = GameState::new_with_checksum(self.frame, None, snapshot.checksum);
-        cell.save(state);
+        // we don't really use the buffer provided by GGRS
+        cell.save(self.frame, None, Some(snapshot.checksum as u128));
 
         // store the snapshot ourselves (since the snapshots don't implement clone)
         let pos = frame as usize % self.snapshots.len();
         self.snapshots[pos] = snapshot;
     }
 
-    pub(crate) fn load_world(&mut self, cell: GameStateCell<T::State>, world: &mut World) {
-        // since we haven't actually used the cell provided by GGRS
-        let state = cell.load();
-        self.frame = state.frame;
+    pub(crate) fn load_world(&mut self, frame: i32, world: &mut World) {
+        self.frame = frame;
 
         // we get the correct snapshot
-        let pos = state.frame as usize % self.snapshots.len();
+        let pos = frame as usize % self.snapshots.len();
         let snapshot_to_load = &self.snapshots[pos];
 
         // load the entities
         snapshot_to_load.write_to_world(world, &self.type_registry);
     }
 
-    pub(crate) fn advance_frame(&mut self, inputs: Vec<PlayerInput<T::Input>>, world: &mut World) {
+    pub(crate) fn advance_frame(
+        &mut self,
+        inputs: Vec<(T::Input, InputStatus)>,
+        world: &mut World,
+    ) {
         world.insert_resource(inputs);
         self.schedule.run_once(world);
-        world.remove_resource::<Vec<PlayerInput<T::Input>>>();
+        world.remove_resource::<Vec<(T::Input, InputStatus)>>();
         self.frame += 1;
     }
 

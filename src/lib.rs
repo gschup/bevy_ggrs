@@ -17,7 +17,7 @@ pub(crate) mod world_snapshot;
 
 /// Stage label for the Custom GGRS Stage.
 pub const GGRS_UPDATE: &str = "ggrs_update";
-const DEFAULT_FPS: u32 = 60;
+const DEFAULT_FPS: usize = 60;
 
 /// Defines the Session that the GGRS Plugin should expect as a resource.
 pub enum SessionType {
@@ -80,7 +80,7 @@ pub struct RollbackTypeRegistry {
 /// A builder to configure GGRS for a bevy app.
 pub struct GGRSPlugin<T: Config + Send + Sync> {
     input_system: Option<Box<dyn System<In = PlayerHandle, Out = T::Input>>>,
-    fps: u32,
+    fps: usize,
     type_registry: RollbackTypeRegistry,
     schedule: Schedule,
 }
@@ -97,7 +97,7 @@ impl<T: Config + Send + Sync> GGRSPlugin<T> {
     }
 
     /// Change the update frequency of the rollback stage.
-    pub fn with_update_frequency(mut self, fps: u32) -> Self {
+    pub fn with_update_frequency(mut self, fps: usize) -> Self {
         self.fps = fps;
         self
     }

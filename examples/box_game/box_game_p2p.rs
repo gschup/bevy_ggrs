@@ -8,7 +8,7 @@ use structopt::StructOpt;
 mod box_game;
 use box_game::*;
 
-const FPS: u32 = 60;
+const FPS: usize = 60;
 const ROLLBACK_DEFAULT: &str = "rollback_default";
 
 // structopt will read command line parameters for u

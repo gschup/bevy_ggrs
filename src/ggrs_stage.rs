@@ -23,7 +23,7 @@ where
     /// Instead of using GGRS's internal storage for encoded save states, we save the world here, avoiding serialization into `Vec<u8>`.
     snapshots: Vec<WorldSnapshot>,
     /// fixed FPS our logic is running with
-    update_frequency: u32,
+    update_frequency: usize,
     /// counts the number of frames that have been executed
     frame: i32,
     /// internal time control variables
@@ -246,7 +246,7 @@ impl<T: Config> GGRSStage<T> {
         self.frame += 1;
     }
 
-    pub(crate) fn set_update_frequency(&mut self, update_frequency: u32) {
+    pub(crate) fn set_update_frequency(&mut self, update_frequency: usize) {
         self.update_frequency = update_frequency
     }
 

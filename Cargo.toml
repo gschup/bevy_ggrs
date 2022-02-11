@@ -12,6 +12,9 @@ categories = ["network-programming", "game-development"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+wasm-bindgen = ["instant/wasm-bindgen", "ggrs/wasm-bindgen"]
+
 [dependencies]
 bevy = { version = "0.6", default-features = false }
 bytemuck = { version = "1.7", features=["derive"]}

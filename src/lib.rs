@@ -2,14 +2,12 @@
 #![forbid(unsafe_code)] // let us try
 
 use bevy::{
-    ecs::system::Command,
     prelude::*,
     reflect::{FromType, GetTypeRegistration, TypeRegistry},
 };
-use ggrs::{Config, P2PSession, PlayerHandle, SpectatorSession, SyncTestSession};
-use ggrs_stage::{GGRSStage, GGRSStageResetSession};
+use ggrs::{Config, PlayerHandle};
+use ggrs_stage::GGRSStage;
 use reflect_resource::ReflectResource;
-use std::marker::PhantomData;
 
 pub(crate) mod ggrs_stage;
 pub(crate) mod reflect_resource;
@@ -148,44 +146,5 @@ impl<T: Config + Send + Sync> GGRSPlugin<T> {
         // other resources
         app.insert_resource(RollbackIdProvider::default());
         app.insert_resource(self.type_registry);
-    }
-}
-
-pub trait CommandsExt<T>
-where
-    T: Config,
-{
-    fn stop_session(&mut self);
-}
-
-impl<T: Config + Send + Sync> CommandsExt<T> for Commands<'_, '_> {
-    fn stop_session(&mut self) {
-        self.add(StopSessionCommand::<T>::new());
-    }
-}
-
-#[derive(Default)]
-struct StopSessionCommand<T>
-where
-    T: Config + Send + Sync,
-{
-    phantom_data: PhantomData<T>,
-}
-
-impl<T: Config + Send + Sync> StopSessionCommand<T> {
-    pub(crate) fn new() -> Self {
-        Self {
-            phantom_data: PhantomData::<T>::default(),
-        }
-    }
-}
-
-impl<T: Config + Send + Sync> Command for StopSessionCommand<T> {
-    fn write(self, world: &mut World) {
-        world.remove_resource::<SessionType>();
-        world.remove_resource::<P2PSession<T>>();
-        world.remove_resource::<SyncTestSession<T>>();
-        world.remove_resource::<SpectatorSession<T>>();
-        world.insert_resource(GGRSStageResetSession);
     }
 }

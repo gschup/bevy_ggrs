@@ -6,9 +6,6 @@ use ggrs::{
 };
 use instant::{Duration, Instant};
 
-/// Marker resource that triggers resetting the stage session state
-pub(crate) struct GGRSStageResetSession;
-
 /// The GGRSStage handles updating, saving and loading the game state.
 pub(crate) struct GGRSStage<T>
 where
@@ -36,10 +33,6 @@ where
 
 impl<T: Config + Send + Sync> Stage for GGRSStage<T> {
     fn run(&mut self, world: &mut World) {
-        if world.remove_resource::<GGRSStageResetSession>().is_some() {
-            self.reset_session();
-        }
-
         // get delta time from last run() call and accumulate it
         let delta = Instant::now().duration_since(self.last_update);
         let mut fps_delta = 1. / self.update_frequency as f64;
@@ -65,12 +58,12 @@ impl<T: Config + Send + Sync> Stage for GGRSStage<T> {
                 .saturating_sub(Duration::from_secs_f64(fps_delta));
 
             // depending on the session type, doing a single update looks a bit different
-            let session = world.get_resource::<SessionType>();
-            match session {
+            let session_type = world.get_resource::<SessionType>();
+            match session_type {
                 Some(SessionType::SyncTestSession) => self.run_synctest(world),
                 Some(SessionType::P2PSession) => self.run_p2p(world),
                 Some(SessionType::SpectatorSession) => self.run_spectator(world),
-                None => {} // No session has been started yet
+                None => self.reset(), // No session has been started yet
             }
         }
     }
@@ -91,7 +84,7 @@ impl<T: Config> GGRSStage<T> {
         }
     }
 
-    pub(crate) fn reset_session(&mut self) {
+    pub(crate) fn reset(&mut self) {
         self.last_update = Instant::now();
         self.accumulator = Duration::ZERO;
         self.frame = 0;

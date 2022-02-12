@@ -120,7 +120,7 @@ impl<T: Config> GGRSStage<T> {
         }
         match sess.advance_frame() {
             Ok(requests) => self.handle_requests(requests, world),
-            Err(e) => panic!("{}", e),
+            Err(e) => warn!("{}", e),
         }
     }
 
@@ -137,7 +137,7 @@ impl<T: Config> GGRSStage<T> {
                 Err(GGRSError::PredictionThreshold) => {
                     info!("P2PSpectatorSession: Waiting for input from host.")
                 }
-                Err(e) => panic!("{}", e),
+                Err(e) => warn!("{}", e),
             };
         }
     }
@@ -183,7 +183,7 @@ impl<T: Config> GGRSStage<T> {
                 Err(GGRSError::PredictionThreshold) => {
                     info!("Skipping a frame: PredictionThreshold.")
                 }
-                Err(e) => panic!("{}", e),
+                Err(e) => warn!("{}", e),
             };
         }
     }

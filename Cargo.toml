@@ -19,6 +19,7 @@ wasm-bindgen = ["instant/wasm-bindgen", "ggrs/wasm-bindgen"]
 bevy = { version = "0.6", default-features = false }
 bytemuck = { version = "1.7", features=["derive"]}
 instant = "0.1"
+log = "0.4"
 ggrs = { git = "https://github.com/gschup/ggrs", features=["sync-send"]}
 
 [dev-dependencies]

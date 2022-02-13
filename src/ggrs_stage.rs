@@ -246,4 +246,8 @@ impl<T: Config> GGRSStage<T> {
     pub(crate) fn set_schedule(&mut self, schedule: Schedule) {
         self.schedule = schedule;
     }
+
+    pub(crate) fn set_type_registry(&mut self, type_registry: TypeRegistry) {
+        self.type_registry = type_registry;
+    }
 }

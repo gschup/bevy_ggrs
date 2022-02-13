@@ -69,17 +69,11 @@ impl RollbackIdProvider {
     }
 }
 
-/// This registry is used to save all types that will be rolled back with GGRS.
-#[derive(Default)]
-pub struct RollbackTypeRegistry {
-    pub registry: TypeRegistry,
-}
-
 /// A builder to configure GGRS for a bevy app.
 pub struct GGRSPlugin<T: Config + Send + Sync> {
     input_system: Option<Box<dyn System<In = PlayerHandle, Out = T::Input>>>,
     fps: usize,
-    type_registry: RollbackTypeRegistry,
+    type_registry: TypeRegistry,
     schedule: Schedule,
 }
 
@@ -89,7 +83,7 @@ impl<T: Config + Send + Sync> GGRSPlugin<T> {
         Self {
             input_system: None,
             fps: DEFAULT_FPS,
-            type_registry: RollbackTypeRegistry::default(),
+            type_registry: TypeRegistry::default(),
             schedule: Default::default(),
         }
     }
@@ -114,8 +108,7 @@ impl<T: Config + Send + Sync> GGRSPlugin<T> {
     where
         Type: GetTypeRegistration + Reflect + Default + Component,
     {
-        let mut registry = self.type_registry.registry.write();
-
+        let mut registry = self.type_registry.write();
         registry.register::<Type>();
 
         let registration = registry.get_mut(std::any::TypeId::of::<Type>()).unwrap();
@@ -142,9 +135,9 @@ impl<T: Config + Send + Sync> GGRSPlugin<T> {
         let mut stage = GGRSStage::<T>::new(input_system);
         stage.set_update_frequency(self.fps);
         stage.set_schedule(self.schedule);
+        stage.set_type_registry(self.type_registry);
         app.add_stage_before(CoreStage::Update, GGRS_UPDATE, stage);
         // other resources
         app.insert_resource(RollbackIdProvider::default());
-        app.insert_resource(self.type_registry);
     }
 }

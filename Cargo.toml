@@ -20,7 +20,7 @@ bevy = { version = "0.6", default-features = false }
 bytemuck = { version = "1.7", features=["derive"]}
 instant = "0.1"
 log = "0.4"
-ggrs = { version = "0.9", features=["sync-send"]}
+ggrs = { git = "https://github.com/gschup/ggrs", features=["sync-send"]}
 
 [dev-dependencies]
 structopt = "0.3"

@@ -99,7 +99,7 @@ impl<T: Config + Send + Sync> GGRSPlugin<T> {
         mut self,
         input_fn: impl IntoSystem<PlayerHandle, T::Input, Params>,
     ) -> Self {
-        self.input_system = Some(Box::new(input_fn.system()));
+        self.input_system = Some(Box::new(IntoSystem::into_system(input_fn)));
         self
     }
 

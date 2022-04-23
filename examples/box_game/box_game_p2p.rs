@@ -85,7 +85,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             width: 720.,
             height: 720.,
             title: "GGRS Box Game".to_owned(),
-            vsync: false,
             ..Default::default()
         })
         .insert_resource(opt)

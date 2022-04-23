@@ -77,15 +77,21 @@ pub struct GGRSPlugin<T: Config + Send + Sync> {
     schedule: Schedule,
 }
 
-impl<T: Config + Send + Sync> GGRSPlugin<T> {
-    /// Create a new instance of the builder.
-    pub fn new() -> Self {
+impl<T: Config + Send + Sync> Default for GGRSPlugin<T> {
+    fn default() -> Self {
         Self {
             input_system: None,
             fps: DEFAULT_FPS,
-            type_registry: TypeRegistry::default(),
+            type_registry: Default::default(),
             schedule: Default::default(),
         }
+    }
+}
+
+impl<T: Config + Send + Sync> GGRSPlugin<T> {
+    /// Create a new instance of the builder.
+    pub fn new() -> Self {
+        Default::default()
     }
 
     /// Change the update frequency of the rollback stage.
@@ -99,7 +105,7 @@ impl<T: Config + Send + Sync> GGRSPlugin<T> {
         mut self,
         input_fn: impl IntoSystem<PlayerHandle, T::Input, Params>,
     ) -> Self {
-        self.input_system = Some(Box::new(input_fn.system()));
+        self.input_system = Some(Box::new(IntoSystem::into_system(input_fn)));
         self
     }
 

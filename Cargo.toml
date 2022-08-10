@@ -21,6 +21,7 @@ bytemuck = { version = "1.7", features=["derive"]}
 instant = "0.1"
 log = "0.4"
 ggrs = { git = "https://github.com/gschup/ggrs", features=["sync-send"]}
+parking_lot = "0.12.1"
 
 [dev-dependencies]
 structopt = "0.3"

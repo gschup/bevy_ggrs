@@ -158,7 +158,7 @@ impl WorldSnapshot {
                     match rollback_entity
                         .components
                         .iter()
-                        .find(|comp| comp.type_name() == registration.short_name())
+                        .find(|comp| comp.type_name() == registration.type_name())
                     {
                         // if we have data saved in the snapshot, overwrite the world
                         Some(component) => {
@@ -172,7 +172,7 @@ impl WorldSnapshot {
                     if let Some(component) = rollback_entity
                         .components
                         .iter()
-                        .find(|comp| comp.type_name() == registration.short_name())
+                        .find(|comp| comp.type_name() == registration.type_name())
                     {
                         // if we have data saved in the snapshot, add the component to the entity
                         reflect_component.insert(world, entity, &**component);
@@ -206,7 +206,7 @@ impl WorldSnapshot {
                     match self
                         .resources
                         .iter()
-                        .find(|res| res.type_name() == registration.short_name())
+                        .find(|res| res.type_name() == registration.type_name())
                     {
                         // if both the world and the snapshot has the resource, apply the values
                         Some(snapshot_res) => {
@@ -222,7 +222,7 @@ impl WorldSnapshot {
                     if let Some(snapshot_res) = self
                         .resources
                         .iter()
-                        .find(|res| res.type_name() == registration.short_name())
+                        .find(|res| res.type_name() == registration.type_name())
                     {
                         reflect_resource.add_resource(world, &**snapshot_res);
                     }

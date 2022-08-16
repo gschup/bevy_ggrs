@@ -3,11 +3,13 @@
 
 use bevy::{
     prelude::*,
-    reflect::{FromType, GetTypeRegistration, TypeRegistry},
+    reflect::{FromType, GetTypeRegistration, TypeRegistry, TypeRegistryInternal},
 };
 use ggrs::{Config, PlayerHandle};
 use ggrs_stage::GGRSStage;
 use reflect_resource::ReflectResource;
+use std::sync::Arc;
+use parking_lot::RwLock;
 
 pub(crate) mod ggrs_stage;
 pub(crate) mod reflect_resource;
@@ -82,7 +84,9 @@ impl<T: Config + Send + Sync> Default for GGRSPlugin<T> {
         Self {
             input_system: None,
             fps: DEFAULT_FPS,
-            type_registry: Default::default(),
+            type_registry: TypeRegistry {
+                internal: Arc::new(RwLock::new(TypeRegistryInternal::empty())),
+            },
             schedule: Default::default(),
         }
     }

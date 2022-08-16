@@ -87,7 +87,7 @@ impl WorldSnapshot {
                         .filter(|&&entity| world.get::<Rollback>(entity).is_some())
                         .enumerate()
                     {
-                        if let Some(component) = reflect_component.reflect_component(world, *entity)
+                        if let Some(component) = reflect_component.reflect(world, *entity)
                         {
                             assert_eq!(*entity, snapshot.entities[entities_offset + i].entity);
                             // add the hash value of that component to the shapshot checksum, if that component supports hashing
@@ -158,24 +158,24 @@ impl WorldSnapshot {
                     match rollback_entity
                         .components
                         .iter()
-                        .find(|comp| comp.type_name() == registration.name())
+                        .find(|comp| comp.type_name() == registration.type_name())
                     {
                         // if we have data saved in the snapshot, overwrite the world
                         Some(component) => {
-                            reflect_component.apply_component(world, entity, &**component)
+                            reflect_component.apply(world, entity, &**component)
                         }
                         // if we don't have any data saved, we need to remove that component from the entity
-                        None => reflect_component.remove_component(world, entity),
+                        None => reflect_component.remove(world, entity),
                     }
                 } else {
                     // the entity in the world has no such component
                     if let Some(component) = rollback_entity
                         .components
                         .iter()
-                        .find(|comp| comp.type_name() == registration.name())
+                        .find(|comp| comp.type_name() == registration.type_name())
                     {
                         // if we have data saved in the snapshot, add the component to the entity
-                        reflect_component.add_component(world, entity, &**component);
+                        reflect_component.insert(world, entity, &**component);
                     }
                     // if both the snapshot and the world does not have the registered component, we don't need to to anything
                 }
@@ -206,7 +206,7 @@ impl WorldSnapshot {
                     match self
                         .resources
                         .iter()
-                        .find(|res| res.type_name() == registration.name())
+                        .find(|res| res.type_name() == registration.type_name())
                     {
                         // if both the world and the snapshot has the resource, apply the values
                         Some(snapshot_res) => {
@@ -222,7 +222,7 @@ impl WorldSnapshot {
                     if let Some(snapshot_res) = self
                         .resources
                         .iter()
-                        .find(|res| res.type_name() == registration.name())
+                        .find(|res| res.type_name() == registration.type_name())
                     {
                         reflect_resource.add_resource(world, &**snapshot_res);
                     }

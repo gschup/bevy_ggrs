@@ -35,7 +35,7 @@ Starting with `0.9.0`, the `bevy_ggrs` plugin will update its version number tog
 
 |bevy|bevy_ggrs|ggrs|
 |---|---|---|
-|0.7|main|main|
+|0.8|main|main|
 |0.6|0.9|0.9|
 |0.6|=0.1.3|0.8|
 

@@ -11,6 +11,10 @@ It efficiently handles saving and loading of the gamestate by only snapshotting 
 
 For explanation on how to use it, check the 👉[examples](./examples/)!
 
+## ⚠️ REFACTOR WARNING ⚠️
+
+Due to exciting upcoming [stageless scheduling](https://github.com/bevyengine/rfcs/pull/45) This whole plugin will have to be reworked from the ground up (Once it is there). Since I am not happy with using bevy-reflect to save and load snapshots of the world, I am looking forward to this refactoring!
+
 ## Live Demonstration
 
 bevy_GGRS has a demo app you can try in the browser! It uses [matchbox](https://github.com/johanhelsing/matchbox) to facilitate communication between browsers. Try it out with a friend! Just click the link and match with another player! (You can also open the link in two separate windows to play against yourself)

@@ -11,6 +11,8 @@ use reflect_resource::ReflectResource;
 use std::sync::Arc;
 use parking_lot::RwLock;
 
+pub use ggrs;
+
 pub(crate) mod ggrs_stage;
 pub(crate) mod reflect_resource;
 pub(crate) mod world_snapshot;

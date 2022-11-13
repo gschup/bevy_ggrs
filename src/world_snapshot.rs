@@ -241,7 +241,9 @@ impl WorldSnapshot {
             if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
                 map_entities_reflect
                     .map_entities(world, &entity_map)
-                    .unwrap();
+                    // This may fail if an entity is not found in the entity map, but that's fine,
+                    // because if it's not found in the map, then the entity may remain un-mapped.
+                    .ok();
             }
         }
     }

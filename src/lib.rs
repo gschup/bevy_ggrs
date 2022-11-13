@@ -7,9 +7,9 @@ use bevy::{
 };
 use ggrs::{Config, PlayerHandle};
 use ggrs_stage::GGRSStage;
+use parking_lot::RwLock;
 use reflect_resource::ReflectResource;
 use std::sync::Arc;
-use parking_lot::RwLock;
 
 pub use ggrs;
 
@@ -87,7 +87,20 @@ impl<T: Config + Send + Sync> Default for GGRSPlugin<T> {
             input_system: None,
             fps: DEFAULT_FPS,
             type_registry: TypeRegistry {
-                internal: Arc::new(RwLock::new(TypeRegistryInternal::empty())),
+                internal: Arc::new(RwLock::new({
+                    let mut r = TypeRegistryInternal::empty();
+                    // `Parent` and `Children` must be regisrered so that their `ReflectMapEntities`
+                    // data may be used.
+                    //
+                    // While this is a little bit of a weird spot to register these, are the only
+                    // Bevy core types implementing `MapEntities`, so for now it's probably fine to
+                    // just manually register these here.
+                    //
+                    // The user can still register any custom types with `register_rollback_type()`.
+                    r.register::<Parent>();
+                    r.register::<Children>();
+                    r
+                })),
             },
             schedule: Default::default(),
         }

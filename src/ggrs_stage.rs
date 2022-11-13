@@ -1,5 +1,5 @@
-use crate::{world_snapshot::WorldSnapshot, SessionType};
-use bevy::{prelude::*, reflect::TypeRegistry};
+use crate::{world_snapshot::WorldSnapshot, RollbackEventHook, SessionType};
+use bevy::{ecs::entity::EntityMap, prelude::*, reflect::TypeRegistry};
 use ggrs::{
     Config, GGRSError, GGRSRequest, GameStateCell, InputStatus, P2PSession, PlayerHandle,
     SessionState, SpectatorSession, SyncTestSession,
@@ -29,6 +29,7 @@ where
     accumulator: Duration,
     /// boolean to see if we should run slow to let remote clients catch up
     run_slow: bool,
+    hooks: Vec<Box<dyn RollbackEventHook>>,
 }
 
 impl<T: Config + Send + Sync> Stage for GGRSStage<T> {
@@ -81,6 +82,7 @@ impl<T: Config> GGRSStage<T> {
             last_update: Instant::now(),
             accumulator: Duration::ZERO,
             run_slow: false,
+            hooks: Vec::new(),
         }
     }
 
@@ -191,9 +193,33 @@ impl<T: Config> GGRSStage<T> {
     pub(crate) fn handle_requests(&mut self, requests: Vec<GGRSRequest<T>>, world: &mut World) {
         for request in requests {
             match request {
-                GGRSRequest::SaveGameState { cell, frame } => self.save_world(cell, frame, world),
-                GGRSRequest::LoadGameState { frame, .. } => self.load_world(frame, world),
-                GGRSRequest::AdvanceFrame { inputs } => self.advance_frame(inputs, world),
+                GGRSRequest::SaveGameState { cell, frame } => {
+                    for hook in &mut self.hooks {
+                        hook.pre_save(frame, self.snapshots.len(), world);
+                    }
+                    self.save_world(cell, frame, world);
+                    for hook in &mut self.hooks {
+                        hook.post_save(frame, self.snapshots.len(), world);
+                    }
+                }
+                GGRSRequest::LoadGameState { frame, .. } => {
+                    for hook in &mut self.hooks {
+                        hook.pre_load(frame, self.snapshots.len(), world);
+                    }
+                    let entity_map = self.load_world(frame, world);
+                    for hook in &mut self.hooks {
+                        hook.post_load(frame, self.snapshots.len(), &entity_map, world);
+                    }
+                }
+                GGRSRequest::AdvanceFrame { inputs } => {
+                    for hook in &mut self.hooks {
+                        hook.pre_advance(world);
+                    }
+                    self.advance_frame(inputs, world);
+                    for hook in &mut self.hooks {
+                        hook.post_advance(world);
+                    }
+                }
             }
         }
     }
@@ -217,7 +243,7 @@ impl<T: Config> GGRSStage<T> {
         self.snapshots[pos] = snapshot;
     }
 
-    pub(crate) fn load_world(&mut self, frame: i32, world: &mut World) {
+    pub(crate) fn load_world(&mut self, frame: i32, world: &mut World) -> EntityMap {
         self.frame = frame;
 
         // we get the correct snapshot
@@ -225,7 +251,7 @@ impl<T: Config> GGRSStage<T> {
         let snapshot_to_load = &self.snapshots[pos];
 
         // load the entities
-        snapshot_to_load.write_to_world(world, &self.type_registry);
+        snapshot_to_load.write_to_world(world, &self.type_registry)
     }
 
     pub(crate) fn advance_frame(
@@ -245,6 +271,10 @@ impl<T: Config> GGRSStage<T> {
 
     pub(crate) fn set_schedule(&mut self, schedule: Schedule) {
         self.schedule = schedule;
+    }
+
+    pub(crate) fn set_hooks(&mut self, hooks: Vec<Box<dyn RollbackEventHook>>) {
+        self.hooks = hooks;
     }
 
     pub(crate) fn set_type_registry(&mut self, type_registry: TypeRegistry) {

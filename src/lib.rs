@@ -2,10 +2,11 @@
 #![forbid(unsafe_code)] // let us try
 
 use bevy::{
+    ecs::entity::EntityMap,
     prelude::*,
     reflect::{FromType, GetTypeRegistration, TypeRegistry, TypeRegistryInternal},
 };
-use ggrs::{Config, PlayerHandle};
+use ggrs::{Config, Frame, PlayerHandle};
 use ggrs_stage::GGRSStage;
 use parking_lot::RwLock;
 use reflect_resource::ReflectResource;
@@ -73,12 +74,47 @@ impl RollbackIdProvider {
     }
 }
 
+/// An object that may hook into rollback events.
+pub trait RollbackEventHook: Sync + Send + 'static {
+    /// Run before a snapshot is saved
+    fn pre_save(&mut self, frame: Frame, max_snapshots: usize, world: &mut World) {
+        let _ = (frame, max_snapshots, world);
+    }
+    /// Run after a snapshot is saved
+    fn post_save(&mut self, frame: Frame, max_snapshots: usize, world: &mut World) {
+        let _ = (frame, max_snapshots, world);
+    }
+    /// Run before a snapshot is loaded ( restored )
+    fn pre_load(&mut self, frame: Frame, max_snapshots: usize, world: &mut World) {
+        let _ = (frame, max_snapshots, world);
+    }
+    /// Run after a snapshot is loaded ( restored )
+    fn post_load(
+        &mut self,
+        frame: Frame,
+        max_snapshots: usize,
+        entity_map: &EntityMap,
+        world: &mut World,
+    ) {
+        let _ = (frame, max_snapshots, entity_map, world);
+    }
+    /// Run before the game simulation is advanced one frame
+    fn pre_advance(&mut self, world: &mut World) {
+        let _ = world;
+    }
+    /// Run after the game simulation is advanced one frame
+    fn post_advance(&mut self, world: &mut World) {
+        let _ = world;
+    }
+}
+
 /// A builder to configure GGRS for a bevy app.
 pub struct GGRSPlugin<T: Config + Send + Sync> {
     input_system: Option<Box<dyn System<In = PlayerHandle, Out = T::Input>>>,
     fps: usize,
     type_registry: TypeRegistry,
     schedule: Schedule,
+    hooks: Vec<Box<dyn RollbackEventHook>>,
 }
 
 impl<T: Config + Send + Sync> Default for GGRSPlugin<T> {
@@ -103,6 +139,7 @@ impl<T: Config + Send + Sync> Default for GGRSPlugin<T> {
                 })),
             },
             schedule: Default::default(),
+            hooks: Default::default(),
         }
     }
 }
@@ -150,6 +187,13 @@ impl<T: Config + Send + Sync> GGRSPlugin<T> {
         self
     }
 
+    /// Add a [`RollbackEventHook`] object will have the opportunity to modify the world or take
+    /// other actions during snapshot saves, loads, and frame advances.q
+    pub fn add_rollback_hook<H: RollbackEventHook>(mut self, hook: H) -> Self {
+        self.hooks.push(Box::new(hook));
+        self
+    }
+
     /// Consumes the builder and makes changes on the bevy app according to the settings.
     pub fn build(self, app: &mut App) {
         let mut input_system = self
@@ -161,6 +205,7 @@ impl<T: Config + Send + Sync> GGRSPlugin<T> {
         stage.set_update_frequency(self.fps);
         stage.set_schedule(self.schedule);
         stage.set_type_registry(self.type_registry);
+        stage.set_hooks(self.hooks);
         app.add_stage_before(CoreStage::Update, GGRS_UPDATE, stage);
         // other resources
         app.insert_resource(RollbackIdProvider::default());

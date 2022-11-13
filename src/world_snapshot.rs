@@ -128,7 +128,11 @@ impl WorldSnapshot {
         snapshot
     }
 
-    pub(crate) fn write_to_world(&self, world: &mut World, type_registry: &TypeRegistry) {
+    pub(crate) fn write_to_world(
+        &self,
+        world: &mut World,
+        type_registry: &TypeRegistry,
+    ) -> EntityMap {
         let type_registry = type_registry.read();
         let mut rid_map = rollback_id_map(world);
 
@@ -246,5 +250,7 @@ impl WorldSnapshot {
                     .ok();
             }
         }
+
+        entity_map
     }
 }

@@ -1,4 +1,5 @@
 use bevy::{
+    ecs::{entity::EntityMap, reflect::ReflectMapEntities},
     prelude::*,
     reflect::{Reflect, TypeRegistry},
     utils::HashMap,
@@ -87,8 +88,7 @@ impl WorldSnapshot {
                         .filter(|&&entity| world.get::<Rollback>(entity).is_some())
                         .enumerate()
                     {
-                        if let Some(component) = reflect_component.reflect(world, *entity)
-                        {
+                        if let Some(component) = reflect_component.reflect(world, *entity) {
                             assert_eq!(*entity, snapshot.entities[entities_offset + i].entity);
                             // add the hash value of that component to the shapshot checksum, if that component supports hashing
                             if let Some(hash) = component.reflect_hash() {
@@ -132,6 +132,9 @@ impl WorldSnapshot {
         let type_registry = type_registry.read();
         let mut rid_map = rollback_id_map(world);
 
+        // Mapping of the old entity ids ( when snapshot was taken ) to new entity ids
+        let mut entity_map = EntityMap::default();
+
         // first, we write all entities
         for rollback_entity in self.entities.iter() {
             // find the corresponding current entity or create new entity, if it doesn't exist
@@ -145,6 +148,9 @@ impl WorldSnapshot {
                         })
                         .id()
                 });
+
+            // Add the mapping from the old entity ID to the new entity ID
+            entity_map.insert(rollback_entity.entity, entity);
 
             // for each registered type, check what we need to do
             for registration in type_registry.iter() {
@@ -161,9 +167,7 @@ impl WorldSnapshot {
                         .find(|comp| comp.type_name() == registration.type_name())
                     {
                         // if we have data saved in the snapshot, overwrite the world
-                        Some(component) => {
-                            reflect_component.apply(world, entity, &**component)
-                        }
+                        Some(component) => reflect_component.apply(world, entity, &**component),
                         // if we don't have any data saved, we need to remove that component from the entity
                         None => reflect_component.remove(world, entity),
                     }
@@ -228,6 +232,18 @@ impl WorldSnapshot {
                     }
                     // if both the world and the snapshot does not have this resource, do nothing
                 }
+            }
+        }
+
+        // For every type that reflects `MapEntities`, map the entities so that they reference the
+        // new IDs after applying the snapshot.
+        for registration in type_registry.iter() {
+            if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
+                map_entities_reflect
+                    .map_entities(world, &entity_map)
+                    // This may fail if an entity is not found in the entity map, but that's fine,
+                    // because if it's not found in the map, then the entity may remain un-mapped.
+                    .ok();
             }
         }
     }

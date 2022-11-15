@@ -167,7 +167,16 @@ impl WorldSnapshot {
                         .find(|comp| comp.type_name() == registration.type_name())
                     {
                         // if we have data saved in the snapshot, overwrite the world
-                        Some(component) => reflect_component.apply(world, entity, &**component),
+                        Some(component) => {
+                            // Note: It's important that we remove and re-insert instead of just
+                            // apply().
+                            //
+                            // For example, an apply() will do an in-place update such that apply an
+                            // array to an array will add items to the array instead of completely
+                            // replacing the current array with the new one.
+                            reflect_component.remove(world, entity);
+                            reflect_component.insert(world, entity, &**component);
+                        }
                         // if we don't have any data saved, we need to remove that component from the entity
                         None => reflect_component.remove(world, entity),
                     }

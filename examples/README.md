@@ -62,16 +62,3 @@ BoxGame SyncTest is launched by a single command-line argument:
 ```shell
 cargo run --example box_game_synctest -- --num-players 2 --check-distance 7
 ```
-
-### Launching BoxGame SyncTest (Checksum)
-
-The checksum example showcases how to create a checksum for non-hashable components (like floats).
-
-BoxGame SyncTest (Checksum) is launched by a single command-line argument:
-
-- `--num-players / -n`: number of players that will participate in the game
-- `--check-distance / -c`: number of frames that will be rolled back and resimulated each frame
-
-```shell
-cargo run --example box_game_synctest_checksum -- --num-players 2 --check-distance 7
-```

@@ -24,16 +24,9 @@ const DEFAULT_FPS: usize = 60;
 /// Defines the Session that the GGRS Plugin should expect as a resource.
 #[derive(Resource)]
 pub enum Session<T: Config> {
-    None, // TODO: make option instead?
     SyncTestSession(SyncTestSession<T>),
     P2PSession(P2PSession<T>),
     SpectatorSession(SpectatorSession<T>),
-}
-
-impl<T: Config> Default for Session<T> {
-    fn default() -> Self {
-        Session::None
-    }
 }
 
 // TODO: more specific name to avoid conflicts?

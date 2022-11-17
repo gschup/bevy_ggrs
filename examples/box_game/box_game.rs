@@ -85,7 +85,6 @@ pub fn setup_system(
     session: Res<Session<GGRSConfig>>,
 ) {
     let num_players = match &*session {
-        Session::None => panic!("No session started"), // todo: remove?
         Session::SyncTestSession(s) => s.num_players(),
         Session::P2PSession(s) => s.num_players(),
         Session::SpectatorSession(s) => s.num_players(),

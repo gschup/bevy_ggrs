@@ -23,6 +23,7 @@ log = "0.4"
 #ggrs = { version= "0.9.2", features=["sync-send"]}
 ggrs = { git = "https://github.com/gschup/ggrs", features=["sync-send"]}
 parking_lot = "0.12.1"
+tracing = "0.1.37"
 
 [dev-dependencies]
 structopt = "0.3"

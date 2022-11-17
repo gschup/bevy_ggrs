@@ -1,7 +1,7 @@
 use bevy::prelude::*;
-use bevy_ggrs::{Rollback, RollbackIdProvider};
+use bevy_ggrs::{Inputs, Rollback, RollbackIdProvider, Session};
 use bytemuck::{Pod, Zeroable};
-use ggrs::{Config, InputStatus, P2PSession, PlayerHandle, SpectatorSession, SyncTestSession};
+use ggrs::{Config, PlayerHandle};
 use std::{hash::Hash, net::SocketAddr};
 
 const BLUE: Color = Color::rgb(0.8, 0.6, 0.2);
@@ -52,7 +52,7 @@ pub struct Velocity {
 
 // You can also register resources. If your Component / Resource implements Hash, you can make use of `#[reflect(Hash)]`
 // in order to allow a GGRS `SyncTestSession` to construct a checksum for a world snapshot
-#[derive(Default, Reflect, Hash, Component)]
+#[derive(Resource, Default, Reflect, Hash, Component)]
 #[reflect(Hash)]
 pub struct FrameCount {
     pub frame: u32,
@@ -82,21 +82,20 @@ pub fn setup_system(
     mut rip: ResMut<RollbackIdProvider>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    p2p_session: Option<Res<P2PSession<GGRSConfig>>>,
-    synctest_session: Option<Res<SyncTestSession<GGRSConfig>>>,
-    spectator_session: Option<Res<SpectatorSession<GGRSConfig>>>,
+    session: Res<Session<GGRSConfig>>,
 ) {
-    let num_players = p2p_session
-        .map(|s| s.num_players())
-        .or_else(|| synctest_session.map(|s| s.num_players()))
-        .or_else(|| spectator_session.map(|s| s.num_players()))
-        .expect("No GGRS session found");
+    let num_players = match &*session {
+        Session::None => panic!("No session started"), // todo: remove?
+        Session::SyncTestSession(s) => s.num_players(),
+        Session::P2PSession(s) => s.num_players(),
+        Session::SpectatorSession(s) => s.num_players(),
+    };
 
     // plane
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: PLANE_SIZE })),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
-        ..Default::default()
+        ..default()
     });
 
     // player cube - just spawn whatever entity you want, then add a `Rollback` component with a unique id (for example through the `RollbackIdProvider` resource).
@@ -114,28 +113,29 @@ pub fn setup_system(
         transform.translation.y = CUBE_SIZE / 2.;
         transform.translation.z = z;
 
-        commands
-            .spawn_bundle(PbrBundle {
+        commands.spawn((
+            PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Cube { size: CUBE_SIZE })),
                 material: materials.add(PLAYER_COLORS[handle as usize].into()),
                 transform,
-                ..Default::default()
-            })
-            .insert(Player { handle })
-            .insert(Velocity::default())
+                ..default()
+            },
+            Player { handle },
+            Velocity::default(),
             // this component indicates bevy_GGRS that parts of this entity should be saved and loaded
-            .insert(Rollback::new(rip.next_id()));
+            Rollback::new(rip.next_id()),
+        ));
     }
 
     // light
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..Default::default()
+        ..default()
     });
     // camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 7.5, 0.5).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 }
 
@@ -153,7 +153,7 @@ pub fn increase_frame_system(mut frame_count: ResMut<FrameCount>) {
 #[allow(dead_code)]
 pub fn move_cube_system(
     mut query: Query<(&mut Transform, &mut Velocity, &Player), With<Rollback>>,
-    inputs: Res<Vec<(BoxInput, InputStatus)>>,
+    inputs: Res<Inputs<GGRSConfig>>,
 ) {
     for (mut t, mut v, p) in query.iter_mut() {
         let input = inputs[p.handle as usize].0.inp;

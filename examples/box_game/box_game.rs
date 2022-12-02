@@ -50,9 +50,8 @@ pub struct Velocity {
     pub z: f32,
 }
 
-// You can also register resources. If your Component / Resource implements Hash, you can make use of `#[reflect(Hash)]`
-// in order to allow a GGRS `SyncTestSession` to construct a checksum for a world snapshot
-#[derive(Resource, Default, Reflect, Hash, Component)]
+// You can also register resources.
+#[derive(Resource, Default, Reflect, Hash)]
 #[reflect(Hash)]
 pub struct FrameCount {
     pub frame: u32,

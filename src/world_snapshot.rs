@@ -1,7 +1,7 @@
 use bevy::{
     ecs::{entity::EntityMap, reflect::ReflectMapEntities},
     prelude::*,
-    reflect::{Reflect, TypeRegistry},
+    reflect::{Reflect, TypeData, TypeRegistry},
     utils::HashMap,
 };
 use std::{fmt::Debug, num::Wrapping};
@@ -52,7 +52,7 @@ impl Debug for RollbackEntity {
 #[derive(Default)]
 pub(crate) struct WorldSnapshot {
     entities: Vec<RollbackEntity>,
-    // pub resources: Vec<Box<dyn Reflect>>,
+    pub resources: Vec<Box<dyn Reflect>>,
     pub checksum: u64,
 }
 
@@ -108,24 +108,24 @@ impl WorldSnapshot {
             }
         }
 
-        // // go through all resources and clone those that are registered
-        // for component_id in world.archetypes().resource().unique_components().indices() {
-        //     let reflect_component = world
-        //         .components()
-        //         .get_info(component_id)
-        //         .and_then(|info| type_registry.get(info.type_id().unwrap()))
-        //         .and_then(|registration| registration.data::<ReflectResource>());
-        //     if let Some(reflect_resource) = reflect_component {
-        //         if let Some(resource) = reflect_resource.reflect_resource(world) {
-        //             // add the hash value of that resource to the shapshot checksum, if that resource supports hashing
-        //             if let Some(hash) = resource.reflect_hash() {
-        //                 snapshot.checksum = (Wrapping(snapshot.checksum) + Wrapping(hash)).0;
-        //             }
-        //             // add the resource to the shapshot
-        //             snapshot.resources.push(resource.clone_value());
-        //         }
-        //     }
-        // }
+        // go through all resources and clone those that are registered
+        for (component_id, resource_data) in world.storages().resources.iter() {
+            let reflect_component = world
+                .components()
+                .get_info(component_id)
+                .and_then(|info| type_registry.get(info.type_id().unwrap()))
+                .and_then(|registration| registration.data::<ReflectResource>());
+            if let Some(reflect_resource) = reflect_component {
+                if let Some(resource) = reflect_resource.reflect(world) {
+                    // add the hash value of that resource to the shapshot checksum, if that resource supports hashing
+                    if let Some(hash) = resource.reflect_hash() {
+                        snapshot.checksum = (Wrapping(snapshot.checksum) + Wrapping(hash)).0;
+                    }
+                    // add the resource to the shapshot
+                    snapshot.resources.push(resource.clone_value());
+                }
+            }
+        }
 
         snapshot
     }
@@ -156,9 +156,9 @@ impl WorldSnapshot {
             // for each registered type, check what we need to do
             for registration in type_registry.iter() {
                 let type_id = registration.type_id();
-                let reflect_component = registration
-                    .data::<ReflectComponent>()
-                    .expect("Unregistered Type in GGRS Type Registry");
+                let Some(reflect_component) = registration.data::<ReflectComponent>() else {
+                    continue;
+                };
 
                 if world.entity(entity).contains_type_id(type_id) {
                     // the entity in the world has such a component
@@ -204,46 +204,46 @@ impl WorldSnapshot {
             world.despawn(*v);
         }
 
-        // // then, we write all resources
-        // for registration in type_registry.iter() {
-        //     let reflect_resource = match registration.data::<ReflectResource>() {
-        //         Some(res) => res,
-        //         None => {
-        //             continue;
-        //         }
-        //     };
+        // then, we write all resources
+        for registration in type_registry.iter() {
+            let reflect_resource = match registration.data::<ReflectResource>() {
+                Some(res) => res,
+                None => {
+                    continue;
+                }
+            };
 
-        //     match reflect_resource.reflect_resource(world) {
-        //         // the world has such a resource
-        //         Some(_) => {
-        //             // check if we have saved such a resource
-        //             match self
-        //                 .resources
-        //                 .iter()
-        //                 .find(|res| res.type_name() == registration.type_name())
-        //             {
-        //                 // if both the world and the snapshot has the resource, apply the values
-        //                 Some(snapshot_res) => {
-        //                     reflect_resource.apply_resource(world, &**snapshot_res);
-        //                 }
-        //                 // if only the world has the resource, but it doesn't exist in the snapshot, remove the resource
-        //                 None => reflect_resource.remove_resource(world),
-        //             }
-        //         }
-        //         // the world does not have this resource
-        //         None => {
-        //             // if we have saved that resource, add it
-        //             if let Some(snapshot_res) = self
-        //                 .resources
-        //                 .iter()
-        //                 .find(|res| res.type_name() == registration.type_name())
-        //             {
-        //                 reflect_resource.add_resource(world, &**snapshot_res);
-        //             }
-        //             // if both the world and the snapshot does not have this resource, do nothing
-        //         }
-        //     }
-        // }
+            match reflect_resource.reflect(world) {
+                // the world has such a resource
+                Some(_) => {
+                    // check if we have saved such a resource
+                    match self
+                        .resources
+                        .iter()
+                        .find(|res| res.type_name() == registration.type_name())
+                    {
+                        // if both the world and the snapshot has the resource, apply the values
+                        Some(snapshot_res) => {
+                            reflect_resource.apply(world, &**snapshot_res);
+                        }
+                        // if only the world has the resource, but it doesn't exist in the snapshot, remove the resource
+                        None => reflect_resource.remove(world),
+                    }
+                }
+                // the world does not have this resource
+                None => {
+                    // if we have saved that resource, add it
+                    if let Some(snapshot_res) = self
+                        .resources
+                        .iter()
+                        .find(|res| res.type_name() == registration.type_name())
+                    {
+                        reflect_resource.insert(world, &**snapshot_res);
+                    }
+                    // if both the world and the snapshot does not have this resource, do nothing
+                }
+            }
+        }
 
         // For every type that reflects `MapEntities`, map the entities so that they reference the
         // new IDs after applying the snapshot.

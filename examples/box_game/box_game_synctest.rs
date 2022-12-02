@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_ggrs::{GGRSPlugin, SessionType};
+use bevy_ggrs::{GGRSPlugin, Session};
 use ggrs::{PlayerType, SessionBuilder};
 use structopt::StructOpt;
 
@@ -10,7 +10,7 @@ const FPS: usize = 60;
 const ROLLBACK_DEFAULT: &str = "rollback_default";
 
 // structopt will read command line parameters for u
-#[derive(StructOpt)]
+#[derive(StructOpt, Resource)]
 struct Opt {
     #[structopt(short, long)]
     num_players: usize,
@@ -44,9 +44,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // define system that returns inputs given a player handle, so GGRS can send the inputs around
         .with_input_system(input)
         // register types of components AND resources you want to be rolled back
-        .register_rollback_type::<Transform>()
-        .register_rollback_type::<Velocity>()
-        .register_rollback_type::<FrameCount>()
+        .register_rollback_component::<Transform>()
+        .register_rollback_component::<Velocity>()
+        .register_rollback_resource::<FrameCount>()
         // these systems will be executed as part of the advance frame update
         .with_rollback_schedule(
             Schedule::default().with_stage(
@@ -61,18 +61,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // continue building/running the app like you normally would
     app.insert_resource(Msaa { samples: 4 })
-        .insert_resource(WindowDescriptor {
-            width: 720.,
-            height: 720.,
-            title: "GGRS Box Game".to_owned(),
-            ..Default::default()
-        })
         .insert_resource(opt)
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_system)
         // add your GGRS session
-        .insert_resource(sess)
-        .insert_resource(SessionType::SyncTestSession)
+        .insert_resource(Session::SyncTestSession(sess))
         // register a resource that will be rolled back
         .insert_resource(FrameCount { frame: 0 })
         .run();

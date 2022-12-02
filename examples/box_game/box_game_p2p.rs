@@ -65,9 +65,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // define system that returns inputs given a player handle, so GGRS can send the inputs around
         .with_input_system(input)
         // register types of components AND resources you want to be rolled back
-        .register_rollback_type::<Transform>()
-        .register_rollback_type::<Velocity>()
-        .register_rollback_type::<FrameCount>()
+        .register_rollback_component::<Transform>()
+        .register_rollback_component::<Velocity>()
+        .register_rollback_resource::<FrameCount>()
         // these systems will be executed as part of the advance frame update
         .with_rollback_schedule(
             Schedule::default().with_stage(
@@ -102,33 +102,43 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             2.0,
             TimerMode::Repeating,
         )))
-        // .add_system(print_network_stats_system)
-        // .add_system(print_events_system)
+        .add_system(print_network_stats_system)
+        .add_system(print_events_system)
         .run();
 
     Ok(())
 }
 
-// fn print_events_system(mut session: ResMut<P2PSession<GGRSConfig>>) {
-//     for event in session.events() {
-//         println!("GGRS Event: {:?}", event);
-//     }
-// }
+fn print_events_system(mut session: ResMut<Session<GGRSConfig>>) {
+    match session.as_mut() {
+        Session::P2PSession(s) => {
+            for event in s.events() {
+                println!("GGRS Event: {:?}", event);
+            }
+        }
+        _ => panic!("This examples focus on p2p."),
+    }
+}
 
-// fn print_network_stats_system(
-//     time: Res<Time>,
-//     mut timer: ResMut<NetworkStatsTimer>,
-//     p2p_session: Option<Res<Session<GGRSConfig>>>,
-// ) {
-//     // print only when timer runs out
-//     if timer.0.tick(time.delta()).just_finished() {
-//         if let Some(sess) = p2p_session {
-//             let num_players = sess.num_players() as usize;
-//             for i in 0..num_players {
-//                 if let Ok(stats) = sess.network_stats(i) {
-//                     println!("NetworkStats for player {}: {:?}", i, stats);
-//                 }
-//             }
-//         }
-//     }
-// }
+fn print_network_stats_system(
+    time: Res<Time>,
+    mut timer: ResMut<NetworkStatsTimer>,
+    p2p_session: Option<Res<Session<GGRSConfig>>>,
+) {
+    // print only when timer runs out
+    if timer.0.tick(time.delta()).just_finished() {
+        if let Some(sess) = p2p_session {
+            match sess.as_ref() {
+                Session::P2PSession(s) => {
+                    let num_players = s.num_players() as usize;
+                    for i in 0..num_players {
+                        if let Ok(stats) = s.network_stats(i) {
+                            println!("NetworkStats for player {}: {:?}", i, stats);
+                        }
+                    }
+                }
+                _ => panic!("This examples focus on p2p."),
+            }
+        }
+    }
+}

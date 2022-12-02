@@ -128,7 +128,7 @@ impl<T: Config + Send + Sync> GGRSPlugin<T> {
     }
 
     /// Registers a type of component for saving and loading during rollbacks.
-    pub fn register_rollback_type<Type>(self) -> Self
+    pub fn register_rollback_component<Type>(self) -> Self
     where
         Type: GetTypeRegistration + Reflect + Default + Component,
     {
@@ -137,7 +137,20 @@ impl<T: Config + Send + Sync> GGRSPlugin<T> {
 
         let registration = registry.get_mut(std::any::TypeId::of::<Type>()).unwrap();
         registration.insert(<ReflectComponent as FromType<Type>>::from_type());
-        // registration.insert(<ReflectResource as FromType<Type>>::from_type());
+        drop(registry);
+        self
+    }
+
+    /// Registers a type of resource for saving and loading during rollbacks.
+    pub fn register_rollback_resource<Type>(self) -> Self
+    where
+        Type: GetTypeRegistration + Reflect + Default + Resource,
+    {
+        let mut registry = self.type_registry.write();
+        registry.register::<Type>();
+
+        let registration = registry.get_mut(std::any::TypeId::of::<Type>()).unwrap();
+        registration.insert(<ReflectResource as FromType<Type>>::from_type());
         drop(registry);
         self
     }

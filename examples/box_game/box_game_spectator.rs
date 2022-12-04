@@ -82,12 +82,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn print_events_system(mut session: ResMut<Session<GGRSConfig>>) {
     match session.as_mut() {
-        Session::P2PSession(s) => {
+        Session::SpectatorSession(s) => {
             for event in s.events() {
                 println!("GGRS Event: {:?}", event);
             }
         }
-        _ => panic!("This examples focus on p2p."),
+        _ => panic!("This examples focuses on spectator."),
     }
 }
 
@@ -105,7 +105,7 @@ fn print_network_stats_system(
                         println!("NetworkStats : {:?}", stats);
                     }
                 }
-                _ => panic!("This examples focus on p2p."),
+                _ => panic!("This examples focuses on p2p."),
             }
         }
     }

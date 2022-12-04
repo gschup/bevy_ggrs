@@ -1,12 +1,11 @@
 use bevy::{
     ecs::{entity::EntityMap, reflect::ReflectMapEntities},
     prelude::*,
-    reflect::{Reflect, TypeData, TypeRegistry},
+    reflect::{Reflect, TypeRegistry},
     utils::HashMap,
 };
 use std::{fmt::Debug, num::Wrapping};
 
-// use crate::reflect_resource::ReflectResource;
 use crate::Rollback;
 
 /// Maps rollback_ids to entity id+generation. Necessary to track entities over time.
@@ -109,7 +108,7 @@ impl WorldSnapshot {
         }
 
         // go through all resources and clone those that are registered
-        for (component_id, resource_data) in world.storages().resources.iter() {
+        for (component_id, _) in world.storages().resources.iter() {
             let reflect_component = world
                 .components()
                 .get_info(component_id)

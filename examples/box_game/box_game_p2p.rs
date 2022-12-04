@@ -116,7 +116,7 @@ fn print_events_system(mut session: ResMut<Session<GGRSConfig>>) {
                 println!("GGRS Event: {:?}", event);
             }
         }
-        _ => panic!("This examples focus on p2p."),
+        _ => panic!("This examples focuses on p2p."),
     }
 }
 
@@ -137,7 +137,7 @@ fn print_network_stats_system(
                         }
                     }
                 }
-                _ => panic!("This examples focus on p2p."),
+                _ => panic!("This examples focuses on p2p."),
             }
         }
     }

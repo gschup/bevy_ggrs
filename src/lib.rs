@@ -8,13 +8,11 @@ use bevy::{
 use ggrs::{Config, InputStatus, P2PSession, PlayerHandle, SpectatorSession, SyncTestSession};
 use ggrs_stage::GGRSStage;
 use parking_lot::RwLock;
-// use reflect_resource::ReflectResource;
 use std::sync::Arc;
 
 pub use ggrs;
 
 pub(crate) mod ggrs_stage;
-// pub(crate) mod reflect_resource;
 pub(crate) mod world_snapshot;
 
 /// Stage label for the Custom GGRS Stage.

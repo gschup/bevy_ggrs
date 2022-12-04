@@ -32,7 +32,7 @@ impl Config for GGRSConfig {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, PartialEq, Pod, Zeroable)]
+#[derive(Copy, Clone, PartialEq, Eq, Pod, Zeroable)]
 pub struct BoxInput {
     pub inp: u8,
 }

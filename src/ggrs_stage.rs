@@ -152,7 +152,7 @@ impl<T: Config> GGRSStage<T> {
 
     pub(crate) fn run_p2p(&mut self, world: &mut World) {
         let sess = world.get_resource::<Session<T>>();
-        let Some(Session::P2PSession(ref sess)) = sess.as_deref() else {
+        let Some(Session::P2PSession(ref sess)) = sess else {
             // TODO: improve error message for new API
             panic!("No GGRS P2PSession found. Please start a session and add it as a resource.");
         };

@@ -6,7 +6,6 @@ use bevy::{
 };
 use std::{fmt::Debug, num::Wrapping};
 
-use crate::reflect_resource::ReflectResource;
 use crate::Rollback;
 
 /// Maps rollback_ids to entity id+generation. Necessary to track entities over time.
@@ -39,7 +38,7 @@ impl Default for RollbackEntity {
 impl Debug for RollbackEntity {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RollbackEntity")
-            .field("id", &self.entity.id())
+            .field("id", &self.entity)
             .field("generation", &self.entity.generation())
             .field("rollback_id", &self.rollback_id)
             .finish()
@@ -65,9 +64,10 @@ impl WorldSnapshot {
         for archetype in world.archetypes().iter() {
             let entities_offset = snapshot.entities.len();
             for entity in archetype.entities() {
-                if let Some(rollback) = world.get::<Rollback>(*entity) {
+                let entity = entity.entity();
+                if let Some(rollback) = world.get::<Rollback>(entity) {
                     snapshot.entities.push(RollbackEntity {
-                        entity: *entity,
+                        entity,
                         rollback_id: rollback.id,
                         components: Vec::new(),
                     });
@@ -85,11 +85,12 @@ impl WorldSnapshot {
                     for (i, entity) in archetype
                         .entities()
                         .iter()
-                        .filter(|&&entity| world.get::<Rollback>(entity).is_some())
+                        .filter(|&entity| world.get::<Rollback>(entity.entity()).is_some())
                         .enumerate()
                     {
-                        if let Some(component) = reflect_component.reflect(world, *entity) {
-                            assert_eq!(*entity, snapshot.entities[entities_offset + i].entity);
+                        let entity = entity.entity();
+                        if let Some(component) = reflect_component.reflect(world, entity) {
+                            assert_eq!(entity, snapshot.entities[entities_offset + i].entity);
                             // add the hash value of that component to the shapshot checksum, if that component supports hashing
                             if let Some(hash) = component.reflect_hash() {
                                 // wrapping semantics to avoid overflow
@@ -107,14 +108,14 @@ impl WorldSnapshot {
         }
 
         // go through all resources and clone those that are registered
-        for component_id in world.archetypes().resource().unique_components().indices() {
+        for (component_id, _) in world.storages().resources.iter() {
             let reflect_component = world
                 .components()
                 .get_info(component_id)
                 .and_then(|info| type_registry.get(info.type_id().unwrap()))
                 .and_then(|registration| registration.data::<ReflectResource>());
             if let Some(reflect_resource) = reflect_component {
-                if let Some(resource) = reflect_resource.reflect_resource(world) {
+                if let Some(resource) = reflect_resource.reflect(world) {
                     // add the hash value of that resource to the shapshot checksum, if that resource supports hashing
                     if let Some(hash) = resource.reflect_hash() {
                         snapshot.checksum = (Wrapping(snapshot.checksum) + Wrapping(hash)).0;
@@ -142,8 +143,7 @@ impl WorldSnapshot {
                 .entry(rollback_entity.rollback_id)
                 .or_insert_with(|| {
                     world
-                        .spawn()
-                        .insert(Rollback {
+                        .spawn(Rollback {
                             id: rollback_entity.rollback_id,
                         })
                         .id()
@@ -155,9 +155,9 @@ impl WorldSnapshot {
             // for each registered type, check what we need to do
             for registration in type_registry.iter() {
                 let type_id = registration.type_id();
-                let reflect_component = registration
-                    .data::<ReflectComponent>()
-                    .expect("Unregistered Type in GGRS Type Registry");
+                let Some(reflect_component) = registration.data::<ReflectComponent>() else {
+                    continue;
+                };
 
                 if world.entity(entity).contains_type_id(type_id) {
                     // the entity in the world has such a component
@@ -212,7 +212,7 @@ impl WorldSnapshot {
                 }
             };
 
-            match reflect_resource.reflect_resource(world) {
+            match reflect_resource.reflect(world) {
                 // the world has such a resource
                 Some(_) => {
                     // check if we have saved such a resource
@@ -223,10 +223,10 @@ impl WorldSnapshot {
                     {
                         // if both the world and the snapshot has the resource, apply the values
                         Some(snapshot_res) => {
-                            reflect_resource.apply_resource(world, &**snapshot_res);
+                            reflect_resource.apply(world, &**snapshot_res);
                         }
                         // if only the world has the resource, but it doesn't exist in the snapshot, remove the resource
-                        None => reflect_resource.remove_resource(world),
+                        None => reflect_resource.remove(world),
                     }
                 }
                 // the world does not have this resource
@@ -237,7 +237,7 @@ impl WorldSnapshot {
                         .iter()
                         .find(|res| res.type_name() == registration.type_name())
                     {
-                        reflect_resource.add_resource(world, &**snapshot_res);
+                        reflect_resource.insert(world, &**snapshot_res);
                     }
                     // if both the world and the snapshot does not have this resource, do nothing
                 }

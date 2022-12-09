@@ -5,16 +5,14 @@ use bevy::{
     prelude::*,
     reflect::{FromType, GetTypeRegistration, TypeRegistry, TypeRegistryInternal},
 };
-use ggrs::{Config, PlayerHandle};
+use ggrs::{Config, InputStatus, P2PSession, PlayerHandle, SpectatorSession, SyncTestSession};
 use ggrs_stage::GGRSStage;
 use parking_lot::RwLock;
-use reflect_resource::ReflectResource;
 use std::sync::Arc;
 
 pub use ggrs;
 
 pub(crate) mod ggrs_stage;
-pub(crate) mod reflect_resource;
 pub(crate) mod world_snapshot;
 
 /// Stage label for the Custom GGRS Stage.
@@ -22,17 +20,16 @@ pub const GGRS_UPDATE: &str = "ggrs_update";
 const DEFAULT_FPS: usize = 60;
 
 /// Defines the Session that the GGRS Plugin should expect as a resource.
-pub enum SessionType {
-    SyncTestSession,
-    P2PSession,
-    SpectatorSession,
+#[derive(Resource)]
+pub enum Session<T: Config> {
+    SyncTestSession(SyncTestSession<T>),
+    P2PSession(P2PSession<T>),
+    SpectatorSession(SpectatorSession<T>),
 }
 
-impl Default for SessionType {
-    fn default() -> Self {
-        SessionType::SyncTestSession
-    }
-}
+// TODO: more specific name to avoid conflicts?
+#[derive(Resource, Deref, DerefMut)]
+pub struct PlayerInputs<T: Config>(Vec<(T::Input, InputStatus)>);
 
 /// Add this component to all entities you want to be loaded/saved on rollback.
 /// The `id` has to be unique. Consider using the `RollbackIdProvider` resource.
@@ -55,7 +52,7 @@ impl Rollback {
 
 /// Provides unique ids for your Rollback components.
 /// When you add the GGRS Plugin, this should be available as a resource.
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct RollbackIdProvider {
     next_id: u32,
 }
@@ -129,7 +126,7 @@ impl<T: Config + Send + Sync> GGRSPlugin<T> {
     }
 
     /// Registers a type of component for saving and loading during rollbacks.
-    pub fn register_rollback_type<Type>(self) -> Self
+    pub fn register_rollback_component<Type>(self) -> Self
     where
         Type: GetTypeRegistration + Reflect + Default + Component,
     {
@@ -138,6 +135,19 @@ impl<T: Config + Send + Sync> GGRSPlugin<T> {
 
         let registration = registry.get_mut(std::any::TypeId::of::<Type>()).unwrap();
         registration.insert(<ReflectComponent as FromType<Type>>::from_type());
+        drop(registry);
+        self
+    }
+
+    /// Registers a type of resource for saving and loading during rollbacks.
+    pub fn register_rollback_resource<Type>(self) -> Self
+    where
+        Type: GetTypeRegistration + Reflect + Default + Resource,
+    {
+        let mut registry = self.type_registry.write();
+        registry.register::<Type>();
+
+        let registration = registry.get_mut(std::any::TypeId::of::<Type>()).unwrap();
         registration.insert(<ReflectResource as FromType<Type>>::from_type());
         drop(registry);
         self

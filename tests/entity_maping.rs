@@ -17,7 +17,7 @@ struct ChildEntity;
 #[derive(Reflect, Component, Default)]
 struct ParentEntity;
 
-#[derive(Reflect, Component, Default, Debug)]
+#[derive(Reflect, Resource, Default, Debug)]
 struct FrameCounter(u16);
 
 fn input_system(_: In<PlayerHandle>, mut delete_events: EventReader<DeleteChildEntityEvent>) -> u8 {
@@ -26,21 +26,19 @@ fn input_system(_: In<PlayerHandle>, mut delete_events: EventReader<DeleteChildE
 
 fn setup_system(mut commands: Commands) {
     commands
-        .spawn()
-        .insert(Rollback::new(0))
-        .insert(ParentEntity)
+        .spawn((Rollback::new(0), ParentEntity))
         .with_children(|parent| {
-            parent.spawn().insert(Rollback::new(1)).insert(ChildEntity);
+            parent.spawn((Rollback::new(1), ChildEntity));
         });
 }
 
 fn delete_child_system(
     mut commands: Commands,
-    inputs: Res<Vec<(u8, InputStatus)>>,
+    inputs: Res<PlayerInputs<GGRSConfig>>,
     parent: Query<&Children, With<ParentEntity>>,
     child: Query<Entity, With<ChildEntity>>,
 ) {
-    println!("Inputs: {:?}", *inputs);
+    println!("Inputs: {:?}", **inputs);
 
     println!("Parent's children: {:?}", parent.single());
 
@@ -74,7 +72,7 @@ fn entity_mapping() {
         .init_resource::<FrameCounter>()
         .add_startup_system(setup_system)
         // Insert the GGRS session
-        .insert_resource(
+        .insert_resource(Session::SyncTestSession(
             SessionBuilder::<GGRSConfig>::new()
                 .with_num_players(1)
                 .with_check_distance(2)
@@ -82,15 +80,14 @@ fn entity_mapping() {
                 .unwrap()
                 .start_synctest_session()
                 .unwrap(),
-        )
-        .insert_resource(SessionType::SyncTestSession);
+        ));
 
     GGRSPlugin::<GGRSConfig>::new()
         .with_update_frequency(60)
         .with_input_system(input_system)
-        .register_rollback_type::<ChildEntity>()
-        .register_rollback_type::<ParentEntity>()
-        .register_rollback_type::<FrameCounter>()
+        .register_rollback_component::<ChildEntity>()
+        .register_rollback_component::<ParentEntity>()
+        .register_rollback_resource::<FrameCounter>()
         .with_rollback_schedule(
             Schedule::default().with_stage(
                 "default",

@@ -1,8 +1,7 @@
-use crate::{world_snapshot::WorldSnapshot, SessionType};
+use crate::{world_snapshot::WorldSnapshot, PlayerInputs, Session};
 use bevy::{prelude::*, reflect::TypeRegistry};
 use ggrs::{
-    Config, GGRSError, GGRSRequest, GameStateCell, InputStatus, P2PSession, PlayerHandle,
-    SessionState, SpectatorSession, SyncTestSession,
+    Config, GGRSError, GGRSRequest, GameStateCell, InputStatus, PlayerHandle, SessionState,
 };
 use instant::{Duration, Instant};
 
@@ -43,11 +42,16 @@ impl<T: Config + Send + Sync> Stage for GGRSStage<T> {
         self.last_update = Instant::now();
 
         // no matter what, poll remotes and send responses
-        if let Some(mut sess) = world.get_resource_mut::<P2PSession<T>>() {
-            sess.poll_remote_clients();
-        }
-        if let Some(mut sess) = world.get_resource_mut::<SpectatorSession<T>>() {
-            sess.poll_remote_clients();
+        if let Some(mut session) = world.get_resource_mut::<Session<T>>() {
+            match &mut *session {
+                Session::P2PSession(session) => {
+                    session.poll_remote_clients();
+                }
+                Session::SpectatorSession(session) => {
+                    session.poll_remote_clients();
+                }
+                _ => {}
+            }
         }
 
         // if we accumulated enough time, do steps
@@ -58,12 +62,12 @@ impl<T: Config + Send + Sync> Stage for GGRSStage<T> {
                 .saturating_sub(Duration::from_secs_f64(fps_delta));
 
             // depending on the session type, doing a single update looks a bit different
-            let session_type = world.get_resource::<SessionType>();
-            match session_type {
-                Some(SessionType::SyncTestSession) => self.run_synctest(world),
-                Some(SessionType::P2PSession) => self.run_p2p(world),
-                Some(SessionType::SpectatorSession) => self.run_spectator(world),
-                None => self.reset(), // No session has been started yet
+            let session = world.get_resource::<Session<T>>();
+            match session {
+                Some(&Session::SyncTestSession(_)) => self.run_synctest(world),
+                Some(&Session::P2PSession(_)) => self.run_p2p(world),
+                Some(&Session::SpectatorSession(_)) => self.run_spectator(world),
+                _ => self.reset(), // No session has been started yet
             }
         }
     }
@@ -93,9 +97,11 @@ impl<T: Config> GGRSStage<T> {
     }
 
     pub(crate) fn run_synctest(&mut self, world: &mut World) {
-        let sess = world.get_resource::<SyncTestSession<T>>().expect(
-            "No GGRS SyncTestSession found. Please start a session and add it as a resource.",
-        );
+        // let ses = world.get_resource::<Session<T>>().expect("lol");
+        let Some(Session::SyncTestSession(sess)) = world.get_resource::<Session<T>>() else {
+            // TODO: improve error message for new API
+            panic!("No GGRS SyncTestSession found. Please start a session and add it as a resource.");
+        };
 
         // if our snapshot vector is not initialized, resize it accordingly
         if self.snapshots.is_empty() {
@@ -110,10 +116,10 @@ impl<T: Config> GGRSStage<T> {
             inputs.push(self.input_system.run(handle, world));
         }
 
-        // try to advance the frame
-        let mut sess = world.get_resource_mut::<SyncTestSession<T>>().expect(
-            "No GGRS SyncTestSession found. Please start a session and add it as a resource.",
-        );
+        let mut sess = world.get_resource_mut::<Session<T>>();
+        let Some(Session::SyncTestSession(ref mut sess)) = sess.as_deref_mut() else {
+            panic!("No GGRS SyncTestSession found. Please start a session and add it as a resource.");
+        };
         for (player_handle, &input) in inputs.iter().enumerate() {
             sess.add_local_input(player_handle, input)
                 .expect("All handles between 0 and num_players should be valid");
@@ -126,9 +132,11 @@ impl<T: Config> GGRSStage<T> {
 
     pub(crate) fn run_spectator(&mut self, world: &mut World) {
         // run spectator session, no input necessary
-        let mut sess = world.get_resource_mut::<SpectatorSession<T>>().expect(
-            "No GGRS P2PSpectatorSession found. Please start a session and add it as a resource.",
-        );
+        let mut sess = world.get_resource_mut::<Session<T>>();
+        let Some(Session::SpectatorSession(ref mut sess)) = sess.as_deref_mut() else {
+            // TODO: improve error message for new API
+            panic!("No GGRS P2PSpectatorSession found. Please start a session and add it as a resource.");
+        };
 
         // if session is ready, try to advance the frame
         if sess.current_state() == SessionState::Running {
@@ -143,9 +151,11 @@ impl<T: Config> GGRSStage<T> {
     }
 
     pub(crate) fn run_p2p(&mut self, world: &mut World) {
-        let sess = world
-            .get_resource::<P2PSession<T>>()
-            .expect("No GGRS P2PSession found. Please start a session and add it as a resource.");
+        let sess = world.get_resource::<Session<T>>();
+        let Some(Session::P2PSession(ref sess)) = sess else {
+            // TODO: improve error message for new API
+            panic!("No GGRS P2PSession found. Please start a session and add it as a resource.");
+        };
 
         // if our snapshot vector is not initialized, resize it accordingly
         if self.snapshots.is_empty() {
@@ -168,11 +178,12 @@ impl<T: Config> GGRSStage<T> {
             local_inputs.push(input);
         }
 
-        let mut sess = world
-            .get_resource_mut::<P2PSession<T>>()
-            .expect("No GGRS P2PSession found. Please start a session and add it as a resource.");
-
         // if session is ready, try to advance the frame
+        let mut sess = world.get_resource_mut::<Session<T>>();
+        let Some(Session::P2PSession(ref mut sess)) = sess.as_deref_mut() else {
+            // TODO: improve error message for new API
+            panic!("No GGRS P2PSession found. Please start a session and add it as a resource.");
+        };
         if sess.current_state() == SessionState::Running {
             for i in 0..local_inputs.len() {
                 sess.add_local_input(local_handles[i], local_inputs[i])
@@ -233,9 +244,9 @@ impl<T: Config> GGRSStage<T> {
         inputs: Vec<(T::Input, InputStatus)>,
         world: &mut World,
     ) {
-        world.insert_resource(inputs);
+        world.insert_resource(PlayerInputs::<T>(inputs));
         self.schedule.run_once(world);
-        world.remove_resource::<Vec<(T::Input, InputStatus)>>();
+        world.remove_resource::<PlayerInputs<T>>();
         self.frame += 1;
     }
 

@@ -87,7 +87,7 @@ fn print_events_system(mut session: ResMut<Session<GGRSConfig>>) {
                 println!("GGRS Event: {:?}", event);
             }
         }
-        _ => panic!("This examples focuses on spectator."),
+        _ => panic!("This example focuses on spectators."),
     }
 }
 

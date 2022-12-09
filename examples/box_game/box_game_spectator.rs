@@ -105,7 +105,7 @@ fn print_network_stats_system(
                         println!("NetworkStats : {:?}", stats);
                     }
                 }
-                _ => panic!("This examples focuses on p2p."),
+                _ => panic!("This example focuses on spectators."),
             }
         }
     }

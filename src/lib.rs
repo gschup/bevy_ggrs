@@ -29,7 +29,7 @@ pub enum Session<T: Config> {
 
 // TODO: more specific name to avoid conflicts?
 #[derive(Resource, Deref, DerefMut)]
-pub struct Inputs<T: Config>(Vec<(T::Input, InputStatus)>);
+pub struct PlayerInputs<T: Config>(Vec<(T::Input, InputStatus)>);
 
 /// Add this component to all entities you want to be loaded/saved on rollback.
 /// The `id` has to be unique. Consider using the `RollbackIdProvider` resource.

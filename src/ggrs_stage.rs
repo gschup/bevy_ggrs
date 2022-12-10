@@ -1,4 +1,4 @@
-use crate::{world_snapshot::WorldSnapshot, Inputs, Session};
+use crate::{world_snapshot::WorldSnapshot, PlayerInputs, Session};
 use bevy::{prelude::*, reflect::TypeRegistry};
 use ggrs::{
     Config, GGRSError, GGRSRequest, GameStateCell, InputStatus, PlayerHandle, SessionState,
@@ -244,9 +244,9 @@ impl<T: Config> GGRSStage<T> {
         inputs: Vec<(T::Input, InputStatus)>,
         world: &mut World,
     ) {
-        world.insert_resource(Inputs::<T>(inputs));
+        world.insert_resource(PlayerInputs::<T>(inputs));
         self.schedule.run_once(world);
-        world.remove_resource::<Inputs<T>>();
+        world.remove_resource::<PlayerInputs<T>>();
         self.frame += 1;
     }
 

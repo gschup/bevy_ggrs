@@ -34,7 +34,7 @@ fn setup_system(mut commands: Commands) {
 
 fn delete_child_system(
     mut commands: Commands,
-    inputs: Res<Inputs<GGRSConfig>>,
+    inputs: Res<PlayerInputs<GGRSConfig>>,
     parent: Query<&Children, With<ParentEntity>>,
     child: Query<Entity, With<ChildEntity>>,
 ) {

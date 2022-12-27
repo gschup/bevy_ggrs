@@ -130,7 +130,7 @@ fn print_network_stats_system(
         if let Some(sess) = p2p_session {
             match sess.as_ref() {
                 Session::P2PSession(s) => {
-                    let num_players = s.num_players() as usize;
+                    let num_players = s.num_players();
                     for i in 0..num_players {
                         if let Ok(stats) = s.network_stats(i) {
                             println!("NetworkStats for player {}: {:?}", i, stats);

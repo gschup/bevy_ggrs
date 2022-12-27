@@ -112,7 +112,7 @@ impl<T: Config> GGRSStage<T> {
 
         // get inputs for all players
         let mut inputs = Vec::new();
-        for handle in 0..sess.num_players() as usize {
+        for handle in 0..sess.num_players() {
             inputs.push(self.input_system.run(handle, world));
         }
 

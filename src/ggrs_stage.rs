@@ -112,7 +112,7 @@ impl<T: Config> GGRSStage<T> {
 
         // get inputs for all players
         let mut inputs = Vec::new();
-        for handle in 0..sess.num_players() as usize {
+        for handle in 0..sess.num_players() {
             inputs.push(self.input_system.run(handle, world));
         }
 
@@ -215,6 +215,7 @@ impl<T: Config> GGRSStage<T> {
         frame: i32,
         world: &mut World,
     ) {
+        debug!("saving snapshot for frame {frame}");
         assert_eq!(self.frame, frame);
 
         // we make a snapshot of our world
@@ -229,6 +230,7 @@ impl<T: Config> GGRSStage<T> {
     }
 
     pub(crate) fn load_world(&mut self, frame: i32, world: &mut World) {
+        debug!("restoring snapshot for frame {frame}");
         self.frame = frame;
 
         // we get the correct snapshot
@@ -244,10 +246,12 @@ impl<T: Config> GGRSStage<T> {
         inputs: Vec<(T::Input, InputStatus)>,
         world: &mut World,
     ) {
+        debug!("advancing to frame: {}", self.frame + 1);
         world.insert_resource(PlayerInputs::<T>(inputs));
         self.schedule.run_once(world);
         world.remove_resource::<PlayerInputs<T>>();
         self.frame += 1;
+        debug!("frame {} completed", self.frame);
     }
 
     pub(crate) fn set_update_frequency(&mut self, update_frequency: usize) {

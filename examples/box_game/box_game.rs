@@ -110,11 +110,12 @@ pub fn setup_system(
         transform.translation.x = x;
         transform.translation.y = CUBE_SIZE / 2.;
         transform.translation.z = z;
+        let color = PLAYER_COLORS[handle % PLAYER_COLORS.len()];
 
         commands.spawn((
             PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Cube { size: CUBE_SIZE })),
-                material: materials.add(PLAYER_COLORS[handle as usize].into()),
+                material: materials.add(color.into()),
                 transform,
                 ..default()
             },
@@ -154,7 +155,7 @@ pub fn move_cube_system(
     inputs: Res<PlayerInputs<GGRSConfig>>,
 ) {
     for (mut t, mut v, p) in query.iter_mut() {
-        let input = inputs[p.handle as usize].0.inp;
+        let input = inputs[p.handle].0.inp;
         // set velocity through key presses
         if input & INPUT_UP != 0 && input & INPUT_DOWN == 0 {
             v.z -= MOVEMENT_SPEED;

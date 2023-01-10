@@ -6,6 +6,32 @@ use bevy::{
 use crate::{Rollback, RollbackIdProvider};
 
 pub trait RollbackCommandsExt<'w, 's> {
+    /// Spawns a bundle and automatically inserts a [`Rollback`] component so
+    /// the entity is tracked by `bevy_ggrs`.
+    ///
+    /// ```
+    /// # use bevy::prelude::*;
+    /// use bevy_ggrs::RollbackCommandsExt;
+    ///
+    /// fn system_in_rollback_schedule(mut commands: Commands) {
+    ///     commands.spawn_rollback(SpatialBundle::default());
+    /// }
+    /// ```
+    ///
+    /// This is an alternative to manually getting a rollback id and inserting
+    /// it yourself:
+    ///
+    /// ```
+    /// # use bevy::prelude::*;
+    /// use bevy_ggrs::{RollbackIdProvider, Rollback};
+    ///
+    /// fn system_in_rollback_schedule(mut commands: Commands, mut rip: RollbackIdProvider) {
+    ///     commands.spawn((
+    ///         SpatialBundle::default(),
+    ///         Rollback::new(rip.next_id())
+    ///     ));
+    /// }
+    /// ```
     fn spawn_rollback<'a, T: Bundle>(&'a mut self, bundle: T) -> EntityCommands<'w, 's, 'a>;
 }
 
@@ -18,6 +44,19 @@ impl<'w, 's> RollbackCommandsExt<'w, 's> for Commands<'w, 's> {
 }
 
 pub trait RollbackEntityCommandsExt {
+    /// Inserts a rollback component on the entity so it's tracked by
+    /// `bevy_ggrs`.
+    ///
+    /// ```
+    /// # use bevy::prelude::*;
+    /// use bevy_ggrs::RollbackEntityCommandsExt;
+    ///
+    /// fn system_in_rollback_schedule(mut commands: Commands) {
+    ///     commands.spawn(SpatialBundle::default()).insert_rollback();
+    /// }
+    /// ```
+    ///
+    /// See: [`RollbackCommandsExt::spawn_rollback`]
     fn insert_rollback(&mut self) -> &mut Self;
 }
 

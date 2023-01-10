@@ -1,7 +1,7 @@
 # [![GGRS LOGO](./ggrs_logo.png)](https://gschup.github.io/ggrs/)
 
 [![crates.io](https://img.shields.io/crates/v/bevy_ggrs?style=for-the-badge)](https://crates.io/crates/bevy_ggrs)
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/gschup/bevy_ggrs/Rust?style=for-the-badge)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/gschup/bevy_ggrs/test.yml?branch=main&style=for-the-badge)
 
 ## Bevy GGRS
 
@@ -37,7 +37,8 @@ Since bevy_ggrs operates with a separate schedule, compatibility with other plug
 
 |bevy|bevy_ggrs|ggrs|
 |---|---|---|
-|0.8|main|main|
+|0.9|main|main|
+|0.9|0.11|0.9.3|
 |0.8|0.10|0.9|
 |0.6|0.9|0.9|
 

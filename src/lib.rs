@@ -10,8 +10,10 @@ use ggrs_stage::GGRSStage;
 use parking_lot::RwLock;
 use std::sync::Arc;
 
+pub use crate::commands::{RollbackCommandsExt, RollbackEntityCommandsExt};
 pub use ggrs;
 
+pub(crate) mod commands;
 pub(crate) mod ggrs_stage;
 pub(crate) mod world_snapshot;
 

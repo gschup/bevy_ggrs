@@ -68,6 +68,25 @@ impl RollbackIdProvider {
         self.next_id += 1;
         ret
     }
+
+    /// Returns a `Rollback` component with the next unused id
+    ///
+    /// Convenience for `Rollback::new(rollback_id_provider.next_id())`.
+    ///
+    /// ```
+    /// # use bevy::prelude::*;
+    /// use bevy_ggrs::{RollbackIdProvider};
+    ///
+    /// fn system_in_rollback_schedule(mut commands: Commands, mut rip: RollbackIdProvider) {
+    ///     commands.spawn((
+    ///         SpatialBundle::default(),
+    ///         rip.next(),
+    ///     ));
+    /// }
+    /// ```
+    pub fn next(&mut self) -> Rollback {
+        Rollback::new(self.next_id())
+    }
 }
 
 /// A builder to configure GGRS for a bevy app.

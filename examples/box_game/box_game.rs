@@ -122,7 +122,7 @@ pub fn setup_system(
             Player { handle },
             Velocity::default(),
             // this component indicates bevy_GGRS that parts of this entity should be saved and loaded
-            Rollback::new(rip.next_id()),
+            rip.next(),
         ));
     }
 

@@ -81,8 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build(&mut app);
 
     // continue building/running the app like you normally would
-    app.insert_resource(Msaa { samples: 4 })
-        .insert_resource(opt)
+    app.insert_resource(opt)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             window: WindowDescriptor {
                 width: 720.,

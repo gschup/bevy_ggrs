@@ -105,7 +105,7 @@ impl<T: Config + Send + Sync> Default for GGRSPlugin<T> {
             type_registry: TypeRegistry {
                 internal: Arc::new(RwLock::new({
                     let mut r = TypeRegistryInternal::empty();
-                    // `Parent` and `Children` must be regisrered so that their `ReflectMapEntities`
+                    // `Parent` and `Children` must be registered so that their `ReflectMapEntities`
                     // data may be used.
                     //
                     // While this is a little bit of a weird spot to register these, are the only

@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use bevy::prelude::*;
 use bevy_ggrs::{GGRSPlugin, Session};
-use ggrs::{PlayerType, SessionBuilder, UdpNonBlockingSocket};
+use ggrs::{GGRSEvent, PlayerType, SessionBuilder, UdpNonBlockingSocket};
 use structopt::StructOpt;
 
 mod box_game;
@@ -113,7 +113,13 @@ fn print_events_system(mut session: ResMut<Session<GGRSConfig>>) {
     match session.as_mut() {
         Session::P2PSession(s) => {
             for event in s.events() {
-                println!("GGRS Event: {:?}", event);
+                match event {
+                    GGRSEvent::Disconnected { .. } | GGRSEvent::NetworkInterrupted { .. } => {
+                        warn!("GGRS event: {event:?}")
+                    }
+                    GGRSEvent::DesyncDetected { .. } => error!("GGRS event: {event:?}"),
+                    _ => info!("GGRS event: {event:?}"),
+                }
             }
         }
         _ => panic!("This example focuses on p2p."),

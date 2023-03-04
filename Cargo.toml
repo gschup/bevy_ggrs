@@ -16,7 +16,7 @@ categories = ["network-programming", "game-development"]
 wasm-bindgen = ["instant/wasm-bindgen", "ggrs/wasm-bindgen"]
 
 [dependencies]
-bevy = { version = "0.9.1", default-features = false, features = ["bevy_render", "bevy_asset","bevy_scene",]}
+bevy = { git = "htps://github.com/bevyengine/bevy", default-features = false, features = ["bevy_render", "bevy_asset","bevy_scene",]}
 bytemuck = { version = "1.7", features=["derive"]}
 instant = "0.1"
 log = "0.4"
@@ -27,7 +27,7 @@ parking_lot = "0.12.1"
 [dev-dependencies]
 structopt = "0.3"
 rand = "0.8.4"
-bevy = "0.9.1"
+bevy = { git = "htps://github.com/bevyengine/bevy" }
 serde = "1.0.130"
 serde_json = "1.0"
 

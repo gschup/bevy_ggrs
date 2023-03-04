@@ -7,7 +7,6 @@ mod box_game;
 use box_game::*;
 
 const FPS: usize = 60;
-const ROLLBACK_DEFAULT: &str = "rollback_default";
 
 // structopt will read command line parameters for u
 #[derive(StructOpt, Resource)]
@@ -48,14 +47,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .register_rollback_component::<Velocity>()
         .register_rollback_resource::<FrameCount>()
         // these systems will be executed as part of the advance frame update
-        .with_rollback_schedule(
-            Schedule::default().with_stage(
-                ROLLBACK_DEFAULT,
-                SystemStage::parallel()
-                    .with_system(move_cube_system)
-                    .with_system(increase_frame_system),
-            ),
-        )
+        .with_rollback_schedule({
+            let mut schedule = Schedule::default();
+            schedule.add_systems((move_cube_system, increase_frame_system));
+            schedule
+        })
         // make it happen in the bevy app
         .build(&mut app);
 

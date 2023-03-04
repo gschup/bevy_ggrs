@@ -89,7 +89,8 @@ impl WorldSnapshot {
                         .enumerate()
                     {
                         let entity = entity.entity();
-                        if let Some(component) = reflect_component.reflect(world, entity) {
+                        let entity_ref = world.entity(entity);
+                        if let Some(component) = reflect_component.reflect(entity_ref) {
                             assert_eq!(entity, snapshot.entities[entities_offset + i].entity);
                             // add the hash value of that component to the shapshot checksum, if that component supports hashing
                             if let Some(hash) = component.reflect_hash() {
@@ -174,11 +175,15 @@ impl WorldSnapshot {
                             // For example, an apply() will do an in-place update such that apply an
                             // array to an array will add items to the array instead of completely
                             // replacing the current array with the new one.
-                            reflect_component.remove(world, entity);
-                            reflect_component.insert(world, entity, &**component);
+                            let mut entity_mut = world.entity_mut(entity);
+                            reflect_component.remove(&mut entity_mut);
+                            reflect_component.insert(&mut entity_mut, &**component);
                         }
                         // if we don't have any data saved, we need to remove that component from the entity
-                        None => reflect_component.remove(world, entity),
+                        None => {
+                            let mut entity_mut = world.entity_mut(entity);
+                            reflect_component.remove(&mut entity_mut);
+                        }
                     }
                 } else {
                     // the entity in the world has no such component
@@ -188,7 +193,8 @@ impl WorldSnapshot {
                         .find(|comp| comp.type_name() == registration.type_name())
                     {
                         // if we have data saved in the snapshot, add the component to the entity
-                        reflect_component.insert(world, entity, &**component);
+                        let mut entity_mut = world.entity_mut(entity);
+                        reflect_component.insert(&mut entity_mut, &**component);
                     }
                     // if both the snapshot and the world does not have the registered component, we don't need to to anything
                 }

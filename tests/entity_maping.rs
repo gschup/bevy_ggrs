@@ -88,14 +88,11 @@ fn entity_mapping() {
         .register_rollback_component::<ChildEntity>()
         .register_rollback_component::<ParentEntity>()
         .register_rollback_resource::<FrameCounter>()
-        .with_rollback_schedule(
-            Schedule::default().with_stage(
-                "default",
-                SystemStage::single_threaded()
-                    .with_system(delete_child_system)
-                    .with_system(frame_counter.before(delete_child_system)),
-            ),
-        )
+        .with_rollback_schedule({
+            let mut schedule = Schedule::default();
+            schedule.add_systems((frame_counter, delete_child_system).chain());
+            schedule
+        })
         .build(&mut app);
 
     // Sleep helper that will make sure at least one frame should be executed by the GGRS fixed

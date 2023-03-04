@@ -91,7 +91,10 @@ pub fn setup_system(
 
     // plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: PLANE_SIZE })),
+        mesh: meshes.add(Mesh::from(shape::Plane {
+            size: PLANE_SIZE,
+            ..default()
+        })),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });

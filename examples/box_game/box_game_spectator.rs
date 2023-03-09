@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use bevy::prelude::*;
-use bevy_ggrs::{GGRSPlugin, Session};
+use bevy_ggrs::{GGRSPlugin, GGRSSchedule, Session};
 use ggrs::{SessionBuilder, UdpNonBlockingSocket};
 use structopt::StructOpt;
 
@@ -46,12 +46,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .register_rollback_component::<Transform>()
         .register_rollback_component::<Velocity>()
         .register_rollback_resource::<FrameCount>()
-        // these systems will be executed as part of the advance frame update
-        .with_rollback_schedule({
-            let mut schedule = Schedule::default();
-            schedule.add_systems((move_cube_system, increase_frame_system));
-            schedule
-        })
         // make it happen in the bevy app
         .build(&mut app);
 
@@ -59,6 +53,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     app.insert_resource(opt)
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_system)
+        // these systems will be executed as part of the advance frame update
+        .add_systems((move_cube_system, increase_frame_system).in_schedule(GGRSSchedule))
         // add your GGRS session
         .insert_resource(Session::SpectatorSession(sess))
         // register a resource that will be rolled back

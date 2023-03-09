@@ -16,8 +16,6 @@ pub use ggrs;
 pub(crate) mod ggrs_stage;
 pub(crate) mod world_snapshot;
 
-/// Stage label for the Custom GGRS Stage.
-pub const GGRS_UPDATE: &str = "ggrs_update";
 const DEFAULT_FPS: usize = 60;
 
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]

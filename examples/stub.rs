@@ -1,16 +1,32 @@
 //! A simple 3D scene with light shining over a cube sitting on a plane.
 
+use std::net::SocketAddr;
+
 use bevy::prelude::*;
 use bevy_ggrs::{AdvanceFrame, GgrsPlugin};
+use bytemuck::{Pod, Zeroable};
+use ggrs::Config;
 
-const FPS: usize = 2;
-const FIXED_TIMESTEP: f32 = 1.0 / FPS as f32;
+/// You need to define a config struct to bundle all the generics of GGRS. You can safely ignore `State` and leave it as u8 for all GGRS functionality.
+/// TODO: Find a way to hide the state type.
+#[derive(Debug, Default)]
+pub struct GgrsConfig;
+impl Config for GgrsConfig {
+    type Input = BoxInput;
+    type State = u8;
+    type Address = SocketAddr;
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, PartialEq, Eq, Pod, Zeroable)]
+pub struct BoxInput {
+    pub inp: u8,
+}
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugin(GgrsPlugin)
-        .insert_resource(FixedTime::new_from_secs(FIXED_TIMESTEP))
+        .add_plugin(GgrsPlugin::<GgrsConfig>::default())
         .add_startup_system(setup)
         .add_system(yoink.in_schedule(AdvanceFrame))
         .run();

@@ -1,9 +1,15 @@
 //! bevy_ggrs is a bevy plugin for the P2P rollback networking library GGRS.
 #![forbid(unsafe_code)] // let us try
 
+use std::{marker::PhantomData, time::Instant};
+
 use bevy::{ecs::schedule::ScheduleLabel, prelude::*};
 
 pub use ggrs;
+use ggrs::{
+    Config, GGRSError, GGRSRequest, P2PSession, SessionState, SpectatorSession, SyncTestSession,
+};
+use instant::Duration;
 
 /// Add this component to all entities you want to be loaded/saved on rollback.
 /// The `id` has to be unique. Consider using the `RollbackIdProvider` resource.
@@ -44,33 +50,173 @@ impl RollbackIdProvider {
     }
 }
 
-// A label for our new Schedule!
+#[derive(Resource)]
+pub struct FixedTimestepData {
+    /// fixed FPS for the rollback logic
+    pub fps: usize,
+    /// counts the number of frames that have been executed
+    pub frame: i32,
+    /// internal time control variables
+    pub last_update: Instant,
+    /// accumulated time. once enough time has been accumulated, an update is executed
+    pub accumulator: Duration,
+    /// boolean to see if we should run slow to let remote clients catch up
+    pub run_slow: bool,
+}
+
+impl Default for FixedTimestepData {
+    fn default() -> Self {
+        Self {
+            fps: 60,
+            frame: 0,
+            last_update: Instant::now(),
+            accumulator: Duration::ZERO,
+            run_slow: false,
+        }
+    }
+}
+
+// Label for the schedule which is advancing the gamestate by a single frame.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct AdvanceFrame;
 
-// A label for our new Schedule!
+// Label for the schedule which loads and overwrites a snapshot of the world.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct LoadWorld;
 
-// A label for our new Schedule!
+// Label for the schedule which saves a snapshot of the current world.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct SaveWorld;
 
-/// A builder to configure GGRS for a bevy app.
-pub struct GgrsPlugin;
+/// Defines the Session that the GGRS Plugin should expect as a resource.
+#[derive(Resource)]
+pub enum Session<T: Config> {
+    SyncTestSession(SyncTestSession<T>),
+    P2PSession(P2PSession<T>),
+    SpectatorSession(SpectatorSession<T>),
+}
 
-impl Plugin for GgrsPlugin {
+/// GGRS plugin for bevy.
+#[derive(Default)]
+pub struct GgrsPlugin<C: Config> {
+    /// fixed FPS for the rollback logic
+    _marker: PhantomData<C>,
+}
+
+impl<C: Config> Plugin for GgrsPlugin<C> {
     fn build(&self, app: &mut App) {
         // add things to your app here
         app.add_schedule(LoadWorld, Schedule::new())
             .add_schedule(SaveWorld, Schedule::new())
             .add_schedule(AdvanceFrame, Schedule::new())
-            .add_system(run_ggrs_schedules.in_schedule(CoreSchedule::FixedUpdate));
+            .add_system(run_ggrs_schedules::<C>)
+            .insert_resource(FixedTimestepData {
+                fps: 60,
+                frame: 0,
+                last_update: Instant::now(),
+                accumulator: Duration::ZERO,
+                run_slow: false,
+            });
     }
 }
 
-fn run_ggrs_schedules(world: &mut World) {
-    world.run_schedule(LoadWorld);
-    world.run_schedule(AdvanceFrame);
-    world.run_schedule(SaveWorld);
+fn run_ggrs_schedules<C: Config>(world: &mut World, mut time_data: Local<FixedTimestepData>) {
+    // no matter what, poll remotes and send responses
+    if let Some(mut session) = world.get_resource_mut::<Session<C>>() {
+        match &mut *session {
+            Session::P2PSession(session) => {
+                session.poll_remote_clients();
+                time_data.run_slow = session.frames_ahead() > 0;
+            }
+            Session::SpectatorSession(session) => {
+                session.poll_remote_clients();
+            }
+            _ => {}
+        }
+    }
+
+    // get delta time from last run() call and accumulate it
+    let delta = Instant::now().duration_since(time_data.last_update);
+    let mut fps_delta = 1. / time_data.fps as f64;
+    if time_data.run_slow {
+        fps_delta *= 1.1;
+    }
+    time_data.accumulator = time_data.accumulator.saturating_add(delta);
+    time_data.last_update = Instant::now();
+
+    // if we accumulated enough time, do steps
+    while time_data.accumulator.as_secs_f64() > fps_delta {
+        // decrease accumulator
+        time_data.accumulator = time_data
+            .accumulator
+            .saturating_sub(Duration::from_secs_f64(fps_delta));
+
+        // depending on the session type, doing a single update looks a bit different
+        let session = world.get_resource::<Session<C>>();
+        match session {
+            Some(&Session::SyncTestSession(_)) => run_synctest(world),
+            Some(&Session::P2PSession(_)) => run_p2p::<C>(world),
+            Some(&Session::SpectatorSession(_)) => run_spectator(world),
+            _ => {
+                // No session has been started yet
+                time_data.last_update = Instant::now();
+                time_data.accumulator = Duration::ZERO;
+                time_data.frame = 0;
+                time_data.run_slow = false;
+            }
+        }
+    }
+
+    fn run_p2p<C: Config>(world: &mut World) {
+        /*
+        let sess = world.get_resource::<Session<C>>();
+        let Some(Session::P2PSession(ref sess)) = sess else {
+            panic!("No GGRS P2PSession found. This should be impossible.");
+        };*/
+
+        let mut sess = world.get_resource_mut::<Session<C>>();
+        let Some(Session::P2PSession(ref mut sess)) = sess.as_deref_mut() else {
+            panic!("No GGRS P2PSession found. This should be impossible.");
+        };
+
+        // get local player handles
+        let local_handles = sess.local_player_handles();
+
+        // get local player inputs
+        let mut local_inputs = Vec::new();
+        for &local_handle in &local_handles {
+            // TODO: get input
+            //let input = self.input_system.run(local_handle, world);
+            //local_inputs.push();
+        }
+
+        // if session is ready, try to advance the frame
+        if sess.current_state() == SessionState::Running {
+            for i in 0..local_inputs.len() {
+                sess.add_local_input(local_handles[i], local_inputs[i])
+                    .expect("All handles in local_handles should be valid");
+            }
+            match sess.advance_frame() {
+                Ok(requests) => handle_requests(requests, world),
+                Err(GGRSError::PredictionThreshold) => {
+                    info!("Skipping a frame: PredictionThreshold.")
+                }
+                Err(e) => warn!("{}", e),
+            };
+        }
+    }
+
+    pub fn handle_requests<C: Config>(requests: Vec<GGRSRequest<C>>, world: &mut World) {
+        for request in requests {
+            match request {
+                GGRSRequest::SaveGameState { cell, frame } => world.run_schedule(SaveWorld),
+                GGRSRequest::LoadGameState { frame, .. } => world.run_schedule(LoadWorld),
+                GGRSRequest::AdvanceFrame { inputs } => world.run_schedule(AdvanceFrame),
+            }
+        }
+    }
+
+    fn run_spectator(world: &mut World) {}
+
+    fn run_synctest(world: &mut World) {}
 }

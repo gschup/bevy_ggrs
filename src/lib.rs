@@ -4,11 +4,11 @@
 use std::{marker::PhantomData, time::Instant};
 
 use bevy::{ecs::schedule::ScheduleLabel, prelude::*};
+use bevy::utils::HashMap;
+use bytemuck::Zeroable;
 
 pub use ggrs;
-use ggrs::{
-    Config, GGRSError, GGRSRequest, P2PSession, SessionState, SpectatorSession, SyncTestSession,
-};
+use ggrs::{Config, GGRSError, GGRSRequest, InputStatus, P2PSession, PlayerHandle, SessionState, SpectatorSession, SyncTestSession};
 use instant::Duration;
 
 /// Add this component to all entities you want to be loaded/saved on rollback.
@@ -76,6 +76,11 @@ impl Default for FixedTimestepData {
     }
 }
 
+#[derive(Resource)]
+pub struct LocalInputResource<C: Config> {
+    pub inputs: HashMap<PlayerHandle, C::Input>,
+}
+
 // Label for the schedule which is advancing the gamestate by a single frame.
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct AdvanceFrame;
@@ -102,6 +107,9 @@ pub struct GgrsPlugin<C: Config> {
     /// fixed FPS for the rollback logic
     _marker: PhantomData<C>,
 }
+
+#[derive(Resource, Deref, DerefMut)]
+pub struct PlayerInputs<T: Config>(Vec<(T::Input, InputStatus)>);
 
 impl<C: Config> Plugin for GgrsPlugin<C> {
     fn build(&self, app: &mut App) {
@@ -168,40 +176,34 @@ fn run_ggrs_schedules<C: Config>(world: &mut World, mut time_data: Local<FixedTi
     }
 
     fn run_p2p<C: Config>(world: &mut World) {
-        /*
-        let sess = world.get_resource::<Session<C>>();
-        let Some(Session::P2PSession(ref sess)) = sess else {
-            panic!("No GGRS P2PSession found. This should be impossible.");
-        };*/
-
-        let mut sess = world.get_resource_mut::<Session<C>>();
-        let Some(Session::P2PSession(ref mut sess)) = sess.as_deref_mut() else {
+        let mut session = world.get_resource_mut::<Session<C>>();
+        let Some(Session::P2PSession(ref mut sess)) = session.as_deref_mut() else {
             panic!("No GGRS P2PSession found. This should be impossible.");
         };
 
-        // get local player handles
-        let local_handles = sess.local_player_handles();
+        // let mut local_inputs = world.get_resource::<LocalInputResource<C>>();
+        // let Some(local_inputs) = local_inputs else {
+        //     panic!("No LocalInputResource found.")
+        // };
 
-        // get local player inputs
-        let mut local_inputs = Vec::new();
-        for &local_handle in &local_handles {
-            // TODO: get input
-            //let input = self.input_system.run(local_handle, world);
-            //local_inputs.push();
-        }
-
-        // if session is ready, try to advance the frame
         if sess.current_state() == SessionState::Running {
-            for i in 0..local_inputs.len() {
-                sess.add_local_input(local_handles[i], local_inputs[i])
-                    .expect("All handles in local_handles should be valid");
-            }
+            let local_handles = sess.local_player_handles();
+            // TODO: actually get local inputs
+            sess.add_local_input(local_handles[0], C::Input::zeroed())
+                .expect("All handles in local handles should be valid");
+            // for handle in local_handles {
+            //     let input_query = local_inputs.inputs.get(&handle);
+            //     if let Some(input) = input_query {
+            //         sess.add_local_input(handle, *input)
+            //             .expect("All handles in local_handles should be valid");
+            //     }
+            // }
             match sess.advance_frame() {
                 Ok(requests) => handle_requests(requests, world),
                 Err(GGRSError::PredictionThreshold) => {
                     info!("Skipping a frame: PredictionThreshold.")
                 }
-                Err(e) => warn!("{}", e),
+                Err(e) => println!("{}", e),
             };
         }
     }
@@ -211,7 +213,10 @@ fn run_ggrs_schedules<C: Config>(world: &mut World, mut time_data: Local<FixedTi
             match request {
                 GGRSRequest::SaveGameState { cell, frame } => world.run_schedule(SaveWorld),
                 GGRSRequest::LoadGameState { frame, .. } => world.run_schedule(LoadWorld),
-                GGRSRequest::AdvanceFrame { inputs } => world.run_schedule(AdvanceFrame),
+                GGRSRequest::AdvanceFrame { inputs } => {
+                    world.insert_resource(PlayerInputs::<C>(inputs));
+                    world.run_schedule(AdvanceFrame);
+                }
             }
         }
     }

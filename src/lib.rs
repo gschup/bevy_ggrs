@@ -2,7 +2,7 @@
 #![forbid(unsafe_code)] // let us try
 
 use bevy::{
-    ecs::schedule::ScheduleLabel,
+    ecs::schedule::{LogLevel, ScheduleBuildSettings, ScheduleLabel},
     prelude::*,
     reflect::{FromType, GetTypeRegistration, TypeRegistry, TypeRegistryInternal},
 };
@@ -181,7 +181,14 @@ impl<T: Config + Send + Sync> GGRSPlugin<T> {
         input_system.initialize(&mut app.world);
         let mut stage = GGRSStage::<T>::new(input_system);
         stage.set_update_frequency(self.fps);
-        app.add_schedule(GGRSSchedule, Schedule::default());
+
+        let mut schedule = Schedule::default();
+        schedule.set_build_settings(ScheduleBuildSettings {
+            ambiguity_detection: LogLevel::Error,
+            ..default()
+        });
+        app.add_schedule(GGRSSchedule, schedule);
+
         stage.set_type_registry(self.type_registry);
         app.add_system(GGRSStage::<T>::run.in_base_set(CoreSet::PreUpdate));
         app.insert_resource(stage);

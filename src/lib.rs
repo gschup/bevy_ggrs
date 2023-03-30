@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)] // let us try
 
 use bevy::{
+    ecs::schedule::{LogLevel, ScheduleBuildSettings, ScheduleLabel},
     prelude::*,
     reflect::{FromType, GetTypeRegistration, TypeRegistry, TypeRegistryInternal},
 };
@@ -15,9 +16,10 @@ pub use ggrs;
 pub(crate) mod ggrs_stage;
 pub(crate) mod world_snapshot;
 
-/// Stage label for the Custom GGRS Stage.
-pub const GGRS_UPDATE: &str = "ggrs_update";
 const DEFAULT_FPS: usize = 60;
+
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct GGRSSchedule;
 
 /// Defines the Session that the GGRS Plugin should expect as a resource.
 #[derive(Resource)]
@@ -94,7 +96,6 @@ pub struct GGRSPlugin<T: Config + Send + Sync> {
     input_system: Option<Box<dyn System<In = PlayerHandle, Out = T::Input>>>,
     fps: usize,
     type_registry: TypeRegistry,
-    schedule: Schedule,
 }
 
 impl<T: Config + Send + Sync> Default for GGRSPlugin<T> {
@@ -118,7 +119,6 @@ impl<T: Config + Send + Sync> Default for GGRSPlugin<T> {
                     r
                 })),
             },
-            schedule: Default::default(),
         }
     }
 }
@@ -172,13 +172,6 @@ impl<T: Config + Send + Sync> GGRSPlugin<T> {
         self
     }
 
-    /// Adds a schedule into the GGRSStage that holds the game logic systems. This schedule should contain all
-    /// systems you want to be executed during frame advances.
-    pub fn with_rollback_schedule(mut self, schedule: Schedule) -> Self {
-        self.schedule = schedule;
-        self
-    }
-
     /// Consumes the builder and makes changes on the bevy app according to the settings.
     pub fn build(self, app: &mut App) {
         let mut input_system = self
@@ -188,9 +181,17 @@ impl<T: Config + Send + Sync> GGRSPlugin<T> {
         input_system.initialize(&mut app.world);
         let mut stage = GGRSStage::<T>::new(input_system);
         stage.set_update_frequency(self.fps);
-        stage.set_schedule(self.schedule);
+
+        let mut schedule = Schedule::default();
+        schedule.set_build_settings(ScheduleBuildSettings {
+            ambiguity_detection: LogLevel::Error,
+            ..default()
+        });
+        app.add_schedule(GGRSSchedule, schedule);
+
         stage.set_type_registry(self.type_registry);
-        app.add_stage_before(CoreStage::Update, GGRS_UPDATE, stage);
+        app.add_system(GGRSStage::<T>::run.in_base_set(CoreSet::PreUpdate));
+        app.insert_resource(stage);
         // other resources
         app.insert_resource(RollbackIdProvider::default());
     }

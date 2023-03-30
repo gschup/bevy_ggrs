@@ -7,12 +7,15 @@ use bevy::utils::HashMap;
 use bevy::{ecs::schedule::ScheduleLabel, prelude::*};
 
 use instant::{Duration, Instant};
+use load_save_systems::{load_world, save_world};
 use parking_lot::RwLock;
 use std::{marker::PhantomData, sync::Arc};
+use world_snapshot::RollbackSnapshots;
 
 pub use ggrs;
 use ggrs::{Config, InputStatus, P2PSession, PlayerHandle, SpectatorSession, SyncTestSession};
 
+pub(crate) mod load_save_systems;
 pub(crate) mod schedule_systems;
 pub(crate) mod world_snapshot;
 use schedule_systems::run_ggrs_schedules;
@@ -81,8 +84,6 @@ impl RollbackIdProvider {
 pub struct FixedTimestepData {
     /// fixed FPS for the rollback logic
     pub fps: usize,
-    /// counts the number of frames that have been executed
-    pub frame: i32,
     /// internal time control variables
     pub last_update: Instant,
     /// accumulated time. once enough time has been accumulated, an update is executed
@@ -95,7 +96,6 @@ impl Default for FixedTimestepData {
     fn default() -> Self {
         Self {
             fps: DEFAULT_FPS,
-            frame: 0,
             last_update: Instant::now(),
             accumulator: Duration::ZERO,
             run_slow: false,
@@ -103,9 +103,13 @@ impl Default for FixedTimestepData {
     }
 }
 
+/// Keeps track of the current frame the rollback simulation is in
+#[derive(Resource)]
+pub struct RollbackFrameCount(i32);
+
 /// Inputs from local players. You have to fill this resource in the ReadInputs schedule.
 #[derive(Resource)]
-pub struct LocalInputs<C: Config>(HashMap<PlayerHandle, C::Input>);
+pub struct LocalInputs<C: Config>(pub HashMap<PlayerHandle, C::Input>);
 
 /// Inputs for all players. Will be inserted by the ggrs plugin before every execution of the AdvanceFrame schedule.
 #[derive(Resource, Deref, DerefMut)]
@@ -208,9 +212,13 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
             .add_schedule(AdvanceFrame, schedule)
             .add_schedule(ReadInputs, Schedule::new())
             .add_system(run_ggrs_schedules::<C>)
+            .add_system(save_world.in_schedule(SaveWorld))
+            .add_system(load_world.in_schedule(LoadWorld))
             .insert_resource(FixedTimestepData::default())
             .insert_resource(RollbackIdProvider::default())
-            .insert_resource(RollbackTypeRegistry::default());
+            .insert_resource(RollbackTypeRegistry::default())
+            .insert_resource(RollbackSnapshots::default())
+            .insert_resource(RollbackFrameCount(0));
     }
 }
 

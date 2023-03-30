@@ -8,6 +8,9 @@ use std::{fmt::Debug, num::Wrapping};
 
 use crate::Rollback;
 
+#[derive(Resource, Default)]
+pub struct RollbackSnapshots(pub Vec<WorldSnapshot>);
+
 /// Maps rollback_ids to entity id+generation. Necessary to track entities over time.
 fn rollback_id_map(world: &mut World) -> HashMap<u32, Entity> {
     let mut rid_map = HashMap::default();
@@ -49,7 +52,7 @@ impl Debug for RollbackEntity {
 /// The `checksum` is the sum of hash-values from all hashable objects. It is a sum for the checksum to be order insensitive. This of course
 /// is not the best checksum to ever exist, but it is a starting point.
 #[derive(Default)]
-pub(crate) struct WorldSnapshot {
+pub struct WorldSnapshot {
     entities: Vec<RollbackEntity>,
     pub resources: Vec<Box<dyn Reflect>>,
     pub checksum: u64,

@@ -5,8 +5,9 @@ use ggrs::{
 use instant::{Duration, Instant};
 
 use crate::{
-    AdvanceFrame, FixedTimestepData, LoadWorld, LocalInputs, ReadInputs, SaveWorld, Session,
-    SynchronizedInputs,
+    world_snapshot::{RollbackSnapshots, WorldSnapshot},
+    AdvanceFrame, FixedTimestepData, LoadWorld, LocalInputs, ReadInputs, RollbackFrameCount,
+    SaveWorld, Session, SynchronizedInputs,
 };
 
 pub fn run_ggrs_schedules<C: Config>(world: &mut World) {
@@ -27,7 +28,7 @@ pub fn run_ggrs_schedules<C: Config>(world: &mut World) {
         }
     }
 
-    // get delta time from last run() call and accumulate it
+    // get delta time from last call and accumulate it
     let delta = Instant::now().duration_since(time_data.last_update);
     let mut fps_delta = 1. / time_data.fps as f64;
     if time_data.run_slow {
@@ -51,11 +52,12 @@ pub fn run_ggrs_schedules<C: Config>(world: &mut World) {
             Some(Session::P2PSession(sess)) => run_p2p(world, sess),
             Some(Session::SpectatorSession(sess)) => run_spectator(world, sess),
             _ => {
-                // No session has been started yet
+                // No session has been started yet, reset time data and snapshots
                 time_data.last_update = Instant::now();
                 time_data.accumulator = Duration::ZERO;
-                time_data.frame = 0;
                 time_data.run_slow = false;
+                world.insert_resource(RollbackSnapshots::default());
+                world.insert_resource(RollbackFrameCount(0));
             }
         }
     }
@@ -64,6 +66,9 @@ pub fn run_ggrs_schedules<C: Config>(world: &mut World) {
 }
 
 pub fn run_p2p<C: Config>(world: &mut World, mut sess: P2PSession<C>) {
+    // maybe init snapshots
+    init_snapshots(world, sess.max_prediction());
+
     // if session is ready, try to advance the frame
     if sess.current_state() == SessionState::Running {
         // read local player inputs and register them in the session
@@ -105,6 +110,9 @@ pub fn run_spectator<C: Config>(world: &mut World, mut sess: SpectatorSession<C>
 }
 
 pub fn run_synctest<C: Config>(world: &mut World, mut sess: SyncTestSession<C>) {
+    // maybe init snapshots
+    init_snapshots(world, sess.max_prediction());
+
     // read local player inputs and register them in the session
     world.run_schedule(ReadInputs);
     let local_inputs = world.remove_resource::<LocalInputs<C>>().expect(
@@ -130,12 +138,42 @@ pub fn run_synctest<C: Config>(world: &mut World, mut sess: SyncTestSession<C>) 
 pub fn handle_requests<C: Config>(requests: Vec<GGRSRequest<C>>, world: &mut World) {
     for request in requests {
         match request {
-            GGRSRequest::SaveGameState { cell, frame } => world.run_schedule(SaveWorld),
-            GGRSRequest::LoadGameState { frame, .. } => world.run_schedule(LoadWorld),
+            GGRSRequest::SaveGameState { cell, frame } => {
+                debug!("saving snapshot for frame {frame}");
+                world.run_schedule(SaveWorld);
+                // we don't really use the buffer provided by GGRS
+                // TODO: CHECKSUM
+                cell.save(frame, None, None);
+            }
+            GGRSRequest::LoadGameState { frame, .. } => {
+                debug!("restoring snapshot for frame {frame}");
+                world.run_schedule(LoadWorld);
+            }
             GGRSRequest::AdvanceFrame { inputs } => {
+                let mut frame_count = world
+                    .get_resource_mut::<RollbackFrameCount>()
+                    .expect("Unable to find GGRS RollbackFrameCount. Did you remove it?");
+                frame_count.0 += 1;
+                let frame = frame_count.0;
+                debug!("advancing to frame: {}", frame);
                 world.insert_resource(SynchronizedInputs::<C>(inputs));
                 world.run_schedule(AdvanceFrame);
+                world.remove_resource::<SynchronizedInputs<C>>();
+                debug!("frame {} completed", frame);
             }
+        }
+    }
+}
+
+pub fn init_snapshots(world: &mut World, len: usize) {
+    let snapshots = &mut world
+        .get_resource_mut::<RollbackSnapshots>()
+        .expect("No GGRS RollbackSnapshots resource found. Did you remove it?")
+        .0;
+    if snapshots.len() != len {
+        snapshots.clear();
+        for _ in 0..len {
+            snapshots.push(WorldSnapshot::default());
         }
     }
 }

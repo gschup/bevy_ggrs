@@ -1,5 +1,5 @@
 use bevy::{prelude::*, utils::HashMap};
-use bevy_ggrs::{Rollback, RollbackIdProvider, Session, SynchronizedInputs};
+use bevy_ggrs::{LocalInputs, Rollback, RollbackIdProvider, Session, SynchronizedInputs};
 use bytemuck::{Pod, Zeroable};
 use ggrs::{Config, PlayerHandle};
 use std::{hash::Hash, net::SocketAddr};
@@ -60,7 +60,11 @@ pub struct FrameCount {
     pub frame: u32,
 }
 
-pub fn read_local_inputs(keyboard_input: Res<Input<KeyCode>>, local_players: Res<LocalPlayers>) {
+pub fn read_local_inputs(
+    mut commands: Commands,
+    keyboard_input: Res<Input<KeyCode>>,
+    local_players: Res<LocalPlayers>,
+) {
     let mut local_inputs = HashMap::new();
 
     // here, all local players get the same inputs
@@ -82,6 +86,8 @@ pub fn read_local_inputs(keyboard_input: Res<Input<KeyCode>>, local_players: Res
 
         local_inputs.insert(*handle, BoxInput { inp: input });
     }
+
+    commands.insert_resource(LocalInputs::<GGRSConfig>(local_inputs));
 }
 
 pub fn setup_system(

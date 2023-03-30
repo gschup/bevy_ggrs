@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use bevy::{prelude::*, window::WindowResolution};
 use bevy_ggrs::{GGRSPlugin, GGRSSchedule, Session};
-use ggrs::{PlayerType, SessionBuilder, UdpNonBlockingSocket};
+use ggrs::{GGRSEvent, PlayerType, SessionBuilder, UdpNonBlockingSocket};
 
 use structopt::StructOpt;
 

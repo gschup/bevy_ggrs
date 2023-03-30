@@ -88,12 +88,9 @@ fn entity_mapping() {
         .register_rollback_component::<ChildEntity>()
         .register_rollback_component::<ParentEntity>()
         .register_rollback_resource::<FrameCounter>()
-        .with_rollback_schedule({
-            let mut schedule = Schedule::default();
-            schedule.add_systems((frame_counter, delete_child_system).chain());
-            schedule
-        })
         .build(&mut app);
+
+    app.add_systems((frame_counter, delete_child_system).chain().in_schedule(GGRSSchedule));
 
     // Sleep helper that will make sure at least one frame should be executed by the GGRS fixed
     // update loop.

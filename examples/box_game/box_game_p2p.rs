@@ -3,6 +3,7 @@ use std::net::SocketAddr;
 use bevy::{prelude::*, window::WindowResolution};
 use bevy_ggrs::{GGRSPlugin, GGRSSchedule, Session};
 use ggrs::{PlayerType, SessionBuilder, UdpNonBlockingSocket};
+
 use structopt::StructOpt;
 
 mod box_game;
@@ -33,6 +34,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // create a GGRS session
     let mut sess_build = SessionBuilder::<GGRSConfig>::new()
         .with_num_players(num_players)
+        .with_desync_detection_mode(ggrs::DesyncDetection::On { interval: 10 }) // (optional) set how often to exchange state checksums
         .with_max_prediction_window(12) // (optional) set max prediction window
         .with_input_delay(2); // (optional) set input delay for the local player
 
@@ -103,7 +105,13 @@ fn print_events_system(mut session: ResMut<Session<GGRSConfig>>) {
     match session.as_mut() {
         Session::P2PSession(s) => {
             for event in s.events() {
-                println!("GGRS Event: {:?}", event);
+                match event {
+                    GGRSEvent::Disconnected { .. } | GGRSEvent::NetworkInterrupted { .. } => {
+                        warn!("GGRS event: {event:?}")
+                    }
+                    GGRSEvent::DesyncDetected { .. } => error!("GGRS event: {event:?}"),
+                    _ => info!("GGRS event: {event:?}"),
+                }
             }
         }
         _ => panic!("This example focuses on p2p."),

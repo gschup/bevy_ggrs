@@ -1,15 +1,23 @@
 //! bevy_ggrs is a bevy plugin for the P2P rollback networking library GGRS.
 #![forbid(unsafe_code)] // let us try
 
-use std::{marker::PhantomData, time::Instant};
-
-use bevy::{ecs::schedule::ScheduleLabel, prelude::*};
+use bevy::ecs::schedule::{LogLevel, ScheduleBuildSettings};
+use bevy::reflect::{FromType, GetTypeRegistration, TypeRegistry, TypeRegistryInternal};
 use bevy::utils::HashMap;
-use bytemuck::Zeroable;
+use bevy::{ecs::schedule::ScheduleLabel, prelude::*};
+
+use instant::{Duration, Instant};
+use parking_lot::RwLock;
+use std::{marker::PhantomData, sync::Arc};
 
 pub use ggrs;
-use ggrs::{Config, GGRSError, GGRSRequest, InputStatus, P2PSession, PlayerHandle, SessionState, SpectatorSession, SyncTestSession};
-use instant::Duration;
+use ggrs::{Config, InputStatus, P2PSession, PlayerHandle, SpectatorSession, SyncTestSession};
+
+pub(crate) mod schedule_systems;
+pub(crate) mod world_snapshot;
+use schedule_systems::run_ggrs_schedules;
+
+pub const DEFAULT_FPS: usize = 60;
 
 /// Add this component to all entities you want to be loaded/saved on rollback.
 /// The `id` has to be unique. Consider using the `RollbackIdProvider` resource.
@@ -48,9 +56,28 @@ impl RollbackIdProvider {
         self.next_id += 1;
         ret
     }
+
+    /// Returns a `Rollback` component with the next unused id
+    ///
+    /// Convenience for `Rollback::new(rollback_id_provider.next_id())`.
+    ///
+    /// ```
+    /// # use bevy::prelude::*;
+    /// use bevy_ggrs::{RollbackIdProvider};
+    ///
+    /// fn system_in_rollback_schedule(mut commands: Commands, mut rip: RollbackIdProvider) {
+    ///     commands.spawn((
+    ///         SpatialBundle::default(),
+    ///         rip.next(),
+    ///     ));
+    /// }
+    /// ```
+    pub fn next(&mut self) -> Rollback {
+        Rollback::new(self.next_id())
+    }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Copy, Clone)]
 pub struct FixedTimestepData {
     /// fixed FPS for the rollback logic
     pub fps: usize,
@@ -67,7 +94,7 @@ pub struct FixedTimestepData {
 impl Default for FixedTimestepData {
     fn default() -> Self {
         Self {
-            fps: 60,
+            fps: DEFAULT_FPS,
             frame: 0,
             last_update: Instant::now(),
             accumulator: Duration::ZERO,
@@ -76,9 +103,72 @@ impl Default for FixedTimestepData {
     }
 }
 
+/// Inputs from local players. You have to fill this resource in the ReadInputs schedule.
 #[derive(Resource)]
-pub struct LocalInputResource<C: Config> {
-    pub inputs: HashMap<PlayerHandle, C::Input>,
+pub struct LocalInputs<C: Config>(HashMap<PlayerHandle, C::Input>);
+
+/// Inputs for all players. Will be inserted by the ggrs plugin before every execution of the AdvanceFrame schedule.
+#[derive(Resource, Deref, DerefMut)]
+pub struct SynchronizedInputs<C: Config>(Vec<(C::Input, InputStatus)>);
+
+/// Defines the Session that the GGRS Plugin should expect as a resource.
+#[derive(Resource)]
+pub enum Session<T: Config> {
+    SyncTestSession(SyncTestSession<T>),
+    P2PSession(P2PSession<T>),
+    SpectatorSession(SpectatorSession<T>),
+}
+
+#[derive(Resource)]
+pub struct RollbackTypeRegistry(TypeRegistry);
+
+impl RollbackTypeRegistry {
+    pub fn default() -> Self {
+        Self(TypeRegistry {
+            internal: Arc::new(RwLock::new({
+                let mut r = TypeRegistryInternal::empty();
+                // `Parent` and `Children` must be registered so that their `ReflectMapEntities`
+                // data may be used.
+                //
+                // While this is a little bit of a weird spot to register these, are the only
+                // Bevy core types implementing `MapEntities`, so for now it's probably fine to
+                // just manually register these here.
+                //
+                // The user can still register any custom types with `register_rollback_type()`.
+                r.register::<Parent>();
+                r.register::<Children>();
+                r
+            })),
+        })
+    }
+
+    /// Registers a type of component for saving and loading during rollbacks.
+    pub fn register_rollback_component<Type>(&mut self) -> &mut Self
+    where
+        Type: GetTypeRegistration + Reflect + Default + Component,
+    {
+        let mut registry = self.0.write();
+        registry.register::<Type>();
+
+        let registration = registry.get_mut(std::any::TypeId::of::<Type>()).unwrap();
+        registration.insert(<ReflectComponent as FromType<Type>>::from_type());
+        drop(registry);
+        self
+    }
+
+    /// Registers a type of resource for saving and loading during rollbacks.
+    pub fn register_rollback_resource<Type>(&mut self) -> &mut Self
+    where
+        Type: GetTypeRegistration + Reflect + Default + Resource,
+    {
+        let mut registry = self.0.write();
+        registry.register::<Type>();
+
+        let registration = registry.get_mut(std::any::TypeId::of::<Type>()).unwrap();
+        registration.insert(<ReflectResource as FromType<Type>>::from_type());
+        drop(registry);
+        self
+    }
 }
 
 // Label for the schedule which is advancing the gamestate by a single frame.
@@ -93,135 +183,78 @@ pub struct LoadWorld;
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct SaveWorld;
 
-/// Defines the Session that the GGRS Plugin should expect as a resource.
-#[derive(Resource)]
-pub enum Session<T: Config> {
-    SyncTestSession(SyncTestSession<T>),
-    P2PSession(P2PSession<T>),
-    SpectatorSession(SpectatorSession<T>),
-}
+// Label for the schedule which saves a snapshot of the current world.
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct ReadInputs;
 
-/// GGRS plugin for bevy.
 #[derive(Default)]
+/// GGRS plugin for bevy.
 pub struct GgrsPlugin<C: Config> {
-    /// fixed FPS for the rollback logic
+    /// phantom marker for ggrs config
     _marker: PhantomData<C>,
 }
 
-#[derive(Resource, Deref, DerefMut)]
-pub struct PlayerInputs<T: Config>(Vec<(T::Input, InputStatus)>);
-
 impl<C: Config> Plugin for GgrsPlugin<C> {
     fn build(&self, app: &mut App) {
-        // add things to your app here
+        // configure AdvanceFrame schedule
+        let mut schedule = Schedule::default();
+        schedule.set_build_settings(ScheduleBuildSettings {
+            ambiguity_detection: LogLevel::Error,
+            ..default()
+        });
+        // add everything to the app
         app.add_schedule(LoadWorld, Schedule::new())
             .add_schedule(SaveWorld, Schedule::new())
-            .add_schedule(AdvanceFrame, Schedule::new())
+            .add_schedule(AdvanceFrame, schedule)
+            .add_schedule(ReadInputs, Schedule::new())
             .add_system(run_ggrs_schedules::<C>)
-            .insert_resource(FixedTimestepData {
-                fps: 60,
-                frame: 0,
-                last_update: Instant::now(),
-                accumulator: Duration::ZERO,
-                run_slow: false,
-            });
+            .insert_resource(FixedTimestepData::default())
+            .insert_resource(RollbackIdProvider::default())
+            .insert_resource(RollbackTypeRegistry::default());
     }
 }
 
-fn run_ggrs_schedules<C: Config>(world: &mut World, mut time_data: Local<FixedTimestepData>) {
-    // no matter what, poll remotes and send responses
-    if let Some(mut session) = world.get_resource_mut::<Session<C>>() {
-        match &mut *session {
-            Session::P2PSession(session) => {
-                session.poll_remote_clients();
-                time_data.run_slow = session.frames_ahead() > 0;
-            }
-            Session::SpectatorSession(session) => {
-                session.poll_remote_clients();
-            }
-            _ => {}
-        }
+pub trait GgrsApp {
+    /// Registers a component type for saving and loading from the world.
+    fn register_rollback_component<Type>(&mut self) -> &mut Self
+    where
+        Type: GetTypeRegistration + Reflect + Default + Component;
+
+    /// Registers a resource type for saving and loading from the world.
+    fn register_rollback_resource<Type>(&mut self) -> &mut Self
+    where
+        Type: GetTypeRegistration + Reflect + Default + Resource;
+
+    fn set_rollback_schedule_fps(&mut self, fps: usize) -> &mut Self;
+}
+
+impl GgrsApp for App {
+    fn register_rollback_component<Type>(&mut self) -> &mut Self
+    where
+        Type: GetTypeRegistration + Reflect + Default + Component,
+    {
+        self.world
+            .get_resource_mut::<RollbackTypeRegistry>()
+            .expect("RollbackTypeRegistry not found. Did you add the GgrsPlugin?")
+            .register_rollback_component::<Type>();
+        self
     }
 
-    // get delta time from last run() call and accumulate it
-    let delta = Instant::now().duration_since(time_data.last_update);
-    let mut fps_delta = 1. / time_data.fps as f64;
-    if time_data.run_slow {
-        fps_delta *= 1.1;
-    }
-    time_data.accumulator = time_data.accumulator.saturating_add(delta);
-    time_data.last_update = Instant::now();
-
-    // if we accumulated enough time, do steps
-    while time_data.accumulator.as_secs_f64() > fps_delta {
-        // decrease accumulator
-        time_data.accumulator = time_data
-            .accumulator
-            .saturating_sub(Duration::from_secs_f64(fps_delta));
-
-        // depending on the session type, doing a single update looks a bit different
-        let session = world.get_resource::<Session<C>>();
-        match session {
-            Some(&Session::SyncTestSession(_)) => run_synctest(world),
-            Some(&Session::P2PSession(_)) => run_p2p::<C>(world),
-            Some(&Session::SpectatorSession(_)) => run_spectator(world),
-            _ => {
-                // No session has been started yet
-                time_data.last_update = Instant::now();
-                time_data.accumulator = Duration::ZERO;
-                time_data.frame = 0;
-                time_data.run_slow = false;
-            }
-        }
+    fn register_rollback_resource<Type>(&mut self) -> &mut Self
+    where
+        Type: GetTypeRegistration + Reflect + Default + Resource,
+    {
+        self.world
+            .get_resource_mut::<RollbackTypeRegistry>()
+            .expect("RollbackTypeRegistry not found. Did you add the GgrsPlugin?")
+            .register_rollback_resource::<Type>();
+        self
     }
 
-    fn run_p2p<C: Config>(world: &mut World) {
-        let mut session = world.get_resource_mut::<Session<C>>();
-        let Some(Session::P2PSession(ref mut sess)) = session.as_deref_mut() else {
-            panic!("No GGRS P2PSession found. This should be impossible.");
-        };
-
-        // let mut local_inputs = world.get_resource::<LocalInputResource<C>>();
-        // let Some(local_inputs) = local_inputs else {
-        //     panic!("No LocalInputResource found.")
-        // };
-
-        if sess.current_state() == SessionState::Running {
-            let local_handles = sess.local_player_handles();
-            // TODO: actually get local inputs
-            sess.add_local_input(local_handles[0], C::Input::zeroed())
-                .expect("All handles in local handles should be valid");
-            // for handle in local_handles {
-            //     let input_query = local_inputs.inputs.get(&handle);
-            //     if let Some(input) = input_query {
-            //         sess.add_local_input(handle, *input)
-            //             .expect("All handles in local_handles should be valid");
-            //     }
-            // }
-            match sess.advance_frame() {
-                Ok(requests) => handle_requests(requests, world),
-                Err(GGRSError::PredictionThreshold) => {
-                    info!("Skipping a frame: PredictionThreshold.")
-                }
-                Err(e) => println!("{}", e),
-            };
-        }
+    fn set_rollback_schedule_fps(&mut self, fps: usize) -> &mut Self {
+        let mut time_data = FixedTimestepData::default();
+        time_data.fps = fps;
+        self.world.insert_resource(time_data);
+        self
     }
-
-    pub fn handle_requests<C: Config>(requests: Vec<GGRSRequest<C>>, world: &mut World) {
-        for request in requests {
-            match request {
-                GGRSRequest::SaveGameState { cell, frame } => world.run_schedule(SaveWorld),
-                GGRSRequest::LoadGameState { frame, .. } => world.run_schedule(LoadWorld),
-                GGRSRequest::AdvanceFrame { inputs } => {
-                    world.insert_resource(PlayerInputs::<C>(inputs));
-                    world.run_schedule(AdvanceFrame);
-                }
-            }
-        }
-    }
-
-    fn run_spectator(world: &mut World) {}
-
-    fn run_synctest(world: &mut World) {}
 }

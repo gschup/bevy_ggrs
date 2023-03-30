@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use bevy::prelude::*;
+use bevy::{prelude::*, window::WindowResolution};
 use bevy_ggrs::{GGRSPlugin, Session};
 use ggrs::{PlayerType, SessionBuilder, UdpNonBlockingSocket};
 use structopt::StructOpt;
@@ -9,7 +9,6 @@ mod box_game;
 use box_game::*;
 
 const FPS: usize = 60;
-const ROLLBACK_DEFAULT: &str = "rollback_default";
 
 // structopt will read command line parameters for u
 #[derive(StructOpt, Resource)]
@@ -69,26 +68,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .register_rollback_component::<Velocity>()
         .register_rollback_resource::<FrameCount>()
         // these systems will be executed as part of the advance frame update
-        .with_rollback_schedule(
-            Schedule::default().with_stage(
-                ROLLBACK_DEFAULT,
-                SystemStage::parallel()
-                    .with_system(move_cube_system)
-                    .with_system(increase_frame_system),
-            ),
-        )
+        .with_rollback_schedule({
+            let mut schedule = Schedule::default();
+            schedule.add_systems((move_cube_system, increase_frame_system));
+            schedule
+        })
         // make it happen in the bevy app
         .build(&mut app);
 
     // continue building/running the app like you normally would
     app.insert_resource(opt)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                width: 720.,
-                height: 720.,
+            primary_window: Some(Window {
+                resolution: WindowResolution::new(720., 720.),
                 title: "GGRS Box Game".to_owned(),
                 ..default()
-            },
+            }),
             ..default()
         }))
         .add_startup_system(setup_system)

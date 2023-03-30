@@ -1,17 +1,16 @@
-use crate::{world_snapshot::WorldSnapshot, PlayerInputs, Session};
+use crate::{world_snapshot::WorldSnapshot, GGRSSchedule, PlayerInputs, Session};
 use bevy::{prelude::*, reflect::TypeRegistry};
 use ggrs::{
     Config, GGRSError, GGRSRequest, GameStateCell, InputStatus, PlayerHandle, SessionState,
 };
 use instant::{Duration, Instant};
 
+#[derive(Resource)]
 /// The GGRSStage handles updating, saving and loading the game state.
 pub(crate) struct GGRSStage<T>
 where
     T: Config,
 {
-    /// Inside this schedule, all rollback systems are registered.
-    schedule: Schedule,
     /// Used to register all types considered when loading and saving
     pub(crate) type_registry: TypeRegistry,
     /// This system is used to get an encoded representation of the input that GGRS can handle
@@ -30,16 +29,20 @@ where
     run_slow: bool,
 }
 
-impl<T: Config + Send + Sync> Stage for GGRSStage<T> {
-    fn run(&mut self, world: &mut World) {
+impl<T: Config + Send + Sync> GGRSStage<T> {
+    pub(crate) fn run(world: &mut World) {
+        let mut stage = world
+            .remove_resource::<GGRSStage<T>>()
+            .expect("failed to extract ggrs schedule");
+
         // get delta time from last run() call and accumulate it
-        let delta = Instant::now().duration_since(self.last_update);
-        let mut fps_delta = 1. / self.update_frequency as f64;
-        if self.run_slow {
+        let delta = Instant::now().duration_since(stage.last_update);
+        let mut fps_delta = 1. / stage.update_frequency as f64;
+        if stage.run_slow {
             fps_delta *= 1.1;
         }
-        self.accumulator = self.accumulator.saturating_add(delta);
-        self.last_update = Instant::now();
+        stage.accumulator = stage.accumulator.saturating_add(delta);
+        stage.last_update = Instant::now();
 
         // no matter what, poll remotes and send responses
         if let Some(mut session) = world.get_resource_mut::<Session<T>>() {
@@ -55,28 +58,29 @@ impl<T: Config + Send + Sync> Stage for GGRSStage<T> {
         }
 
         // if we accumulated enough time, do steps
-        while self.accumulator.as_secs_f64() > fps_delta {
+        while stage.accumulator.as_secs_f64() > fps_delta {
             // decrease accumulator
-            self.accumulator = self
+            stage.accumulator = stage
                 .accumulator
                 .saturating_sub(Duration::from_secs_f64(fps_delta));
 
             // depending on the session type, doing a single update looks a bit different
             let session = world.get_resource::<Session<T>>();
             match session {
-                Some(&Session::SyncTestSession(_)) => self.run_synctest(world),
-                Some(&Session::P2PSession(_)) => self.run_p2p(world),
-                Some(&Session::SpectatorSession(_)) => self.run_spectator(world),
-                _ => self.reset(), // No session has been started yet
+                Some(&Session::SyncTestSession(_)) => stage.run_synctest(world),
+                Some(&Session::P2PSession(_)) => stage.run_p2p(world),
+                Some(&Session::SpectatorSession(_)) => stage.run_spectator(world),
+                _ => stage.reset(), // No session has been started yet
             }
         }
+
+        world.insert_resource(stage);
     }
 }
 
 impl<T: Config> GGRSStage<T> {
     pub(crate) fn new(input_system: Box<dyn System<In = PlayerHandle, Out = T::Input>>) -> Self {
         Self {
-            schedule: Schedule::default(),
             type_registry: TypeRegistry::default(),
             input_system,
             snapshots: Vec::new(),
@@ -248,7 +252,7 @@ impl<T: Config> GGRSStage<T> {
     ) {
         debug!("advancing to frame: {}", self.frame + 1);
         world.insert_resource(PlayerInputs::<T>(inputs));
-        self.schedule.run_once(world);
+        world.run_schedule(GGRSSchedule);
         world.remove_resource::<PlayerInputs<T>>();
         self.frame += 1;
         debug!("frame {} completed", self.frame);
@@ -256,10 +260,6 @@ impl<T: Config> GGRSStage<T> {
 
     pub(crate) fn set_update_frequency(&mut self, update_frequency: usize) {
         self.update_frequency = update_frequency
-    }
-
-    pub(crate) fn set_schedule(&mut self, schedule: Schedule) {
-        self.schedule = schedule;
     }
 
     pub(crate) fn set_type_registry(&mut self, type_registry: TypeRegistry) {

@@ -1,5 +1,5 @@
-use bevy::prelude::*;
-use bevy_ggrs::{GGRSPlugin, GgrsSchedule, Session};
+use bevy::{prelude::*, window::WindowResolution};
+use bevy_ggrs::{AdvanceFrame, GgrsApp, GgrsPlugin, ReadInputs, Session};
 use ggrs::{PlayerType, SessionBuilder};
 use structopt::StructOpt;
 
@@ -36,29 +36,38 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // start the GGRS session
     let sess = sess_build.start_synctest_session()?;
 
-    let mut app = App::new();
-    GGRSPlugin::<GGRSConfig>::new()
-        // define frequency of rollback game logic update
-        .with_update_frequency(FPS)
-        // define system that returns inputs given a player handle, so GGRS can send the inputs around
-        .with_input_system(input)
-        // register types of components AND resources you want to be rolled back
+    // remember local player handles - in synctest, all players are local
+    let local_players = (0..opt.num_players).collect();
+
+    // build the bevy app
+    App::new()
+        .insert_resource(opt)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                resolution: WindowResolution::new(720., 720.),
+                title: "GGRS Box Game".to_owned(),
+                ..default()
+            }),
+            ..default()
+        }))
+        .add_plugin(GgrsPlugin::<GGRSConfig>::default())
+        // set the FPS we want our rollback schedule to run with
+        .set_rollback_schedule_fps(FPS)
+        // register types we want saved and loaded when rollbacking
         .register_rollback_component::<Transform>()
         .register_rollback_component::<Velocity>()
         .register_rollback_resource::<FrameCount>()
-        // make it happen in the bevy app
-        .build(&mut app);
-
-    // continue building/running the app like you normally would
-    app.insert_resource(opt)
-        .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_system)
+        // this system will be executed as part of input reading
+        .add_system(read_local_inputs.in_schedule(ReadInputs))
+        .insert_resource(LocalPlayers(local_players))
         // these systems will be executed as part of the advance frame update
-        .add_systems((move_cube_system, increase_frame_system).in_schedule(GgrsSchedule))
+        .add_systems((move_cube_system, increase_frame_system).in_schedule(AdvanceFrame))
         // add your GGRS session
         .insert_resource(Session::SyncTestSession(sess))
-        // register a resource that will be rolled back
+        // insert a resource that will be rolled back
         .insert_resource(FrameCount { frame: 0 })
+        // setup for the scene
+        .add_startup_system(setup_system)
         .run();
 
     Ok(())

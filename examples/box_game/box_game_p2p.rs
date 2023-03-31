@@ -62,7 +62,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // remember local player handles
     let local_players = sess.local_player_handles();
 
-    // continue building/running the app like you normally would
+    // build the bevy app
     App::new()
         .insert_resource(opt)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -82,6 +82,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .register_rollback_resource::<FrameCount>()
         // this system will be executed as part of input reading
         .add_system(read_local_inputs.in_schedule(ReadInputs))
+        .insert_resource(LocalPlayers(local_players))
         // these systems will be executed as part of the advance frame update
         .add_systems((move_cube_system, increase_frame_system).in_schedule(AdvanceFrame))
         // add your GGRS session
@@ -93,7 +94,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             2.0,
             TimerMode::Repeating,
         )))
-        .insert_resource(LocalPlayers(local_players))
         // setup for the scene
         .add_startup_system(setup_system)
         // debug prints

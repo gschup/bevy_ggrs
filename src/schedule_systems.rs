@@ -125,9 +125,6 @@ pub fn run_synctest<C: Config>(world: &mut World, mut sess: SyncTestSession<C>) 
     // try to advance the frame
     match sess.advance_frame() {
         Ok(requests) => handle_requests(requests, world),
-        Err(GGRSError::PredictionThreshold) => {
-            info!("Skipping a frame: PredictionThreshold.")
-        }
         Err(e) => println!("{}", e),
     };
 

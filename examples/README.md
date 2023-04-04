@@ -50,7 +50,7 @@ cargo run --example box_game_spectator -- --local-port 7002 --num-players 2 --ho
 ## BoxGame SyncTest
 
 The same game, but without network functionality.
-Instead, the SyncTestSession focusses on simulating rollbacks and comparing checksums.
+Instead, the SyncTestSession focuses on simulating rollbacks and comparing checksums.
 
 ### Launching BoxGame SyncTest
 

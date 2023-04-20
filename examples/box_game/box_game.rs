@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_ggrs::{PlayerInputs, Rollback, RollbackIdProvider, Session};
+use bevy_ggrs::{PlayerInputs, Rollback, Session, RollbackFlag};
 use bytemuck::{Pod, Zeroable};
 use ggrs::{Config, PlayerHandle};
 use std::{hash::Hash, net::SocketAddr};
@@ -78,7 +78,6 @@ pub fn input(_handle: In<PlayerHandle>, keyboard_input: Res<Input<KeyCode>>) -> 
 
 pub fn setup_system(
     mut commands: Commands,
-    mut rip: ResMut<RollbackIdProvider>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     session: Res<Session<GGRSConfig>>,
@@ -115,18 +114,18 @@ pub fn setup_system(
         transform.translation.z = z;
         let color = PLAYER_COLORS[handle % PLAYER_COLORS.len()];
 
-        commands.spawn((
-            PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: CUBE_SIZE })),
-                material: materials.add(color.into()),
-                transform,
-                ..default()
-            },
-            Player { handle },
-            Velocity::default(),
-            // this component indicates bevy_GGRS that parts of this entity should be saved and loaded
-            rip.next(),
-        ));
+        commands
+            .spawn((
+                PbrBundle {
+                    mesh: meshes.add(Mesh::from(shape::Cube { size: CUBE_SIZE })),
+                    material: materials.add(color.into()),
+                    transform,
+                    ..default()
+                },
+                Player { handle },
+                Velocity::default(),
+            ))
+            .add(Rollback);
     }
 
     // light
@@ -154,7 +153,7 @@ pub fn increase_frame_system(mut frame_count: ResMut<FrameCount>) {
 // only mutate components that are being saved/loaded.
 #[allow(dead_code)]
 pub fn move_cube_system(
-    mut query: Query<(&mut Transform, &mut Velocity, &Player), With<Rollback>>,
+    mut query: Query<(&mut Transform, &mut Velocity, &Player), With<RollbackFlag>>,
     inputs: Res<PlayerInputs<GGRSConfig>>,
 ) {
     for (mut t, mut v, p) in query.iter_mut() {

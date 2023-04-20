@@ -13,8 +13,11 @@ use std::sync::Arc;
 
 pub use ggrs;
 
+pub use rollback::{Rollback, RollbackFlag};
+
 pub(crate) mod ggrs_stage;
 pub(crate) mod world_snapshot;
+pub(crate) mod rollback;
 
 const DEFAULT_FPS: usize = 60;
 
@@ -32,64 +35,6 @@ pub enum Session<T: Config> {
 // TODO: more specific name to avoid conflicts?
 #[derive(Resource, Deref, DerefMut)]
 pub struct PlayerInputs<T: Config>(Vec<(T::Input, InputStatus)>);
-
-/// Add this component to all entities you want to be loaded/saved on rollback.
-/// The `id` has to be unique. Consider using the `RollbackIdProvider` resource.
-#[derive(Component)]
-pub struct Rollback {
-    id: u32,
-}
-
-impl Rollback {
-    /// Creates a new rollback tag with the given id.
-    pub fn new(id: u32) -> Self {
-        Self { id }
-    }
-
-    /// Returns the rollback id.
-    pub const fn id(&self) -> u32 {
-        self.id
-    }
-}
-
-/// Provides unique ids for your Rollback components.
-/// When you add the GGRS Plugin, this should be available as a resource.
-#[derive(Resource, Default)]
-pub struct RollbackIdProvider {
-    next_id: u32,
-}
-
-impl RollbackIdProvider {
-    /// Returns an unused, unique id.
-    pub fn next_id(&mut self) -> u32 {
-        if self.next_id == u32::MAX {
-            // TODO: do something smart?
-            panic!("RollbackIdProvider: u32::MAX has been reached.");
-        }
-        let ret = self.next_id;
-        self.next_id += 1;
-        ret
-    }
-
-    /// Returns a `Rollback` component with the next unused id
-    ///
-    /// Convenience for `Rollback::new(rollback_id_provider.next_id())`.
-    ///
-    /// ```
-    /// # use bevy::prelude::*;
-    /// use bevy_ggrs::{RollbackIdProvider};
-    ///
-    /// fn system_in_rollback_schedule(mut commands: Commands, mut rip: RollbackIdProvider) {
-    ///     commands.spawn((
-    ///         SpatialBundle::default(),
-    ///         rip.next(),
-    ///     ));
-    /// }
-    /// ```
-    pub fn next(&mut self) -> Rollback {
-        Rollback::new(self.next_id())
-    }
-}
 
 /// A builder to configure GGRS for a bevy app.
 pub struct GGRSPlugin<T: Config + Send + Sync> {
@@ -192,7 +137,5 @@ impl<T: Config + Send + Sync> GGRSPlugin<T> {
         stage.set_type_registry(self.type_registry);
         app.add_system(GGRSStage::<T>::run.in_base_set(CoreSet::PreUpdate));
         app.insert_resource(stage);
-        // other resources
-        app.insert_resource(RollbackIdProvider::default());
     }
 }

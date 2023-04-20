@@ -6,22 +6,22 @@ use bevy::{
 };
 use std::{fmt::Debug, num::Wrapping};
 
-use crate::Rollback;
+use crate::rollback::RollbackFlag;
 
 /// Maps rollback_ids to entity id+generation. Necessary to track entities over time.
-fn rollback_id_map(world: &mut World) -> HashMap<u32, Entity> {
+fn rollback_id_map(world: &mut World) -> HashMap<RollbackFlag, Entity> {
     let mut rid_map = HashMap::default();
-    let mut query = world.query::<(Entity, &Rollback)>();
+    let mut query = world.query::<(Entity, &RollbackFlag)>();
     for (entity, rollback) in query.iter(world) {
-        assert!(!rid_map.contains_key(&rollback.id));
-        rid_map.insert(rollback.id, entity);
+        assert!(!rid_map.contains_key(rollback));
+        rid_map.insert(*rollback, entity);
     }
     rid_map
 }
 
 struct RollbackEntity {
     pub entity: Entity,
-    pub rollback_id: u32,
+    pub rollback_id: RollbackFlag,
     pub components: Vec<Box<dyn Reflect>>,
 }
 
@@ -65,10 +65,10 @@ impl WorldSnapshot {
             let entities_offset = snapshot.entities.len();
             for entity in archetype.entities() {
                 let entity = entity.entity();
-                if let Some(rollback) = world.get::<Rollback>(entity) {
+                if let Some(rollback) = world.get::<RollbackFlag>(entity) {
                     snapshot.entities.push(RollbackEntity {
                         entity,
-                        rollback_id: rollback.id,
+                        rollback_id: *rollback,
                         components: Vec::new(),
                     });
                 }
@@ -85,7 +85,7 @@ impl WorldSnapshot {
                     for (i, entity) in archetype
                         .entities()
                         .iter()
-                        .filter(|&entity| world.get::<Rollback>(entity.entity()).is_some())
+                        .filter(|&entity| world.get::<RollbackFlag>(entity.entity()).is_some())
                         .enumerate()
                     {
                         let entity = entity.entity();
@@ -144,9 +144,7 @@ impl WorldSnapshot {
                 .entry(rollback_entity.rollback_id)
                 .or_insert_with(|| {
                     world
-                        .spawn(Rollback {
-                            id: rollback_entity.rollback_id,
-                        })
+                        .spawn(rollback_entity.rollback_id)
                         .id()
                 });
 

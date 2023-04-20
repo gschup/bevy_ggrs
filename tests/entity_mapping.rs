@@ -26,9 +26,9 @@ fn input_system(_: In<PlayerHandle>, mut delete_events: EventReader<DeleteChildE
 
 fn setup_system(mut commands: Commands) {
     commands
-        .spawn((Rollback::new(0), ParentEntity))
+        .spawn((RollbackFlag::new(Entity::from_raw(0)), ParentEntity))
         .with_children(|parent| {
-            parent.spawn((Rollback::new(1), ChildEntity));
+            parent.spawn((RollbackFlag::new(Entity::from_raw(1)), ChildEntity));
         });
 }
 

@@ -6,12 +6,12 @@ use bevy::{
 };
 use std::{fmt::Debug, num::Wrapping};
 
-use crate::rollback::RollbackFlag;
+use crate::rollback::Rollback;
 
 /// Maps rollback_ids to entity id+generation. Necessary to track entities over time.
-fn rollback_id_map(world: &mut World) -> HashMap<RollbackFlag, Entity> {
+fn rollback_id_map(world: &mut World) -> HashMap<Rollback, Entity> {
     let mut rid_map = HashMap::default();
-    let mut query = world.query::<(Entity, &RollbackFlag)>();
+    let mut query = world.query::<(Entity, &Rollback)>();
     for (entity, rollback) in query.iter(world) {
         assert!(!rid_map.contains_key(rollback));
         rid_map.insert(*rollback, entity);
@@ -21,7 +21,7 @@ fn rollback_id_map(world: &mut World) -> HashMap<RollbackFlag, Entity> {
 
 struct RollbackEntity {
     pub entity: Entity,
-    pub rollback_id: RollbackFlag,
+    pub rollback_id: Rollback,
     pub components: Vec<Box<dyn Reflect>>,
 }
 
@@ -65,7 +65,7 @@ impl WorldSnapshot {
             let entities_offset = snapshot.entities.len();
             for entity in archetype.entities() {
                 let entity = entity.entity();
-                if let Some(rollback) = world.get::<RollbackFlag>(entity) {
+                if let Some(rollback) = world.get::<Rollback>(entity) {
                     snapshot.entities.push(RollbackEntity {
                         entity,
                         rollback_id: *rollback,
@@ -85,7 +85,7 @@ impl WorldSnapshot {
                     for (i, entity) in archetype
                         .entities()
                         .iter()
-                        .filter(|&entity| world.get::<RollbackFlag>(entity.entity()).is_some())
+                        .filter(|&entity| world.get::<Rollback>(entity.entity()).is_some())
                         .enumerate()
                     {
                         let entity = entity.entity();

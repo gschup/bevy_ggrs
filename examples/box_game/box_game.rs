@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_ggrs::{PlayerInputs, Rollback, Session, RollbackFlag};
+use bevy_ggrs::{PlayerInputs, Session, Rollback, AddRollbackCommandExtension};
 use bytemuck::{Pod, Zeroable};
 use ggrs::{Config, PlayerHandle};
 use std::{hash::Hash, net::SocketAddr};
@@ -125,7 +125,7 @@ pub fn setup_system(
                 Player { handle },
                 Velocity::default(),
             ))
-            .add(Rollback);
+            .add_rollback();
     }
 
     // light
@@ -153,7 +153,7 @@ pub fn increase_frame_system(mut frame_count: ResMut<FrameCount>) {
 // only mutate components that are being saved/loaded.
 #[allow(dead_code)]
 pub fn move_cube_system(
-    mut query: Query<(&mut Transform, &mut Velocity, &Player), With<RollbackFlag>>,
+    mut query: Query<(&mut Transform, &mut Velocity, &Player), With<Rollback>>,
     inputs: Res<PlayerInputs<GGRSConfig>>,
 ) {
     for (mut t, mut v, p) in query.iter_mut() {

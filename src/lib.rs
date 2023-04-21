@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 pub use ggrs;
 
-pub use rollback::{Rollback, RollbackFlag};
+pub use rollback::{AddRollbackCommandExtension, AddRollbackCommand, Rollback};
 
 pub(crate) mod ggrs_stage;
 pub(crate) mod world_snapshot;

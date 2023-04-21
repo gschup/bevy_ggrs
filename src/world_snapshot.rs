@@ -29,7 +29,7 @@ impl Default for RollbackEntity {
     fn default() -> Self {
         Self {
             entity: Entity::from_raw(0),
-            rollback_id: Default::default(),
+            rollback_id: Rollback::new(Entity::from_raw(0)),
             components: Default::default(),
         }
     }

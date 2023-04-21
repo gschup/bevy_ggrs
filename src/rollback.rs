@@ -2,20 +2,14 @@ use bevy::{prelude::{Component, Entity, World}, ecs::system::{EntityCommand, Ent
 
 /// This component flags an entity as being included in the rollback save/load schedule with GGRS.
 /// 
-/// You should use the `AddRollbackCommand` when spawning an entity, or provide the entity's ID via
-/// the `Rollback::new(...)` method.
+/// You must use the `AddRollbackCommand` when spawning an entity to add this component. Alternatively,
+/// you can use the `add_rollback()` extension method provided by `AddRollbackCommandExtension`.
 #[derive(Component, Hash, PartialEq, Eq, Clone, Copy, Debug)]
 pub struct Rollback(Entity);
 
-impl Default for Rollback {
-    fn default() -> Self {
-        Self::new(Entity::from_raw(0))
-    }
-}
-
 impl Rollback {
     /// Creates a new `Rollback` component from an `Entity`.
-    pub fn new(entity: Entity) -> Self {
+    pub(crate) fn new(entity: Entity) -> Self {
         Self(entity)
     }
 }

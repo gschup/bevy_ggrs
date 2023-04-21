@@ -19,6 +19,13 @@ pub(crate) mod ggrs_stage;
 pub(crate) mod world_snapshot;
 pub(crate) mod rollback;
 
+pub mod prelude {
+    pub use crate::{
+        AddRollbackCommandExtension, Rollback, GGRSSchedule, PlayerInputs,
+        GGRSPlugin, Session
+    };
+}
+
 const DEFAULT_FPS: usize = 60;
 
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]

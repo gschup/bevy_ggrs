@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use bevy::{prelude::*, window::WindowResolution};
-use bevy_ggrs::{GGRSPlugin, GGRSSchedule, Session};
+use bevy_ggrs::{GGRSPlugin, GGRSSchedule, GgrsAppExtension, Session};
 use ggrs::{GGRSEvent, PlayerType, SessionBuilder, UdpNonBlockingSocket};
 
 use structopt::StructOpt;
@@ -59,21 +59,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let socket = UdpNonBlockingSocket::bind_to_port(opt.local_port)?;
     let sess = sess_build.start_p2p_session(socket)?;
 
-    let mut app = App::new();
-    GGRSPlugin::<GGRSConfig>::new()
-        // define frequency of rollback game logic update
-        .with_update_frequency(FPS)
-        // define system that returns inputs given a player handle, so GGRS can send the inputs around
-        .with_input_system(input)
-        // register types of components AND resources you want to be rolled back
-        .register_rollback_component::<Transform>()
-        .register_rollback_component::<Velocity>()
-        .register_rollback_resource::<FrameCount>()
-        // make it happen in the bevy app
-        .build(&mut app);
-
-    // continue building/running the app like you normally would
-    app.insert_resource(opt)
+    App::new()
+        .add_ggrs_plugin(
+            GGRSPlugin::<GGRSConfig>::new()
+                // define frequency of rollback game logic update
+                .with_update_frequency(FPS)
+                // define system that returns inputs given a player handle, so GGRS can send the inputs around
+                .with_input_system(input)
+                // register types of components AND resources you want to be rolled back
+                .register_rollback_component::<Transform>()
+                .register_rollback_component::<Velocity>()
+                .register_rollback_resource::<FrameCount>(),
+        )
+        .insert_resource(opt)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 resolution: WindowResolution::new(720., 720.),

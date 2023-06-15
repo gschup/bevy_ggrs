@@ -81,17 +81,20 @@ fn entity_mapping() {
                 .unwrap()
                 .start_synctest_session()
                 .unwrap(),
-        ));
-
-    GGRSPlugin::<GGRSConfig>::new()
-        .with_update_frequency(60)
-        .with_input_system(input_system)
-        .register_rollback_component::<ChildEntity>()
-        .register_rollback_component::<ParentEntity>()
-        .register_rollback_resource::<FrameCounter>()
-        .build(&mut app);
-
-    app.add_systems((frame_counter, delete_child_system).chain().in_schedule(GGRSSchedule));
+        ))
+        .add_ggrs_plugin(
+            GGRSPlugin::<GGRSConfig>::new()
+                .with_update_frequency(60)
+                .with_input_system(input_system)
+                .register_rollback_component::<ChildEntity>()
+                .register_rollback_component::<ParentEntity>()
+                .register_rollback_resource::<FrameCounter>(),
+        )
+        .add_systems(
+            (frame_counter, delete_child_system)
+                .chain()
+                .in_schedule(GGRSSchedule),
+        );
 
     // Sleep helper that will make sure at least one frame should be executed by the GGRS fixed
     // update loop.

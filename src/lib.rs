@@ -21,8 +21,7 @@ pub(crate) mod rollback;
 
 pub mod prelude {
     pub use crate::{
-        AddRollbackCommandExtension, Rollback, GGRSSchedule, PlayerInputs,
-        GGRSPlugin, Session
+        AddRollbackCommandExtension, GGRSPlugin, GGRSSchedule, PlayerInputs, Rollback, Session,
     };
 }
 
@@ -144,5 +143,23 @@ impl<T: Config + Send + Sync> GGRSPlugin<T> {
         stage.set_type_registry(self.type_registry);
         app.add_system(GGRSStage::<T>::run.in_base_set(CoreSet::PreUpdate));
         app.insert_resource(stage);
+    }
+}
+
+/// Extension trait to add the GGRS plugin idiomatically to Bevy Apps
+pub trait GgrsAppExtension {
+    /// Add a GGRS plugin to your App
+    fn add_ggrs_plugin<T: Config + Send + Sync>(&mut self, ggrs_plugin: GGRSPlugin<T>)
+        -> &mut Self;
+}
+
+impl GgrsAppExtension for App {
+    fn add_ggrs_plugin<T: Config + Send + Sync>(
+        &mut self,
+        ggrs_plugin: GGRSPlugin<T>,
+    ) -> &mut Self {
+        ggrs_plugin.build(self);
+
+        self
     }
 }

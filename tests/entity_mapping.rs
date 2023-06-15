@@ -4,8 +4,8 @@ use bevy_ggrs::*;
 use ggrs::*;
 use instant::Duration;
 
-pub struct GGRSConfig;
-impl Config for GGRSConfig {
+pub struct GgrsConfig;
+impl Config for GgrsConfig {
     type Input = u8;
     type State = u8;
     type Address = usize;
@@ -35,7 +35,7 @@ fn setup_system(mut commands: Commands) {
 
 fn delete_child_system(
     mut commands: Commands,
-    inputs: Res<PlayerInputs<GGRSConfig>>,
+    inputs: Res<PlayerInputs<GgrsConfig>>,
     parent: Query<&Children, With<ParentEntity>>,
     child: Query<Entity, With<ChildEntity>>,
 ) {
@@ -73,8 +73,8 @@ fn entity_mapping() {
         .init_resource::<FrameCounter>()
         .add_startup_system(setup_system)
         // Insert the GGRS session
-        .insert_resource(Session::SyncTestSession(
-            SessionBuilder::<GGRSConfig>::new()
+        .insert_resource(Session::SyncTest(
+            SessionBuilder::<GgrsConfig>::new()
                 .with_num_players(1)
                 .with_check_distance(2)
                 .add_player(PlayerType::Local, 0)
@@ -83,7 +83,7 @@ fn entity_mapping() {
                 .unwrap(),
         ))
         .add_ggrs_plugin(
-            GGRSPlugin::<GGRSConfig>::new()
+            GgrsPlugin::<GgrsConfig>::new()
                 .with_update_frequency(60)
                 .with_input_system(input_system)
                 .register_rollback_component::<ChildEntity>()
@@ -93,7 +93,7 @@ fn entity_mapping() {
         .add_systems(
             (frame_counter, delete_child_system)
                 .chain()
-                .in_schedule(GGRSSchedule),
+                .in_schedule(GgrsSchedule),
         );
 
     // Sleep helper that will make sure at least one frame should be executed by the GGRS fixed

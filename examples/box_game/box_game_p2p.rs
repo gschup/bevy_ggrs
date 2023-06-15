@@ -1,8 +1,8 @@
 use std::net::SocketAddr;
 
 use bevy::{prelude::*, window::WindowResolution};
-use bevy_ggrs::{GGRSPlugin, GGRSSchedule, GgrsAppExtension, Session};
-use ggrs::{GGRSEvent, PlayerType, SessionBuilder, UdpNonBlockingSocket};
+use bevy_ggrs::{GgrsPlugin, GgrsSchedule, GgrsAppExtension, Session};
+use ggrs::{GGRSEvent as GgrsEvent, PlayerType, SessionBuilder, UdpNonBlockingSocket};
 
 use structopt::StructOpt;
 
@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     assert!(num_players > 0);
 
     // create a GGRS session
-    let mut sess_build = SessionBuilder::<GGRSConfig>::new()
+    let mut sess_build = SessionBuilder::<GgrsConfig>::new()
         .with_num_players(num_players)
         .with_desync_detection_mode(ggrs::DesyncDetection::On { interval: 10 }) // (optional) set how often to exchange state checksums
         .with_max_prediction_window(12) // (optional) set max prediction window
@@ -61,7 +61,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     App::new()
         .add_ggrs_plugin(
-            GGRSPlugin::<GGRSConfig>::new()
+            GgrsPlugin::<GgrsConfig>::new()
                 // define frequency of rollback game logic update
                 .with_update_frequency(FPS)
                 // define system that returns inputs given a player handle, so GGRS can send the inputs around
@@ -82,9 +82,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }))
         .add_startup_system(setup_system)
         // these systems will be executed as part of the advance frame update
-        .add_systems((move_cube_system, increase_frame_system).in_schedule(GGRSSchedule))
+        .add_systems((move_cube_system, increase_frame_system).in_schedule(GgrsSchedule))
         // add your GGRS session
-        .insert_resource(Session::P2PSession(sess))
+        .insert_resource(Session::P2P(sess))
         // register a resource that will be rolled back
         .insert_resource(FrameCount { frame: 0 })
         //print some network stats - not part of the rollback schedule as it does not need to be rolled back
@@ -99,15 +99,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn print_events_system(mut session: ResMut<Session<GGRSConfig>>) {
+fn print_events_system(mut session: ResMut<Session<GgrsConfig>>) {
     match session.as_mut() {
-        Session::P2PSession(s) => {
+        Session::P2P(s) => {
             for event in s.events() {
                 match event {
-                    GGRSEvent::Disconnected { .. } | GGRSEvent::NetworkInterrupted { .. } => {
+                    GgrsEvent::Disconnected { .. } | GgrsEvent::NetworkInterrupted { .. } => {
                         warn!("GGRS event: {event:?}")
                     }
-                    GGRSEvent::DesyncDetected { .. } => error!("GGRS event: {event:?}"),
+                    GgrsEvent::DesyncDetected { .. } => error!("GGRS event: {event:?}"),
                     _ => info!("GGRS event: {event:?}"),
                 }
             }
@@ -119,13 +119,13 @@ fn print_events_system(mut session: ResMut<Session<GGRSConfig>>) {
 fn print_network_stats_system(
     time: Res<Time>,
     mut timer: ResMut<NetworkStatsTimer>,
-    p2p_session: Option<Res<Session<GGRSConfig>>>,
+    p2p_session: Option<Res<Session<GgrsConfig>>>,
 ) {
     // print only when timer runs out
     if timer.0.tick(time.delta()).just_finished() {
         if let Some(sess) = p2p_session {
             match sess.as_ref() {
-                Session::P2PSession(s) => {
+                Session::P2P(s) => {
                     let num_players = s.num_players();
                     for i in 0..num_players {
                         if let Ok(stats) = s.network_stats(i) {

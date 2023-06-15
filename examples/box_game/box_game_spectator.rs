@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use bevy::prelude::*;
-use bevy_ggrs::{GGRSPlugin, GGRSSchedule, Session};
+use bevy_ggrs::{GgrsPlugin, GgrsSchedule, Session};
 use ggrs::{SessionBuilder, UdpNonBlockingSocket};
 use structopt::StructOpt;
 
@@ -32,12 +32,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // create a GGRS session
 
     let socket = UdpNonBlockingSocket::bind_to_port(opt.local_port)?;
-    let sess = SessionBuilder::<GGRSConfig>::new()
+    let sess = SessionBuilder::<GgrsConfig>::new()
         .with_num_players(opt.num_players)
         .start_spectator_session(opt.host, socket);
 
     let mut app = App::new();
-    GGRSPlugin::<GGRSConfig>::new()
+    GgrsPlugin::<GgrsConfig>::new()
         // define frequency of rollback game logic update
         .with_update_frequency(FPS)
         // define system that returns inputs given a player handle, so GGRS can send the inputs around
@@ -54,9 +54,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_system)
         // these systems will be executed as part of the advance frame update
-        .add_systems((move_cube_system, increase_frame_system).in_schedule(GGRSSchedule))
+        .add_systems((move_cube_system, increase_frame_system).in_schedule(GgrsSchedule))
         // add your GGRS session
-        .insert_resource(Session::SpectatorSession(sess))
+        .insert_resource(Session::Spectator(sess))
         // register a resource that will be rolled back
         .insert_resource(FrameCount { frame: 0 })
         //print some network stats - not part of the rollback schedule as it does not need to be rolled back
@@ -71,9 +71,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn print_events_system(mut session: ResMut<Session<GGRSConfig>>) {
+fn print_events_system(mut session: ResMut<Session<GgrsConfig>>) {
     match session.as_mut() {
-        Session::SpectatorSession(s) => {
+        Session::Spectator(s) => {
             for event in s.events() {
                 println!("GGRS Event: {:?}", event);
             }
@@ -85,13 +85,13 @@ fn print_events_system(mut session: ResMut<Session<GGRSConfig>>) {
 fn print_network_stats_system(
     time: Res<Time>,
     mut timer: ResMut<NetworkStatsTimer>,
-    p2p_session: Option<Res<Session<GGRSConfig>>>,
+    p2p_session: Option<Res<Session<GgrsConfig>>>,
 ) {
     // print only when timer runs out
     if timer.0.tick(time.delta()).just_finished() {
         if let Some(sess) = p2p_session {
             match sess.as_ref() {
-                Session::SpectatorSession(s) => {
+                Session::Spectator(s) => {
                     if let Ok(stats) = s.network_stats() {
                         println!("NetworkStats : {:?}", stats);
                     }

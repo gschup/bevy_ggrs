@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_ggrs::{PlayerInputs, Session, Rollback, AddRollbackCommandExtension};
+use bevy_ggrs::{AddRollbackCommandExtension, PlayerInputs, Rollback, Session};
 use bytemuck::{Pod, Zeroable};
 use ggrs::{Config, PlayerHandle};
 use std::{hash::Hash, net::SocketAddr};

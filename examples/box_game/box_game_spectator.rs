@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use bevy::prelude::*;
-use bevy_ggrs::{GgrsPlugin, GgrsSchedule, Session};
+use bevy_ggrs::{GgrsAppExtension, GgrsPlugin, GgrsSchedule, Session};
 use ggrs::{SessionBuilder, UdpNonBlockingSocket};
 use structopt::StructOpt;
 
@@ -36,21 +36,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_num_players(opt.num_players)
         .start_spectator_session(opt.host, socket);
 
-    let mut app = App::new();
-    GgrsPlugin::<GgrsConfig>::new()
-        // define frequency of rollback game logic update
-        .with_update_frequency(FPS)
-        // define system that returns inputs given a player handle, so GGRS can send the inputs around
-        .with_input_system(input)
-        // register types of components AND resources you want to be rolled back
-        .register_rollback_component::<Transform>()
-        .register_rollback_component::<Velocity>()
-        .register_rollback_resource::<FrameCount>()
-        // make it happen in the bevy app
-        .build(&mut app);
-
-    // continue building/running the app like you normally would
-    app.insert_resource(opt)
+    App::new()
+        .add_ggrs_plugin(
+            GgrsPlugin::<GgrsConfig>::new()
+                // define frequency of rollback game logic update
+                .with_update_frequency(FPS)
+                // define system that returns inputs given a player handle, so GGRS can send the inputs around
+                .with_input_system(input)
+                // register types of components AND resources you want to be rolled back
+                .register_rollback_component::<Transform>()
+                .register_rollback_component::<Velocity>()
+                .register_rollback_resource::<FrameCount>(),
+        )
+        .insert_resource(opt)
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_system)
         // these systems will be executed as part of the advance frame update

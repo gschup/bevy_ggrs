@@ -34,13 +34,13 @@ mod private {
 /// Extension trait for `EntityCommands` which adds the `add_rollback()` method.
 pub trait AddRollbackCommandExtension: private::AddRollbackCommandExtensionSeal {
     /// Adds an automatically generated `Rollback` component to this `Entity`.
-    fn add_rollback(self) -> Self;
+    fn add_rollback(&mut self) -> &mut Self;
 }
 
 impl<'w, 's, 'a> private::AddRollbackCommandExtensionSeal for EntityCommands<'w, 's, 'a> {}
 
 impl<'w, 's, 'a> AddRollbackCommandExtension for EntityCommands<'w, 's, 'a> {
-    fn add_rollback(mut self) -> Self {
+    fn add_rollback(&mut self) -> &mut Self {
         self.add(AddRollbackCommand);
         self
     }

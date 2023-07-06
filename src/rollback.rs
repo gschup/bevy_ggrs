@@ -1,7 +1,10 @@
-use bevy::{prelude::{Component, Entity, World}, ecs::system::{EntityCommand, EntityCommands}};
+use bevy::{
+    ecs::system::{EntityCommand, EntityCommands},
+    prelude::{Component, Entity, World},
+};
 
 /// This component flags an entity as being included in the rollback save/load schedule with GGRS.
-/// 
+///
 /// You must use the `AddRollbackCommand` when spawning an entity to add this component. Alternatively,
 /// you can use the `add_rollback()` extension method provided by `AddRollbackCommandExtension`.
 #[derive(Component, Hash, PartialEq, Eq, Clone, Copy, Debug)]
@@ -31,13 +34,13 @@ mod private {
 /// Extension trait for `EntityCommands` which adds the `add_rollback()` method.
 pub trait AddRollbackCommandExtension: private::AddRollbackCommandExtensionSeal {
     /// Adds an automatically generated `Rollback` component to this `Entity`.
-    fn add_rollback(self) -> Self;
+    fn add_rollback(&mut self) -> &mut Self;
 }
 
 impl<'w, 's, 'a> private::AddRollbackCommandExtensionSeal for EntityCommands<'w, 's, 'a> {}
 
 impl<'w, 's, 'a> AddRollbackCommandExtension for EntityCommands<'w, 's, 'a> {
-    fn add_rollback(mut self) -> Self {
+    fn add_rollback(&mut self) -> &mut Self {
         self.add(AddRollbackCommand);
         self
     }

@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_ggrs::{PlayerInputs, Session, Rollback, AddRollbackCommandExtension};
+use bevy_ggrs::{AddRollbackCommandExtension, PlayerInputs, Rollback, Session};
 use bytemuck::{Pod, Zeroable};
 use ggrs::{Config, PlayerHandle};
 use std::{hash::Hash, net::SocketAddr};
@@ -24,8 +24,8 @@ const CUBE_SIZE: f32 = 0.2;
 /// You need to define a config struct to bundle all the generics of GGRS. You can safely ignore `State` and leave it as u8 for all GGRS functionality.
 /// TODO: Find a way to hide the state type.
 #[derive(Debug)]
-pub struct GGRSConfig;
-impl Config for GGRSConfig {
+pub struct GgrsConfig;
+impl Config for GgrsConfig {
     type Input = BoxInput;
     type State = u8;
     type Address = SocketAddr;
@@ -80,12 +80,12 @@ pub fn setup_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    session: Res<Session<GGRSConfig>>,
+    session: Res<Session<GgrsConfig>>,
 ) {
     let num_players = match &*session {
-        Session::SyncTestSession(s) => s.num_players(),
-        Session::P2PSession(s) => s.num_players(),
-        Session::SpectatorSession(s) => s.num_players(),
+        Session::SyncTest(s) => s.num_players(),
+        Session::P2P(s) => s.num_players(),
+        Session::Spectator(s) => s.num_players(),
     };
 
     // plane
@@ -154,7 +154,7 @@ pub fn increase_frame_system(mut frame_count: ResMut<FrameCount>) {
 #[allow(dead_code)]
 pub fn move_cube_system(
     mut query: Query<(&mut Transform, &mut Velocity, &Player), With<Rollback>>,
-    inputs: Res<PlayerInputs<GGRSConfig>>,
+    inputs: Res<PlayerInputs<GgrsConfig>>,
 ) {
     for (mut t, mut v, p) in query.iter_mut() {
         let input = inputs[p.handle].0.inp;

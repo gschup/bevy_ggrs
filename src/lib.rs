@@ -7,7 +7,7 @@ use bevy::{
     reflect::{FromType, GetTypeRegistration, TypeRegistry, TypeRegistryInternal},
 };
 use ggrs::{Config, InputStatus, P2PSession, PlayerHandle, SpectatorSession, SyncTestSession};
-use ggrs_stage::GGRSStage;
+use ggrs_stage::GgrsStage;
 use parking_lot::RwLock;
 use std::sync::Arc;
 
@@ -21,22 +21,21 @@ pub(crate) mod rollback;
 
 pub mod prelude {
     pub use crate::{
-        AddRollbackCommandExtension, Rollback, GGRSSchedule, PlayerInputs,
-        GGRSPlugin, Session
+        AddRollbackCommandExtension, GgrsPlugin, GgrsSchedule, PlayerInputs, Rollback, Session,
     };
 }
 
 const DEFAULT_FPS: usize = 60;
 
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
-pub struct GGRSSchedule;
+pub struct GgrsSchedule;
 
 /// Defines the Session that the GGRS Plugin should expect as a resource.
 #[derive(Resource)]
 pub enum Session<T: Config> {
-    SyncTestSession(SyncTestSession<T>),
-    P2PSession(P2PSession<T>),
-    SpectatorSession(SpectatorSession<T>),
+    SyncTest(SyncTestSession<T>),
+    P2P(P2PSession<T>),
+    Spectator(SpectatorSession<T>),
 }
 
 // TODO: more specific name to avoid conflicts?
@@ -44,13 +43,13 @@ pub enum Session<T: Config> {
 pub struct PlayerInputs<T: Config>(Vec<(T::Input, InputStatus)>);
 
 /// A builder to configure GGRS for a bevy app.
-pub struct GGRSPlugin<T: Config + Send + Sync> {
+pub struct GgrsPlugin<T: Config + Send + Sync> {
     input_system: Option<Box<dyn System<In = PlayerHandle, Out = T::Input>>>,
     fps: usize,
     type_registry: TypeRegistry,
 }
 
-impl<T: Config + Send + Sync> Default for GGRSPlugin<T> {
+impl<T: Config + Send + Sync> Default for GgrsPlugin<T> {
     fn default() -> Self {
         Self {
             input_system: None,
@@ -75,7 +74,7 @@ impl<T: Config + Send + Sync> Default for GGRSPlugin<T> {
     }
 }
 
-impl<T: Config + Send + Sync> GGRSPlugin<T> {
+impl<T: Config + Send + Sync> GgrsPlugin<T> {
     /// Create a new instance of the builder.
     pub fn new() -> Self {
         Default::default()
@@ -131,7 +130,7 @@ impl<T: Config + Send + Sync> GGRSPlugin<T> {
             .expect("Adding an input system through GGRSBuilder::with_input_system is required");
         // ggrs stage
         input_system.initialize(&mut app.world);
-        let mut stage = GGRSStage::<T>::new(input_system);
+        let mut stage = GgrsStage::<T>::new(input_system);
         stage.set_update_frequency(self.fps);
 
         let mut schedule = Schedule::default();
@@ -139,10 +138,28 @@ impl<T: Config + Send + Sync> GGRSPlugin<T> {
             ambiguity_detection: LogLevel::Error,
             ..default()
         });
-        app.add_schedule(GGRSSchedule, schedule);
+        app.add_schedule(GgrsSchedule, schedule);
 
         stage.set_type_registry(self.type_registry);
-        app.add_system(GGRSStage::<T>::run.in_base_set(CoreSet::PreUpdate));
+        app.add_system(GgrsStage::<T>::run.in_base_set(CoreSet::PreUpdate));
         app.insert_resource(stage);
+    }
+}
+
+/// Extension trait to add the GGRS plugin idiomatically to Bevy Apps
+pub trait GgrsAppExtension {
+    /// Add a GGRS plugin to your App
+    fn add_ggrs_plugin<T: Config + Send + Sync>(&mut self, ggrs_plugin: GgrsPlugin<T>)
+        -> &mut Self;
+}
+
+impl GgrsAppExtension for App {
+    fn add_ggrs_plugin<T: Config + Send + Sync>(
+        &mut self,
+        ggrs_plugin: GgrsPlugin<T>,
+    ) -> &mut Self {
+        ggrs_plugin.build(self);
+
+        self
     }
 }

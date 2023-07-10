@@ -50,9 +50,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .insert_resource(opt)
         .add_plugins(DefaultPlugins)
-        .add_startup_system(setup_system)
+        .add_systems(Startup, setup_system)
         // these systems will be executed as part of the advance frame update
-        .add_systems((move_cube_system, increase_frame_system).in_schedule(GgrsSchedule))
+        .add_systems(GgrsSchedule, (move_cube_system, increase_frame_system))
         // add your GGRS session
         .insert_resource(Session::Spectator(sess))
         // register a resource that will be rolled back
@@ -62,8 +62,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             2.0,
             TimerMode::Repeating,
         )))
-        .add_system(print_network_stats_system)
-        .add_system(print_events_system)
+        .add_systems(Startup, print_network_stats_system)
+        .add_systems(Startup, print_events_system)
         .run();
 
     Ok(())

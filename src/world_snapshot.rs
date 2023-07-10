@@ -252,11 +252,7 @@ impl WorldSnapshot {
         // new IDs after applying the snapshot.
         for registration in type_registry.iter() {
             if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
-                map_entities_reflect
-                    .map_entities(world, &entity_map)
-                    // This may fail if an entity is not found in the entity map, but that's fine,
-                    // because if it's not found in the map, then the entity may remain un-mapped.
-                    .ok();
+                map_entities_reflect.map_all_entities(world, &mut entity_map)
             }
         }
     }

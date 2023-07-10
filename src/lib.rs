@@ -141,7 +141,7 @@ impl<T: Config + Send + Sync> GgrsPlugin<T> {
         app.add_schedule(GgrsSchedule, schedule);
 
         stage.set_type_registry(self.type_registry);
-        app.add_system(GgrsStage::<T>::run.in_base_set(CoreSet::PreUpdate));
+        app.add_systems(PreUpdate, GgrsStage::<T>::run);
         app.insert_resource(stage);
     }
 }

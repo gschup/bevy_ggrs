@@ -21,7 +21,7 @@ impl Rollback {
 pub struct AddRollbackCommand;
 
 impl EntityCommand for AddRollbackCommand {
-    fn write(self, id: Entity, world: &mut World) {
+    fn apply(self, id: Entity, world: &mut World) {
         world.entity_mut(id).insert(Rollback::new(id));
     }
 }

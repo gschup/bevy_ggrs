@@ -13,11 +13,11 @@ use std::sync::Arc;
 
 pub use ggrs;
 
-pub use rollback::{AddRollbackCommandExtension, AddRollbackCommand, Rollback};
+pub use rollback::{AddRollbackCommand, AddRollbackCommandExtension, Rollback};
 
 pub(crate) mod ggrs_stage;
-pub(crate) mod world_snapshot;
 pub(crate) mod rollback;
+pub(crate) mod world_snapshot;
 
 pub mod prelude {
     pub use crate::{

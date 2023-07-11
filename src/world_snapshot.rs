@@ -142,11 +142,7 @@ impl WorldSnapshot {
             // find the corresponding current entity or create new entity, if it doesn't exist
             let entity = *rid_map
                 .entry(rollback_entity.rollback_id)
-                .or_insert_with(|| {
-                    world
-                        .spawn(rollback_entity.rollback_id)
-                        .id()
-                });
+                .or_insert_with(|| world.spawn(rollback_entity.rollback_id).id());
 
             // Add the mapping from the old entity ID to the new entity ID
             entity_map.insert(rollback_entity.entity, entity);

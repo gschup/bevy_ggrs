@@ -62,8 +62,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             2.0,
             TimerMode::Repeating,
         )))
-        .add_systems(Startup, print_network_stats_system)
-        .add_systems(Startup, print_events_system)
+        .add_systems(Update, print_network_stats_system)
+        .add_systems(Update, print_events_system)
         .run();
 
     Ok(())

@@ -59,6 +59,7 @@ fn frame_counter(mut counter: ResMut<FrameCounter>) {
     counter.0 = counter.0.wrapping_add(1);
 }
 
+#[derive(Event)]
 struct DeleteChildEntityEvent;
 
 /// This test makes sure that we correctly map entities stored in resource and components during
@@ -68,10 +69,10 @@ fn entity_mapping() {
     let mut app = App::new();
 
     app.add_plugins(MinimalPlugins)
-        .add_plugin(TransformPlugin)
+        .add_plugins(TransformPlugin)
         .add_event::<DeleteChildEntityEvent>()
         .init_resource::<FrameCounter>()
-        .add_startup_system(setup_system)
+        .add_systems(Startup, setup_system)
         // Insert the GGRS session
         .insert_resource(Session::SyncTest(
             SessionBuilder::<GgrsConfig>::new()
@@ -90,11 +91,7 @@ fn entity_mapping() {
                 .register_rollback_component::<ParentEntity>()
                 .register_rollback_resource::<FrameCounter>(),
         )
-        .add_systems(
-            (frame_counter, delete_child_system)
-                .chain()
-                .in_schedule(GgrsSchedule),
-        );
+        .add_systems(GgrsSchedule, (frame_counter, delete_child_system).chain());
 
     // Sleep helper that will make sure at least one frame should be executed by the GGRS fixed
     // update loop.

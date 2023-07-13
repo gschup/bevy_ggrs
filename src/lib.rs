@@ -13,11 +13,11 @@ use std::sync::Arc;
 
 pub use ggrs;
 
-pub use rollback::{AddRollbackCommandExtension, AddRollbackCommand, Rollback};
+pub use rollback::{AddRollbackCommand, AddRollbackCommandExtension, Rollback};
 
 pub(crate) mod ggrs_stage;
-pub(crate) mod world_snapshot;
 pub(crate) mod rollback;
+pub(crate) mod world_snapshot;
 
 pub mod prelude {
     pub use crate::{
@@ -141,7 +141,7 @@ impl<T: Config + Send + Sync> GgrsPlugin<T> {
         app.add_schedule(GgrsSchedule, schedule);
 
         stage.set_type_registry(self.type_registry);
-        app.add_system(GgrsStage::<T>::run.in_base_set(CoreSet::PreUpdate));
+        app.add_systems(PreUpdate, GgrsStage::<T>::run);
         app.insert_resource(stage);
     }
 }

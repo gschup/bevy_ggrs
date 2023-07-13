@@ -142,11 +142,7 @@ impl WorldSnapshot {
             // find the corresponding current entity or create new entity, if it doesn't exist
             let entity = *rid_map
                 .entry(rollback_entity.rollback_id)
-                .or_insert_with(|| {
-                    world
-                        .spawn(rollback_entity.rollback_id)
-                        .id()
-                });
+                .or_insert_with(|| world.spawn(rollback_entity.rollback_id).id());
 
             // Add the mapping from the old entity ID to the new entity ID
             entity_map.insert(rollback_entity.entity, entity);
@@ -252,11 +248,7 @@ impl WorldSnapshot {
         // new IDs after applying the snapshot.
         for registration in type_registry.iter() {
             if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
-                map_entities_reflect
-                    .map_entities(world, &entity_map)
-                    // This may fail if an entity is not found in the entity map, but that's fine,
-                    // because if it's not found in the map, then the entity may remain un-mapped.
-                    .ok();
+                map_entities_reflect.map_all_entities(world, &mut entity_map)
             }
         }
     }

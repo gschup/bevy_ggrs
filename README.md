@@ -23,7 +23,6 @@ bevy_GGRS has a demo app you can try in the browser! It uses [matchbox](https://
 |bevy|bevy_ggrs|ggrs|
 |---|---|---|
 |0.11|main|main|
-|0.10|[this commit](https://github.com/gschup/bevy_ggrs/tree/03cf19dd279afac85bc693e0735371ea116747cb)|main|
 |0.10|0.12|0.9.4|
 |0.9|0.11|0.9.3|
 |0.8|0.10|0.9|

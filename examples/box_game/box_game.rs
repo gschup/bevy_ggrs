@@ -1,5 +1,5 @@
-use bevy::prelude::*;
-use bevy_ggrs::{AddRollbackCommandExtension, PlayerInputs, Rollback, Session};
+use bevy::{prelude::*, utils::HashMap};
+use bevy_ggrs::{AddRollbackCommandExtension, LocalInputs, PlayerInputs, Rollback, Session};
 use bytemuck::{Pod, Zeroable};
 use ggrs::{Config, PlayerHandle};
 use std::{hash::Hash, net::SocketAddr};
@@ -31,6 +31,9 @@ impl Config for GgrsConfig {
     type Address = SocketAddr;
 }
 
+#[derive(Resource)]
+pub struct LocalPlayers(pub Vec<PlayerHandle>);
+
 #[repr(C)]
 #[derive(Copy, Clone, PartialEq, Eq, Pod, Zeroable)]
 pub struct BoxInput {
@@ -57,23 +60,33 @@ pub struct FrameCount {
     pub frame: u32,
 }
 
-pub fn input(_handle: In<PlayerHandle>, keyboard_input: Res<Input<KeyCode>>) -> BoxInput {
-    let mut input: u8 = 0;
+pub fn read_local_inputs(
+    mut commands: Commands,
+    keyboard_input: Res<Input<KeyCode>>,
+    local_players: Res<LocalPlayers>,
+) {
+    let mut local_inputs = HashMap::new();
 
-    if keyboard_input.pressed(KeyCode::W) {
-        input |= INPUT_UP;
-    }
-    if keyboard_input.pressed(KeyCode::A) {
-        input |= INPUT_LEFT;
-    }
-    if keyboard_input.pressed(KeyCode::S) {
-        input |= INPUT_DOWN;
-    }
-    if keyboard_input.pressed(KeyCode::D) {
-        input |= INPUT_RIGHT;
+    for handle in &local_players.0 {
+        let mut input: u8 = 0;
+
+        if keyboard_input.pressed(KeyCode::W) {
+            input |= INPUT_UP;
+        }
+        if keyboard_input.pressed(KeyCode::A) {
+            input |= INPUT_LEFT;
+        }
+        if keyboard_input.pressed(KeyCode::S) {
+            input |= INPUT_DOWN;
+        }
+        if keyboard_input.pressed(KeyCode::D) {
+            input |= INPUT_RIGHT;
+        }
+
+        local_inputs.insert(*handle, BoxInput { inp: input });
     }
 
-    BoxInput { inp: input }
+    commands.insert_resource(LocalInputs::<GgrsConfig>(local_inputs));
 }
 
 pub fn setup_system(

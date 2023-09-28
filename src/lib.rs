@@ -23,8 +23,10 @@ pub(crate) mod world_snapshot;
 
 pub mod prelude {
     pub use crate::{
-        AddRollbackCommandExtension, GgrsPlugin, GgrsSchedule, PlayerInputs, Rollback, Session,
+        AddRollbackCommandExtension, GgrsApp, GgrsPlugin, GgrsSchedule, PlayerInputs, ReadInputs,
+        Rollback, Session,
     };
+    pub use ggrs::{GGRSEvent as GgrsEvent, PlayerType, SessionBuilder};
 }
 
 const DEFAULT_FPS: usize = 60;

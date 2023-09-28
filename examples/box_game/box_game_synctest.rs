@@ -1,6 +1,5 @@
 use bevy::prelude::*;
-use bevy_ggrs::{GgrsApp, GgrsPlugin, GgrsSchedule, ReadInputs, Session};
-use ggrs::{PlayerType, SessionBuilder};
+use bevy_ggrs::prelude::*;
 use structopt::StructOpt;
 
 mod box_game;

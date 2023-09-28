@@ -182,7 +182,7 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
             .init_resource::<FixedTimestepData>()
             .add_schedule(GgrsSchedule, schedule)
             .add_schedule(ReadInputs, Schedule::new())
-            .add_systems(PreUpdate, schedule_systems::run::<C>);
+            .add_systems(PreUpdate, schedule_systems::run_ggrs_schedules::<C>);
     }
 }
 

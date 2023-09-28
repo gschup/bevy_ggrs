@@ -9,7 +9,7 @@ use ggrs::{
     SpectatorSession, SyncTestSession,
 };
 
-pub(crate) fn run<T: Config>(world: &mut World) {
+pub(crate) fn run_ggrs_schedules<T: Config>(world: &mut World) {
     let mut time_data = world
         .remove_resource::<FixedTimestepData>()
         .expect("failed to extract GGRS FixedTimeStepData");

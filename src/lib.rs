@@ -78,6 +78,10 @@ struct RollbackTypeRegistry(TypeRegistry);
 #[derive(Resource)]
 pub struct LocalInputs<C: Config>(pub HashMap<PlayerHandle, C::Input>);
 
+/// Handles for the local players, you can use this when writing an input system.
+#[derive(Resource, Default)]
+pub struct LocalPlayers(pub Vec<PlayerHandle>);
+
 impl Default for RollbackTypeRegistry {
     fn default() -> Self {
         Self(TypeRegistry {
@@ -158,6 +162,7 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
         app.init_resource::<RollbackTypeRegistry>()
             .init_resource::<RollbackSnapshots>()
             .init_resource::<RollbackFrameCount>()
+            .init_resource::<LocalPlayers>()
             .add_schedule(GgrsSchedule, schedule)
             .add_schedule(ReadInputs, Schedule::new())
             .add_systems(PreUpdate, ggrs_stage::run::<C>);

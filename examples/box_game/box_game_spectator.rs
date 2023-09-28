@@ -37,7 +37,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .start_spectator_session(opt.host, socket);
 
     App::new()
-        .insert_resource(LocalPlayers((0..opt.num_players).collect()))
         .add_plugins(GgrsPlugin::<GgrsConfig>::default())
         // define frequency of rollback game logic update
         .set_rollback_schedule_fps(FPS)

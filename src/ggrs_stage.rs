@@ -1,7 +1,7 @@
 use crate::{
     world_snapshot::{RollbackSnapshots, WorldSnapshot},
-    FixedTimestepData, GgrsSchedule, LocalInputs, PlayerInputs, ReadInputs, RollbackFrameCount,
-    RollbackTypeRegistry, Session,
+    FixedTimestepData, GgrsSchedule, LocalInputs, LocalPlayers, PlayerInputs, ReadInputs,
+    RollbackFrameCount, RollbackTypeRegistry, Session,
 };
 use bevy::prelude::*;
 use ggrs::{
@@ -60,6 +60,7 @@ pub(crate) fn run<T: Config>(world: &mut World) {
                 time_data.last_update = Instant::now();
                 time_data.accumulator = Duration::ZERO;
                 time_data.run_slow = false;
+                world.insert_resource(LocalPlayers::default());
                 world.insert_resource(RollbackSnapshots::default());
                 world.insert_resource(RollbackFrameCount(0));
             }
@@ -87,6 +88,7 @@ pub(crate) fn run_synctest<C: Config>(world: &mut World, mut sess: SyncTestSessi
         Err(e) => warn!("{}", e),
     }
 
+    world.insert_resource(LocalPlayers((0..sess.num_players()).collect()));
     world.insert_resource(Session::SyncTest(sess));
 }
 
@@ -128,6 +130,7 @@ pub(crate) fn run_p2p<C: Config>(world: &mut World, mut sess: P2PSession<C>) {
         };
     }
 
+    world.insert_resource(LocalPlayers(sess.local_player_handles()));
     world.insert_resource(Session::P2P(sess));
 }
 

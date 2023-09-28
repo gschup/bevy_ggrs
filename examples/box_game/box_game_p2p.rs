@@ -60,7 +60,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sess = sess_build.start_p2p_session(socket)?;
 
     App::new()
-        .insert_resource(LocalPlayers(sess.local_player_handles()))
         .add_plugins(GgrsPlugin::<GgrsConfig>::default())
         // define frequency of rollback game logic update
         .set_rollback_schedule_fps(FPS)

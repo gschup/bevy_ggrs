@@ -1,7 +1,9 @@
 use bevy::{prelude::*, utils::HashMap};
-use bevy_ggrs::{AddRollbackCommandExtension, LocalInputs, PlayerInputs, Rollback, Session};
+use bevy_ggrs::{
+    AddRollbackCommandExtension, LocalInputs, LocalPlayers, PlayerInputs, Rollback, Session,
+};
 use bytemuck::{Pod, Zeroable};
-use ggrs::{Config, PlayerHandle};
+use ggrs::Config;
 use std::{hash::Hash, net::SocketAddr};
 
 const BLUE: Color = Color::rgb(0.8, 0.6, 0.2);
@@ -30,9 +32,6 @@ impl Config for GgrsConfig {
     type State = u8;
     type Address = SocketAddr;
 }
-
-#[derive(Resource)]
-pub struct LocalPlayers(pub Vec<PlayerHandle>);
 
 #[repr(C)]
 #[derive(Copy, Clone, PartialEq, Eq, Pod, Zeroable)]

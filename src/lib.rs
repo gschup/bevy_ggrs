@@ -17,8 +17,8 @@ pub use ggrs;
 
 pub use rollback::{AddRollbackCommand, AddRollbackCommandExtension, Rollback};
 
-pub(crate) mod ggrs_stage;
 pub(crate) mod rollback;
+pub(crate) mod schedule_systems;
 pub(crate) mod world_snapshot;
 
 pub mod prelude {
@@ -182,7 +182,7 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
             .init_resource::<FixedTimestepData>()
             .add_schedule(GgrsSchedule, schedule)
             .add_schedule(ReadInputs, Schedule::new())
-            .add_systems(PreUpdate, ggrs_stage::run::<C>);
+            .add_systems(PreUpdate, schedule_systems::run::<C>);
     }
 }
 

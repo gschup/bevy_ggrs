@@ -5,11 +5,13 @@ use bevy::{
     ecs::schedule::{LogLevel, ScheduleBuildSettings, ScheduleLabel},
     prelude::*,
     reflect::{FromType, GetTypeRegistration, TypeRegistry, TypeRegistryInternal},
+    utils::HashMap,
 };
 use ggrs::{Config, InputStatus, P2PSession, PlayerHandle, SpectatorSession, SyncTestSession};
-use ggrs_stage::GgrsStage;
+use instant::{Duration, Instant};
 use parking_lot::RwLock;
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
+use world_snapshot::RollbackSnapshots;
 
 pub use ggrs;
 
@@ -42,65 +44,72 @@ pub enum Session<T: Config> {
 #[derive(Resource, Deref, DerefMut)]
 pub struct PlayerInputs<T: Config>(Vec<(T::Input, InputStatus)>);
 
-/// A builder to configure GGRS for a bevy app.
-pub struct GgrsPlugin<T: Config + Send + Sync> {
-    input_system: Option<Box<dyn System<In = PlayerHandle, Out = T::Input>>>,
-    fps: usize,
-    type_registry: TypeRegistry,
+#[derive(Resource, Copy, Clone, Debug)]
+struct FixedTimestepData {
+    /// fixed FPS our logic is running with
+    pub fps: usize,
+    /// internal time control variables
+    last_update: Instant,
+    /// accumulated time. once enough time has been accumulated, an update is executed
+    accumulator: Duration,
+    /// boolean to see if we should run slow to let remote clients catch up
+    run_slow: bool,
 }
 
-impl<T: Config + Send + Sync> Default for GgrsPlugin<T> {
+impl Default for FixedTimestepData {
     fn default() -> Self {
         Self {
-            input_system: None,
             fps: DEFAULT_FPS,
-            type_registry: TypeRegistry {
-                internal: Arc::new(RwLock::new({
-                    let mut r = TypeRegistryInternal::empty();
-                    // `Parent` and `Children` must be registered so that their `ReflectMapEntities`
-                    // data may be used.
-                    //
-                    // While this is a little bit of a weird spot to register these, are the only
-                    // Bevy core types implementing `MapEntities`, so for now it's probably fine to
-                    // just manually register these here.
-                    //
-                    // The user can still register any custom types with `register_rollback_type()`.
-                    r.register::<Parent>();
-                    r.register::<Children>();
-                    r
-                })),
-            },
+            last_update: Instant::now(),
+            accumulator: Duration::ZERO,
+            run_slow: false,
         }
     }
 }
 
-impl<T: Config + Send + Sync> GgrsPlugin<T> {
-    /// Create a new instance of the builder.
-    pub fn new() -> Self {
-        Default::default()
-    }
+/// Keeps track of the current frame the rollback simulation is in
+#[derive(Resource, Debug, Default)]
+pub struct RollbackFrameCount(i32);
 
-    /// Change the update frequency of the rollback stage.
-    pub fn with_update_frequency(mut self, fps: usize) -> Self {
-        self.fps = fps;
-        self
-    }
+#[derive(Resource)]
+struct RollbackTypeRegistry(TypeRegistry);
 
-    /// Registers a system that takes player handles as input and returns the associated inputs for that player.
-    pub fn with_input_system<Params>(
-        mut self,
-        input_fn: impl IntoSystem<PlayerHandle, T::Input, Params>,
-    ) -> Self {
-        self.input_system = Some(Box::new(IntoSystem::into_system(input_fn)));
-        self
-    }
+/// Inputs from local players. You have to fill this resource in the ReadInputs schedule.
+#[derive(Resource)]
+pub struct LocalInputs<C: Config>(pub HashMap<PlayerHandle, C::Input>);
 
+/// Handles for the local players, you can use this when writing an input system.
+#[derive(Resource, Default)]
+pub struct LocalPlayers(pub Vec<PlayerHandle>);
+
+impl Default for RollbackTypeRegistry {
+    fn default() -> Self {
+        Self(TypeRegistry {
+            internal: Arc::new(RwLock::new({
+                let mut r = TypeRegistryInternal::empty();
+                // `Parent` and `Children` must be registered so that their `ReflectMapEntities`
+                // data may be used.
+                //
+                // While this is a little bit of a weird spot to register these, are the only
+                // Bevy core types implementing `MapEntities`, so for now it's probably fine to
+                // just manually register these here.
+                //
+                // The user can still register any custom types with `register_rollback_type()`.
+                r.register::<Parent>();
+                r.register::<Children>();
+                r
+            })),
+        })
+    }
+}
+
+impl RollbackTypeRegistry {
     /// Registers a type of component for saving and loading during rollbacks.
-    pub fn register_rollback_component<Type>(self) -> Self
+    pub fn register_rollback_component<Type>(&mut self) -> &mut Self
     where
         Type: GetTypeRegistration + Reflect + Default + Component,
     {
-        let mut registry = self.type_registry.write();
+        let mut registry = self.0.write();
         registry.register::<Type>();
 
         let registration = registry.get_mut(std::any::TypeId::of::<Type>()).unwrap();
@@ -110,11 +119,11 @@ impl<T: Config + Send + Sync> GgrsPlugin<T> {
     }
 
     /// Registers a type of resource for saving and loading during rollbacks.
-    pub fn register_rollback_resource<Type>(self) -> Self
+    pub fn register_rollback_resource<Type>(&mut self) -> &mut Self
     where
         Type: GetTypeRegistration + Reflect + Default + Resource,
     {
-        let mut registry = self.type_registry.write();
+        let mut registry = self.0.write();
         registry.register::<Type>();
 
         let registration = registry.get_mut(std::any::TypeId::of::<Type>()).unwrap();
@@ -122,44 +131,86 @@ impl<T: Config + Send + Sync> GgrsPlugin<T> {
         drop(registry);
         self
     }
+}
 
-    /// Consumes the builder and makes changes on the bevy app according to the settings.
-    pub fn build(self, app: &mut App) {
-        let mut input_system = self
-            .input_system
-            .expect("Adding an input system through GGRSBuilder::with_input_system is required");
-        // ggrs stage
-        input_system.initialize(&mut app.world);
-        let mut stage = GgrsStage::<T>::new(input_system);
-        stage.set_update_frequency(self.fps);
+// Label for the schedule which reads the inputs for the current frame
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct ReadInputs;
 
+/// GGRS plugin for bevy.
+pub struct GgrsPlugin<C: Config> {
+    /// phantom marker for ggrs config
+    _marker: PhantomData<C>,
+}
+
+impl<C: Config> Default for GgrsPlugin<C> {
+    fn default() -> Self {
+        Self {
+            _marker: Default::default(),
+        }
+    }
+}
+
+impl<C: Config> Plugin for GgrsPlugin<C> {
+    fn build(&self, app: &mut App) {
         let mut schedule = Schedule::default();
         schedule.set_build_settings(ScheduleBuildSettings {
             ambiguity_detection: LogLevel::Error,
             ..default()
         });
-        app.add_schedule(GgrsSchedule, schedule);
 
-        stage.set_type_registry(self.type_registry);
-        app.add_systems(PreUpdate, GgrsStage::<T>::run);
-        app.insert_resource(stage);
+        app.init_resource::<RollbackTypeRegistry>()
+            .init_resource::<RollbackSnapshots>()
+            .init_resource::<RollbackFrameCount>()
+            .init_resource::<LocalPlayers>()
+            .add_schedule(GgrsSchedule, schedule)
+            .add_schedule(ReadInputs, Schedule::new())
+            .add_systems(PreUpdate, ggrs_stage::run::<C>);
     }
 }
 
 /// Extension trait to add the GGRS plugin idiomatically to Bevy Apps
-pub trait GgrsAppExtension {
-    /// Add a GGRS plugin to your App
-    fn add_ggrs_plugin<T: Config + Send + Sync>(&mut self, ggrs_plugin: GgrsPlugin<T>)
-        -> &mut Self;
+pub trait GgrsApp {
+    /// Registers a component type for saving and loading from the world.
+    fn register_rollback_component<Type>(&mut self) -> &mut Self
+    where
+        Type: GetTypeRegistration + Reflect + Default + Component;
+
+    /// Registers a resource type for saving and loading from the world.
+    fn register_rollback_resource<Type>(&mut self) -> &mut Self
+    where
+        Type: GetTypeRegistration + Reflect + Default + Resource;
+
+    fn set_rollback_schedule_fps(&mut self, fps: usize) -> &mut Self;
 }
 
-impl GgrsAppExtension for App {
-    fn add_ggrs_plugin<T: Config + Send + Sync>(
-        &mut self,
-        ggrs_plugin: GgrsPlugin<T>,
-    ) -> &mut Self {
-        ggrs_plugin.build(self);
+impl GgrsApp for App {
+    fn set_rollback_schedule_fps(&mut self, fps: usize) -> &mut Self {
+        let mut time_data = FixedTimestepData::default();
+        time_data.fps = fps;
+        self.world.insert_resource(time_data);
+        self
+    }
 
+    fn register_rollback_component<Type>(&mut self) -> &mut Self
+    where
+        Type: GetTypeRegistration + Reflect + Default + Component,
+    {
+        self.world
+            .get_resource_mut::<RollbackTypeRegistry>()
+            .expect("RollbackTypeRegistry not found. Did you add the GgrsPlugin?")
+            .register_rollback_component::<Type>();
+        self
+    }
+
+    fn register_rollback_resource<Type>(&mut self) -> &mut Self
+    where
+        Type: GetTypeRegistration + Reflect + Default + Resource,
+    {
+        self.world
+            .get_resource_mut::<RollbackTypeRegistry>()
+            .expect("RollbackTypeRegistry not found. Did you add the GgrsPlugin?")
+            .register_rollback_resource::<Type>();
         self
     }
 }

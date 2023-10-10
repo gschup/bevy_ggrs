@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use bevy::{prelude::*, window::WindowResolution};
-use bevy_ggrs::{GgrsAppExtension, GgrsPlugin, GgrsSchedule, Session};
+use bevy_ggrs::{GgrsApp, GgrsPlugin, GgrsSchedule, ReadInputs, Session};
 use ggrs::{GGRSEvent as GgrsEvent, PlayerType, SessionBuilder, UdpNonBlockingSocket};
 
 use structopt::StructOpt;
@@ -60,17 +60,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sess = sess_build.start_p2p_session(socket)?;
 
     App::new()
-        .add_ggrs_plugin(
-            GgrsPlugin::<GgrsConfig>::new()
-                // define frequency of rollback game logic update
-                .with_update_frequency(FPS)
-                // define system that returns inputs given a player handle, so GGRS can send the inputs around
-                .with_input_system(input)
-                // register types of components AND resources you want to be rolled back
-                .register_rollback_component::<Transform>()
-                .register_rollback_component::<Velocity>()
-                .register_rollback_resource::<FrameCount>(),
-        )
+        .add_plugins(GgrsPlugin::<GgrsConfig>::default())
+        // define frequency of rollback game logic update
+        .set_rollback_schedule_fps(FPS)
+        // this system will be executed as part of input reading
+        .add_systems(ReadInputs, read_local_inputs)
+        // register types of components AND resources you want to be rolled back
+        .register_rollback_component::<Transform>()
+        .register_rollback_component::<Velocity>()
+        .register_rollback_resource::<FrameCount>()
         .insert_resource(opt)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {

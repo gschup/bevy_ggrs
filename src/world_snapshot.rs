@@ -8,6 +8,9 @@ use std::{fmt::Debug, num::Wrapping};
 
 use crate::rollback::Rollback;
 
+#[derive(Resource, Default)]
+pub struct RollbackSnapshots(pub(crate) Vec<WorldSnapshot>);
+
 /// Maps rollback_ids to entity id+generation. Necessary to track entities over time.
 fn rollback_id_map(world: &mut World) -> HashMap<Rollback, Entity> {
     let mut rid_map = HashMap::default();

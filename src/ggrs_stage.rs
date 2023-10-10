@@ -1,268 +1,235 @@
-use crate::{world_snapshot::WorldSnapshot, GgrsSchedule, PlayerInputs, Session};
-use bevy::{prelude::*, reflect::TypeRegistry};
+use crate::{
+    world_snapshot::{RollbackSnapshots, WorldSnapshot},
+    FixedTimestepData, GgrsSchedule, LocalInputs, LocalPlayers, PlayerInputs, ReadInputs,
+    RollbackFrameCount, RollbackTypeRegistry, Session,
+};
+use bevy::prelude::*;
 use ggrs::{
-    Config, GGRSError, GGRSRequest, GameStateCell, InputStatus, PlayerHandle, SessionState,
+    Config, GGRSError, GGRSRequest, GameStateCell, InputStatus, P2PSession, SessionState,
+    SpectatorSession, SyncTestSession,
 };
 use instant::{Duration, Instant};
 
-#[derive(Resource)]
-/// The GgrsStage handles updating, saving and loading the game state.
-pub(crate) struct GgrsStage<T>
-where
-    T: Config,
-{
-    /// Used to register all types considered when loading and saving
-    pub(crate) type_registry: TypeRegistry,
-    /// This system is used to get an encoded representation of the input that GGRS can handle
-    pub(crate) input_system: Box<dyn System<In = PlayerHandle, Out = T::Input>>,
-    /// Instead of using GGRS's internal storage for encoded save states, we save the world here, avoiding serialization into `Vec<u8>`.
-    snapshots: Vec<WorldSnapshot>,
-    /// fixed FPS our logic is running with
-    update_frequency: usize,
-    /// counts the number of frames that have been executed
-    frame: i32,
-    /// internal time control variables
-    last_update: Instant,
-    /// accumulated time. once enough time has been accumulated, an update is executed
-    accumulator: Duration,
-    /// boolean to see if we should run slow to let remote clients catch up
-    run_slow: bool,
+pub(crate) fn run<T: Config>(world: &mut World) {
+    let mut time_data = world
+        .remove_resource::<FixedTimestepData>()
+        .expect("failed to extract GGRS FixedTimeStepData");
+
+    // get delta time from last run() call and accumulate it
+    let delta = Instant::now().duration_since(time_data.last_update);
+    let mut fps_delta = 1. / time_data.fps as f64;
+    if time_data.run_slow {
+        fps_delta *= 1.1;
+    }
+    time_data.accumulator = time_data.accumulator.saturating_add(delta);
+    time_data.last_update = Instant::now();
+
+    // no matter what, poll remotes and send responses
+    if let Some(mut session) = world.get_resource_mut::<Session<T>>() {
+        match &mut *session {
+            Session::P2P(session) => {
+                session.poll_remote_clients();
+            }
+            Session::Spectator(session) => {
+                session.poll_remote_clients();
+            }
+            _ => {}
+        }
+    }
+
+    // if we accumulated enough time, do steps
+    while time_data.accumulator.as_secs_f64() > fps_delta {
+        // decrease accumulator
+        time_data.accumulator = time_data
+            .accumulator
+            .saturating_sub(Duration::from_secs_f64(fps_delta));
+
+        // depending on the session type, doing a single update looks a bit different
+        let session = world.remove_resource::<Session<T>>();
+        match session {
+            Some(Session::SyncTest(s)) => run_synctest::<T>(world, s),
+            Some(Session::P2P(session)) => {
+                // if we are ahead, run slow
+                time_data.run_slow = session.frames_ahead() > 0;
+
+                run_p2p(world, session);
+            }
+            Some(Session::Spectator(s)) => run_spectator(world, s),
+            _ => {
+                // No session has been started yet, reset time data and snapshots
+                time_data.last_update = Instant::now();
+                time_data.accumulator = Duration::ZERO;
+                time_data.run_slow = false;
+                world.insert_resource(LocalPlayers::default());
+                world.insert_resource(RollbackSnapshots::default());
+                world.insert_resource(RollbackFrameCount(0));
+            }
+        }
+    }
+
+    world.insert_resource(time_data);
 }
 
-impl<T: Config + Send + Sync> GgrsStage<T> {
-    pub(crate) fn run(world: &mut World) {
-        let mut stage = world
-            .remove_resource::<GgrsStage<T>>()
-            .expect("failed to extract ggrs schedule");
+pub(crate) fn run_synctest<C: Config>(world: &mut World, mut sess: SyncTestSession<C>) {
+    maybe_init_snapshots(world, sess.max_prediction());
 
-        // get delta time from last run() call and accumulate it
-        let delta = Instant::now().duration_since(stage.last_update);
-        let mut fps_delta = 1. / stage.update_frequency as f64;
-        if stage.run_slow {
-            fps_delta *= 1.1;
-        }
-        stage.accumulator = stage.accumulator.saturating_add(delta);
-        stage.last_update = Instant::now();
-
-        // no matter what, poll remotes and send responses
-        if let Some(mut session) = world.get_resource_mut::<Session<T>>() {
-            match &mut *session {
-                Session::P2P(session) => {
-                    session.poll_remote_clients();
-                }
-                Session::Spectator(session) => {
-                    session.poll_remote_clients();
-                }
-                _ => {}
-            }
-        }
-
-        // if we accumulated enough time, do steps
-        while stage.accumulator.as_secs_f64() > fps_delta {
-            // decrease accumulator
-            stage.accumulator = stage
-                .accumulator
-                .saturating_sub(Duration::from_secs_f64(fps_delta));
-
-            // depending on the session type, doing a single update looks a bit different
-            let session = world.get_resource::<Session<T>>();
-            match session {
-                Some(&Session::SyncTest(_)) => stage.run_synctest(world),
-                Some(&Session::P2P(_)) => stage.run_p2p(world),
-                Some(&Session::Spectator(_)) => stage.run_spectator(world),
-                _ => stage.reset(), // No session has been started yet
-            }
-        }
-
-        world.insert_resource(stage);
+    // read local player inputs and register them in the session
+    world.run_schedule(ReadInputs);
+    let local_inputs = world.remove_resource::<LocalInputs<C>>().expect(
+        "No local player inputs found. Did you insert systems into the ReadInputs schedule?",
+    );
+    for (handle, input) in local_inputs.0 {
+        sess.add_local_input(handle, input)
+            .expect("All handles in local_handles should be valid");
     }
+
+    match sess.advance_frame() {
+        Ok(requests) => handle_requests(requests, world),
+        Err(e) => warn!("{}", e),
+    }
+
+    world.insert_resource(LocalPlayers((0..sess.num_players()).collect()));
+    world.insert_resource(Session::SyncTest(sess));
 }
 
-impl<T: Config> GgrsStage<T> {
-    pub(crate) fn new(input_system: Box<dyn System<In = PlayerHandle, Out = T::Input>>) -> Self {
-        Self {
-            type_registry: TypeRegistry::default(),
-            input_system,
-            snapshots: Vec::new(),
-            frame: 0,
-            update_frequency: 60,
-            last_update: Instant::now(),
-            accumulator: Duration::ZERO,
-            run_slow: false,
-        }
-    }
-
-    pub(crate) fn reset(&mut self) {
-        self.last_update = Instant::now();
-        self.accumulator = Duration::ZERO;
-        self.frame = 0;
-        self.run_slow = false;
-        self.snapshots = Vec::new();
-    }
-
-    pub(crate) fn run_synctest(&mut self, world: &mut World) {
-        // let ses = world.get_resource::<Session<T>>().expect("lol");
-        let Some(Session::SyncTest(sess)) = world.get_resource::<Session<T>>() else {
-            // TODO: improve error message for new API
-            panic!("No GGRS SyncTestSession found. Please start a session and add it as a resource.");
-        };
-
-        // if our snapshot vector is not initialized, resize it accordingly
-        if self.snapshots.is_empty() {
-            for _ in 0..sess.max_prediction() {
-                self.snapshots.push(WorldSnapshot::default());
-            }
-        }
-
-        // get inputs for all players
-        let mut inputs = Vec::new();
-        for handle in 0..sess.num_players() {
-            inputs.push(self.input_system.run(handle, world));
-        }
-
-        let mut sess = world.get_resource_mut::<Session<T>>();
-        let Some(Session::SyncTest(ref mut sess)) = sess.as_deref_mut() else {
-            panic!("No GGRS SyncTestSession found. Please start a session and add it as a resource.");
-        };
-        for (player_handle, &input) in inputs.iter().enumerate() {
-            sess.add_local_input(player_handle, input)
-                .expect("All handles between 0 and num_players should be valid");
-        }
+pub(crate) fn run_spectator<T: Config>(world: &mut World, mut sess: SpectatorSession<T>) {
+    // if session is ready, try to advance the frame
+    if sess.current_state() == SessionState::Running {
         match sess.advance_frame() {
-            Ok(requests) => self.handle_requests(requests, world),
+            Ok(requests) => handle_requests(requests, world),
+            Err(GGRSError::PredictionThreshold) => {
+                info!("P2PSpectatorSession: Waiting for input from host.")
+            }
             Err(e) => warn!("{}", e),
-        }
+        };
     }
 
-    pub(crate) fn run_spectator(&mut self, world: &mut World) {
-        // run spectator session, no input necessary
-        let mut sess = world.get_resource_mut::<Session<T>>();
-        let Some(Session::Spectator(ref mut sess)) = sess.as_deref_mut() else {
-            // TODO: improve error message for new API
-            panic!("No GGRS P2PSpectatorSession found. Please start a session and add it as a resource.");
-        };
+    world.insert_resource(Session::Spectator(sess));
+}
 
-        // if session is ready, try to advance the frame
-        if sess.current_state() == SessionState::Running {
-            match sess.advance_frame() {
-                Ok(requests) => self.handle_requests(requests, world),
-                Err(GGRSError::PredictionThreshold) => {
-                    info!("P2PSpectatorSession: Waiting for input from host.")
-                }
-                Err(e) => warn!("{}", e),
-            };
-        }
-    }
+pub(crate) fn run_p2p<C: Config>(world: &mut World, mut sess: P2PSession<C>) {
+    maybe_init_snapshots(world, sess.max_prediction());
 
-    pub(crate) fn run_p2p(&mut self, world: &mut World) {
-        let sess = world.get_resource::<Session<T>>();
-        let Some(Session::P2P(ref sess)) = sess else {
-            // TODO: improve error message for new API
-            panic!("No GGRS P2PSession found. Please start a session and add it as a resource.");
-        };
-
-        // if our snapshot vector is not initialized, resize it accordingly
-        if self.snapshots.is_empty() {
-            // find out what the maximum prediction window is in this synctest
-            for _ in 0..sess.max_prediction() {
-                self.snapshots.push(WorldSnapshot::default());
-            }
-        }
-
-        // if we are ahead, run slow
-        self.run_slow = sess.frames_ahead() > 0;
-
-        // get local player handles
-        let local_handles = sess.local_player_handles();
-
+    if sess.current_state() == SessionState::Running {
         // get local player inputs
-        let mut local_inputs = Vec::new();
-        for &local_handle in &local_handles {
-            let input = self.input_system.run(local_handle, world);
-            local_inputs.push(input);
+        world.run_schedule(ReadInputs);
+        let local_inputs = world.remove_resource::<LocalInputs<C>>().expect(
+            "No local player inputs found. Did you insert systems into the ReadInputs schedule?",
+        );
+        for (handle, input) in local_inputs.0 {
+            sess.add_local_input(handle, input)
+                .expect("All handles in local_inputs should be valid");
         }
 
-        // if session is ready, try to advance the frame
-        let mut sess = world.get_resource_mut::<Session<T>>();
-        let Some(Session::P2P(ref mut sess)) = sess.as_deref_mut() else {
-            // TODO: improve error message for new API
-            panic!("No GGRS P2PSession found. Please start a session and add it as a resource.");
+        match sess.advance_frame() {
+            Ok(requests) => handle_requests(requests, world),
+            Err(GGRSError::PredictionThreshold) => {
+                info!("Skipping a frame: PredictionThreshold.")
+            }
+            Err(e) => warn!("{}", e),
         };
-        if sess.current_state() == SessionState::Running {
-            for i in 0..local_inputs.len() {
-                sess.add_local_input(local_handles[i], local_inputs[i])
-                    .expect("All handles in local_handles should be valid");
+    }
+
+    world.insert_resource(LocalPlayers(sess.local_player_handles()));
+    world.insert_resource(Session::P2P(sess));
+}
+
+pub(crate) fn handle_requests<T: Config>(requests: Vec<GGRSRequest<T>>, world: &mut World) {
+    for request in requests {
+        match request {
+            GGRSRequest::SaveGameState { cell, frame } => save_world::<T>(cell, frame, world),
+            GGRSRequest::LoadGameState { frame, .. } => {
+                world
+                    .get_resource_mut::<RollbackFrameCount>()
+                    .expect("Unable to find GGRS RollbackFrameCount. Did you remove it?")
+                    .0 = frame;
+                load_world(frame, world)
             }
-            match sess.advance_frame() {
-                Ok(requests) => self.handle_requests(requests, world),
-                Err(GGRSError::PredictionThreshold) => {
-                    info!("Skipping a frame: PredictionThreshold.")
-                }
-                Err(e) => warn!("{}", e),
-            };
+            GGRSRequest::AdvanceFrame { inputs } => advance_frame::<T>(inputs, world),
         }
     }
+}
 
-    pub(crate) fn handle_requests(&mut self, requests: Vec<GGRSRequest<T>>, world: &mut World) {
-        for request in requests {
-            match request {
-                GGRSRequest::SaveGameState { cell, frame } => self.save_world(cell, frame, world),
-                GGRSRequest::LoadGameState { frame, .. } => self.load_world(frame, world),
-                GGRSRequest::AdvanceFrame { inputs } => self.advance_frame(inputs, world),
-            }
+pub(crate) fn save_world<T: Config>(
+    cell: GameStateCell<T::State>,
+    frame_to_save: i32,
+    world: &mut World,
+) {
+    debug!("saving snapshot for frame {frame_to_save}");
+
+    // we make a snapshot of our world
+    let rollback_registry = world
+        .remove_resource::<RollbackTypeRegistry>()
+        .expect("GGRS type registry not found. Did you remove it?");
+    let snapshot = WorldSnapshot::from_world(world, &rollback_registry.0);
+    world.insert_resource(rollback_registry);
+
+    let frame = world
+        .get_resource_mut::<RollbackFrameCount>()
+        .expect("Unable to find GGRS RollbackFrameCount. Did you remove it?")
+        .0;
+
+    assert_eq!(frame_to_save, frame);
+
+    let mut snapshots = world
+        .get_resource_mut::<RollbackSnapshots>()
+        .expect("No GGRS RollbackSnapshots resource found. Did you remove it?");
+
+    // we don't really use the buffer provided by GGRS
+    cell.save(frame, None, Some(snapshot.checksum as u128));
+
+    // store the snapshot ourselves (since the snapshots don't implement clone)
+    let pos = frame as usize % snapshots.0.len();
+    snapshots.0[pos] = snapshot;
+}
+
+pub(crate) fn load_world(frame: i32, world: &mut World) {
+    debug!("restoring snapshot for frame {frame}");
+
+    let rollback_registry = world
+        .remove_resource::<RollbackTypeRegistry>()
+        .expect("GGRS type registry not found. Did you remove it?");
+
+    let snapshots = world
+        .remove_resource::<RollbackSnapshots>()
+        .expect("No GGRS RollbackSnapshots resource found. Did you remove it?");
+
+    // we get the correct snapshot
+    let pos = frame as usize % snapshots.0.len();
+    let snapshot_to_load = &snapshots.0[pos];
+
+    // load the entities
+    snapshot_to_load.write_to_world(world, &rollback_registry.0);
+
+    world.insert_resource(rollback_registry);
+    world.insert_resource(snapshots);
+}
+
+pub(crate) fn advance_frame<T: Config>(inputs: Vec<(T::Input, InputStatus)>, world: &mut World) {
+    let mut frame_count = world
+        .get_resource_mut::<RollbackFrameCount>()
+        .expect("Unable to find GGRS RollbackFrameCount. Did you remove it?");
+
+    frame_count.0 += 1;
+    let frame = frame_count.0;
+
+    debug!("advancing to frame: {}", frame);
+    world.insert_resource(PlayerInputs::<T>(inputs));
+    world.run_schedule(GgrsSchedule);
+    world.remove_resource::<PlayerInputs<T>>();
+    debug!("frame {frame} completed");
+}
+
+fn maybe_init_snapshots(world: &mut World, len: usize) {
+    let snapshots = &mut world
+        .get_resource_mut::<RollbackSnapshots>()
+        .expect("No GGRS RollbackSnapshots resource found. Did you remove it?")
+        .0;
+
+    if snapshots.len() != len {
+        snapshots.clear();
+        for _ in 0..len {
+            snapshots.push(WorldSnapshot::default());
         }
-    }
-
-    pub(crate) fn save_world(
-        &mut self,
-        cell: GameStateCell<T::State>,
-        frame: i32,
-        world: &mut World,
-    ) {
-        debug!("saving snapshot for frame {frame}");
-        assert_eq!(self.frame, frame);
-
-        // we make a snapshot of our world
-        let snapshot = WorldSnapshot::from_world(world, &self.type_registry);
-
-        // we don't really use the buffer provided by GGRS
-        cell.save(self.frame, None, Some(snapshot.checksum as u128));
-
-        // store the snapshot ourselves (since the snapshots don't implement clone)
-        let pos = frame as usize % self.snapshots.len();
-        self.snapshots[pos] = snapshot;
-    }
-
-    pub(crate) fn load_world(&mut self, frame: i32, world: &mut World) {
-        debug!("restoring snapshot for frame {frame}");
-        self.frame = frame;
-
-        // we get the correct snapshot
-        let pos = frame as usize % self.snapshots.len();
-        let snapshot_to_load = &self.snapshots[pos];
-
-        // load the entities
-        snapshot_to_load.write_to_world(world, &self.type_registry);
-    }
-
-    pub(crate) fn advance_frame(
-        &mut self,
-        inputs: Vec<(T::Input, InputStatus)>,
-        world: &mut World,
-    ) {
-        debug!("advancing to frame: {}", self.frame + 1);
-        world.insert_resource(PlayerInputs::<T>(inputs));
-        world.run_schedule(GgrsSchedule);
-        world.remove_resource::<PlayerInputs<T>>();
-        self.frame += 1;
-        debug!("frame {} completed", self.frame);
-    }
-
-    pub(crate) fn set_update_frequency(&mut self, update_frequency: usize) {
-        self.update_frequency = update_frequency
-    }
-
-    pub(crate) fn set_type_registry(&mut self, type_registry: TypeRegistry) {
-        self.type_registry = type_registry;
     }
 }

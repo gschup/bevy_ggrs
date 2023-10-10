@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::HashMap};
 
 use bevy_ggrs::*;
 use ggrs::*;
@@ -20,8 +20,13 @@ struct ParentEntity;
 #[derive(Reflect, Resource, Default, Debug)]
 struct FrameCounter(u16);
 
-fn input_system(_: In<PlayerHandle>, mut delete_events: EventReader<DeleteChildEntityEvent>) -> u8 {
-    u8::from(delete_events.iter().count() > 0)
+fn input_system(mut commands: Commands, mut delete_events: EventReader<DeleteChildEntityEvent>) {
+    let should_delete = u8::from(delete_events.iter().count() > 0);
+
+    let mut local_inputs = HashMap::new();
+    local_inputs.insert(0, should_delete);
+
+    commands.insert_resource(LocalInputs::<GgrsConfig>(local_inputs));
 }
 
 fn setup_system(mut commands: Commands) {
@@ -83,14 +88,12 @@ fn entity_mapping() {
                 .start_synctest_session()
                 .unwrap(),
         ))
-        .add_ggrs_plugin(
-            GgrsPlugin::<GgrsConfig>::new()
-                .with_update_frequency(60)
-                .with_input_system(input_system)
-                .register_rollback_component::<ChildEntity>()
-                .register_rollback_component::<ParentEntity>()
-                .register_rollback_resource::<FrameCounter>(),
-        )
+        .add_plugins(GgrsPlugin::<GgrsConfig>::default())
+        .set_rollback_schedule_fps(60)
+        .add_systems(ReadInputs, input_system)
+        .register_rollback_component::<ChildEntity>()
+        .register_rollback_component::<ParentEntity>()
+        .register_rollback_resource::<FrameCounter>()
         .add_systems(GgrsSchedule, (frame_counter, delete_child_system).chain());
 
     // Sleep helper that will make sure at least one frame should be executed by the GGRS fixed

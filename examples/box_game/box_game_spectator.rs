@@ -1,8 +1,7 @@
-use std::net::SocketAddr;
-
 use bevy::prelude::*;
-use bevy_ggrs::{GgrsApp, GgrsPlugin, GgrsSchedule, ReadInputs, Session};
-use ggrs::{SessionBuilder, UdpNonBlockingSocket};
+use bevy_ggrs::prelude::*;
+use ggrs::UdpNonBlockingSocket;
+use std::net::SocketAddr;
 use structopt::StructOpt;
 
 mod box_game;

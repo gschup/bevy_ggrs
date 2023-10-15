@@ -165,6 +165,7 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
             .init_resource::<RollbackSnapshots>()
             .init_resource::<RollbackFrameCount>()
             .init_resource::<LocalPlayers>()
+            .init_resource::<FixedTimestepData>()
             .add_schedule(GgrsSchedule, schedule)
             .add_schedule(ReadInputs, Schedule::new())
             .add_systems(PreUpdate, ggrs_stage::run::<C>);

@@ -3,10 +3,12 @@ use bevy::{
     prelude::*,
     time::TimeUpdateStrategy,
     utils::{Duration, HashMap},
-    window::PrimaryWindow,
     MinimalPlugins,
 };
-use bevy_ggrs::{GgrsPlugin, GgrsSchedule, LocalInputs, PlayerInputs, Rollback, Session};
+use bevy_ggrs::{
+    GgrsPlugin, GgrsSchedule, LocalInputs, LocalPlayers, PlayerInputs, ReadInputs, Rollback,
+    Session,
+};
 use bytemuck::{Pod, Zeroable};
 use ggrs::{Config, P2PSession, PlayerHandle, PlayerType, SessionBuilder, UdpNonBlockingSocket};
 use serial_test::serial;
@@ -81,6 +83,7 @@ fn create_app<T: Config + Default>(session: P2PSession<T>) -> App {
         .insert_resource(Session::P2P(session))
         .insert_resource(FrameCount { frame: 0 })
         .add_systems(GgrsSchedule, (move_player_system, increase_frame_system))
+        .add_systems(ReadInputs, read_local_inputs)
         .add_systems(Startup, spawn_players);
     app
 }
@@ -141,15 +144,22 @@ fn start_session(
 
 const INPUT_UP: u8 = 1 << 0;
 
-pub fn register_input_system(
-    _handle: In<PlayerHandle>,
+pub fn read_local_inputs(
+    mut commands: Commands,
     keyboard_input: Res<Input<KeyCode>>,
-) -> BoxInput {
-    let mut input: u8 = 0;
-    if keyboard_input.pressed(KeyCode::W) {
-        input |= INPUT_UP;
+    local_players: Res<LocalPlayers>,
+) {
+    let mut local_inputs = HashMap::new();
+
+    for handle in &local_players.0 {
+        let mut input: u8 = 0;
+        if keyboard_input.pressed(KeyCode::W) {
+            input |= INPUT_UP;
+        }
+        local_inputs.insert(*handle, BoxInput { inp: input });
     }
-    BoxInput { inp: input }
+
+    commands.insert_resource(LocalInputs::<GgrsConfig>(local_inputs));
 }
 
 pub fn increase_frame_system(mut frame_count: ResMut<FrameCount>) {
@@ -157,17 +167,11 @@ pub fn increase_frame_system(mut frame_count: ResMut<FrameCount>) {
 }
 
 fn press_key(app: &mut App, key: KeyCode) {
-    let window = app
-        .world
-        .query::<(Entity, With<PrimaryWindow>)>()
-        .single(&app.world)
-        .0;
-
     app.world.send_event(KeyboardInput {
         scan_code: 0,
         key_code: Option::from(key),
         state: ButtonState::Pressed,
-        window,
+        window: Entity::PLACEHOLDER,
     });
 }
 

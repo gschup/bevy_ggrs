@@ -8,9 +8,8 @@ use bevy::{
     utils::{Duration, HashMap},
 };
 use ggrs::{Config, InputStatus, P2PSession, PlayerHandle, SpectatorSession, SyncTestSession};
-
-use std::{fmt::Debug, hash::Hash, marker::PhantomData, net::SocketAddr, sync::Arc};
-
+use schedule_systems::save_world;
+use std::{fmt::Debug, hash::Hash, marker::PhantomData, net::SocketAddr};
 use world_snapshot::RollbackSnapshots;
 
 pub use ggrs;
@@ -153,6 +152,10 @@ impl RollbackTypeRegistry {
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct ReadInputs;
 
+/// Label for the schedule which saves a snapshot of the current world.
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct SaveWorld;
+
 /// GGRS plugin for bevy.
 pub struct GgrsPlugin<C: Config> {
     /// phantom marker for ggrs config
@@ -182,7 +185,8 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
             .init_resource::<FixedTimestepData>()
             .add_schedule(GgrsSchedule, schedule)
             .add_schedule(ReadInputs, Schedule::new())
-            .add_systems(PreUpdate, schedule_systems::run_ggrs_schedules::<C>);
+            .add_systems(PreUpdate, schedule_systems::run_ggrs_schedules::<C>)
+            .add_systems(SaveWorld, save_world);
     }
 }
 

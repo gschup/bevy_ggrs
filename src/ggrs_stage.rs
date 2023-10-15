@@ -87,7 +87,7 @@ pub(crate) fn run_synctest<C: Config>(world: &mut World, mut sess: SyncTestSessi
 
     match sess.advance_frame() {
         Ok(requests) => handle_requests(requests, world),
-        Err(e) => warn!("{}", e),
+        Err(e) => warn!("{e}"),
     }
 
     world.insert_resource(Session::SyncTest(sess));
@@ -101,7 +101,7 @@ pub(crate) fn run_spectator<T: Config>(world: &mut World, mut sess: SpectatorSes
             Err(GGRSError::PredictionThreshold) => {
                 info!("P2PSpectatorSession: Waiting for input from host.")
             }
-            Err(e) => warn!("{}", e),
+            Err(e) => warn!("{e}"),
         };
     }
 
@@ -129,7 +129,7 @@ pub(crate) fn run_p2p<C: Config>(world: &mut World, mut sess: P2PSession<C>) {
             Err(GGRSError::PredictionThreshold) => {
                 info!("Skipping a frame: PredictionThreshold.")
             }
-            Err(e) => warn!("{}", e),
+            Err(e) => warn!("{e}"),
         };
     }
 

@@ -47,7 +47,6 @@ fn it_runs_advance_frame_schedule_systems() -> Result<(), Box<dyn std::error::Er
 
 #[test]
 #[serial]
-#[ignore]
 fn it_syncs_rollback_components() -> Result<(), Box<dyn std::error::Error>> {
     let (player1, player2) = create_players();
     let session1 = start_session(&player1, &player2)?;
@@ -55,9 +54,7 @@ fn it_syncs_rollback_components() -> Result<(), Box<dyn std::error::Error>> {
     let session2 = start_session(&player2, &player1)?;
     let mut app2 = create_app::<GgrsConfig>(session2);
 
-    // note: while this looks like it advances 250 frames, it does not
-    // ggrs only advances when 16 ms has passed, so this likely only advances a single frame
-    for _ in 0..250 {
+    for _ in 0..50 {
         press_key(&mut app1, KeyCode::W);
         app1.update();
         app2.update();

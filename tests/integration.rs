@@ -22,6 +22,9 @@ fn it_runs_advance_frame_schedule_systems() -> Result<(), Box<dyn std::error::Er
     let inputs1 = HashMap::from([(player1.handle, BoxInput { inp: 0 })]);
     let inputs_resource = LocalInputs::<GgrsConfig>(inputs1);
     app1.insert_resource(inputs_resource);
+
+    // note: while this looks like it advances 50 frames, it does not
+    // ggrs only advances when 16 ms has passed, so this likely only advances a single frame
     for _ in 0..50 {
         app1.update();
         app2.update();
@@ -45,6 +48,8 @@ fn it_syncs_rollback_components() -> Result<(), Box<dyn std::error::Error>> {
     let session2 = start_session(&player2, &player1)?;
     let mut app2 = create_app::<GgrsConfig>(session2);
 
+    // note: while this looks like it advances 250 frames, it does not
+    // ggrs only advances when 16 ms has passed, so this likely only advances a single frame
     for _ in 0..250 {
         press_key(&mut app1, KeyCode::W);
         app1.update();

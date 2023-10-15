@@ -6,8 +6,8 @@ use bevy::{
     MinimalPlugins,
 };
 use bevy_ggrs::{
-    GgrsPlugin, GgrsSchedule, LocalInputs, LocalPlayers, PlayerInputs, ReadInputs, Rollback,
-    Session,
+    AddRollbackCommandExtension, GgrsPlugin, GgrsSchedule, LocalInputs, LocalPlayers, PlayerInputs,
+    ReadInputs, Rollback, Session,
 };
 use bytemuck::{Pod, Zeroable};
 use ggrs::{Config, P2PSession, PlayerHandle, PlayerType, SessionBuilder, UdpNonBlockingSocket};
@@ -213,10 +213,12 @@ pub fn spawn_players(mut commands: Commands, session: Res<Session<GgrsConfig>>) 
     };
 
     for handle in 0..num_players {
-        commands.spawn((
-            PlayerComponent { handle },
-            Velocity::default(),
-            Transform::default(),
-        ));
+        commands
+            .spawn((
+                PlayerComponent { handle },
+                Velocity::default(),
+                Transform::default(),
+            ))
+            .add_rollback();
     }
 }

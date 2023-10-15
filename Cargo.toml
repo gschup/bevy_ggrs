@@ -29,7 +29,7 @@ rand = "0.8.4"
 bevy = "0.11"
 serde = "1.0.130"
 serde_json = "1.0"
-serial_test = "1.0.0"
+serial_test = "2.0"
 
 # Examples
 [[example]]

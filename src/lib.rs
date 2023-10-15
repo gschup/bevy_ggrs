@@ -149,7 +149,7 @@ impl RollbackTypeRegistry {
     }
 }
 
-// Label for the schedule which reads the inputs for the current frame
+/// Label for the schedule which reads the inputs for the current frame
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct ReadInputs;
 

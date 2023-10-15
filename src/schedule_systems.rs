@@ -1,7 +1,7 @@
 use crate::{
     world_snapshot::{RollbackSnapshots, WorldSnapshot},
-    FixedTimestepData, GgrsSchedule, LocalInputs, LocalPlayers, PlayerInputs, ReadInputs,
-    RollbackFrameCount, RollbackTypeRegistry, SaveWorld, Session,
+    FixedTimestepData, GgrsSchedule, LoadWorld, LocalInputs, LocalPlayers, PlayerInputs,
+    ReadInputs, RollbackFrameCount, RollbackTypeRegistry, SaveWorld, Session,
 };
 use bevy::{prelude::*, utils::Duration};
 use ggrs::{
@@ -156,13 +156,15 @@ pub(crate) fn handle_requests<T: Config>(requests: Vec<GGRSRequest<T>>, world: &
                 cell.save(frame, None, Some(checksum as u128));
             }
             GGRSRequest::LoadGameState { frame, .. } => {
+                // we don't really use the buffer provided by GGRS
+                debug!("restoring snapshot for frame {frame}");
+
                 world
                     .get_resource_mut::<RollbackFrameCount>()
                     .expect("Unable to find GGRS RollbackFrameCount. Did you remove it?")
                     .0 = frame;
 
-                // we don't really use the buffer provided by GGRS
-                load_world(frame, world)
+                world.run_schedule(LoadWorld);
             }
             GGRSRequest::AdvanceFrame { inputs } => advance_frame::<T>(inputs, world),
         }
@@ -191,8 +193,11 @@ pub(crate) fn save_world(world: &mut World) {
     snapshots.0[pos] = snapshot;
 }
 
-pub(crate) fn load_world(frame: i32, world: &mut World) {
-    debug!("restoring snapshot for frame {frame}");
+pub(crate) fn load_world(world: &mut World) {
+    let frame = world
+        .get_resource::<RollbackFrameCount>()
+        .expect("Unable to find GGRS RollbackFrameCount. Did you remove it?")
+        .0;
 
     let rollback_registry = world
         .remove_resource::<RollbackTypeRegistry>()

@@ -3,26 +3,27 @@ use crate::{
     FixedTimestepData, GgrsSchedule, LocalInputs, LocalPlayers, PlayerInputs, ReadInputs,
     RollbackFrameCount, RollbackTypeRegistry, Session,
 };
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::Duration};
 use ggrs::{
     Config, GGRSError, GGRSRequest, GameStateCell, InputStatus, P2PSession, SessionState,
     SpectatorSession, SyncTestSession,
 };
-use instant::{Duration, Instant};
 
 pub(crate) fn run<T: Config>(world: &mut World) {
     let mut time_data = world
         .remove_resource::<FixedTimestepData>()
         .expect("failed to extract GGRS FixedTimeStepData");
 
-    // get delta time from last run() call and accumulate it
-    let delta = Instant::now().duration_since(time_data.last_update);
+    let delta = world
+        .get_resource::<Time>()
+        .expect("Time resource not found, did you remove it?")
+        .delta();
+
     let mut fps_delta = 1. / time_data.fps as f64;
     if time_data.run_slow {
         fps_delta *= 1.1;
     }
     time_data.accumulator = time_data.accumulator.saturating_add(delta);
-    time_data.last_update = Instant::now();
 
     // no matter what, poll remotes and send responses
     if let Some(mut session) = world.get_resource_mut::<Session<T>>() {
@@ -57,7 +58,6 @@ pub(crate) fn run<T: Config>(world: &mut World) {
             Some(Session::Spectator(s)) => run_spectator(world, s),
             _ => {
                 // No session has been started yet, reset time data and snapshots
-                time_data.last_update = Instant::now();
                 time_data.accumulator = Duration::ZERO;
                 time_data.run_slow = false;
                 world.insert_resource(LocalPlayers::default());

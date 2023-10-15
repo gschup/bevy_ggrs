@@ -1,9 +1,11 @@
-use bevy::input::keyboard::KeyboardInput;
-use bevy::input::{ButtonState, Input, InputPlugin};
-use bevy::prelude::*;
-use bevy::utils::HashMap;
-use bevy::window::PrimaryWindow;
-use bevy::MinimalPlugins;
+use bevy::{
+    input::{keyboard::KeyboardInput, ButtonState, Input, InputPlugin},
+    prelude::*,
+    time::TimeUpdateStrategy,
+    utils::{Duration, HashMap},
+    window::PrimaryWindow,
+    MinimalPlugins,
+};
 use bevy_ggrs::{GgrsPlugin, GgrsSchedule, LocalInputs, PlayerInputs, Rollback, Session};
 use bytemuck::{Pod, Zeroable};
 use ggrs::{Config, P2PSession, PlayerHandle, PlayerType, SessionBuilder, UdpNonBlockingSocket};
@@ -23,8 +25,6 @@ fn it_runs_advance_frame_schedule_systems() -> Result<(), Box<dyn std::error::Er
     let inputs_resource = LocalInputs::<GgrsConfig>(inputs1);
     app1.insert_resource(inputs_resource);
 
-    // note: while this looks like it advances 50 frames, it does not
-    // ggrs only advances when 16 ms has passed, so this likely only advances a single frame
     for _ in 0..50 {
         app1.update();
         app2.update();
@@ -32,9 +32,14 @@ fn it_runs_advance_frame_schedule_systems() -> Result<(), Box<dyn std::error::Er
 
     let frame_count1 = app1.world.get_resource::<FrameCount>().unwrap();
     let frame_count2 = app2.world.get_resource::<FrameCount>().unwrap();
-    assert!(frame_count1.frame > 0);
-    assert!(frame_count2.frame > 0);
-    assert_eq!(frame_count1.frame, frame_count2.frame);
+
+    // We've run Bevy for 50 frames, bevy_ggrs, however needs a couple of frames
+    // to sync before it starts to run the advance frame schedule, so the
+    // expected frame count is not 50 as one might expect.
+    // We just make sure that it started running
+    assert!(frame_count1.frame > 25);
+    assert!(frame_count2.frame > 25);
+
     Ok(())
 }
 
@@ -70,6 +75,9 @@ fn create_app<T: Config + Default>(session: P2PSession<T>) -> App {
     app.add_plugins(MinimalPlugins)
         .add_plugins(InputPlugin::default())
         .add_plugins(GgrsPlugin::<T>::default())
+        .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
+            1.0 / 60.0,
+        )))
         .insert_resource(Session::P2P(session))
         .insert_resource(FrameCount { frame: 0 })
         .add_systems(GgrsSchedule, (move_player_system, increase_frame_system))

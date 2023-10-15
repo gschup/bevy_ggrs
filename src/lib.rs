@@ -5,10 +5,9 @@ use bevy::{
     ecs::schedule::{LogLevel, ScheduleBuildSettings, ScheduleLabel},
     prelude::*,
     reflect::{FromType, GetTypeRegistration, TypeRegistry, TypeRegistryInternal},
-    utils::HashMap,
+    utils::{Duration, HashMap},
 };
 use ggrs::{Config, InputStatus, P2PSession, PlayerHandle, SpectatorSession, SyncTestSession};
-use instant::{Duration, Instant};
 use parking_lot::RwLock;
 use std::{marker::PhantomData, sync::Arc};
 use world_snapshot::RollbackSnapshots;
@@ -50,8 +49,6 @@ pub struct PlayerInputs<T: Config>(Vec<(T::Input, InputStatus)>);
 struct FixedTimestepData {
     /// fixed FPS our logic is running with
     pub fps: usize,
-    /// internal time control variables
-    last_update: Instant,
     /// accumulated time. once enough time has been accumulated, an update is executed
     accumulator: Duration,
     /// boolean to see if we should run slow to let remote clients catch up
@@ -62,7 +59,6 @@ impl Default for FixedTimestepData {
     fn default() -> Self {
         Self {
             fps: DEFAULT_FPS,
-            last_update: Instant::now(),
             accumulator: Duration::ZERO,
             run_slow: false,
         }

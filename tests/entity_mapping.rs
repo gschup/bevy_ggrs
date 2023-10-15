@@ -1,8 +1,9 @@
-use bevy::{prelude::*, utils::HashMap};
-
+use bevy::{
+    prelude::*,
+    utils::{Duration, HashMap},
+};
 use bevy_ggrs::*;
 use ggrs::*;
-use instant::Duration;
 
 pub struct GgrsConfig;
 impl Config for GgrsConfig {

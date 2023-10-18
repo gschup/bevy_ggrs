@@ -73,6 +73,8 @@ pub(crate) fn run<T: Config>(world: &mut World) {
 pub(crate) fn run_synctest<C: Config>(world: &mut World, mut sess: SyncTestSession<C>) {
     maybe_init_snapshots(world, sess.max_prediction());
 
+    world.insert_resource(LocalPlayers((0..sess.num_players()).collect()));
+
     // read local player inputs and register them in the session
     world.run_schedule(ReadInputs);
     let local_inputs = world.remove_resource::<LocalInputs<C>>().expect(
@@ -88,7 +90,6 @@ pub(crate) fn run_synctest<C: Config>(world: &mut World, mut sess: SyncTestSessi
         Err(e) => warn!("{}", e),
     }
 
-    world.insert_resource(LocalPlayers((0..sess.num_players()).collect()));
     world.insert_resource(Session::SyncTest(sess));
 }
 
@@ -110,6 +111,8 @@ pub(crate) fn run_spectator<T: Config>(world: &mut World, mut sess: SpectatorSes
 pub(crate) fn run_p2p<C: Config>(world: &mut World, mut sess: P2PSession<C>) {
     maybe_init_snapshots(world, sess.max_prediction());
 
+    world.insert_resource(LocalPlayers(sess.local_player_handles()));
+
     if sess.current_state() == SessionState::Running {
         // get local player inputs
         world.run_schedule(ReadInputs);
@@ -130,7 +133,6 @@ pub(crate) fn run_p2p<C: Config>(world: &mut World, mut sess: P2PSession<C>) {
         };
     }
 
-    world.insert_resource(LocalPlayers(sess.local_player_handles()));
     world.insert_resource(Session::P2P(sess));
 }
 

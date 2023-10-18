@@ -30,7 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     assert!(num_players > 0);
 
     // create a GGRS session
-    let mut sess_build = SessionBuilder::<GgrsConfig>::new()
+    let mut sess_build = SessionBuilder::<BoxConfig>::new()
         .with_num_players(num_players)
         .with_desync_detection_mode(ggrs::DesyncDetection::On { interval: 10 }) // (optional) set how often to exchange state checksums
         .with_max_prediction_window(12) // (optional) set max prediction window
@@ -58,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sess = sess_build.start_p2p_session(socket)?;
 
     App::new()
-        .add_plugins(GgrsPlugin::<GgrsConfig>::default())
+        .add_plugins(GgrsPlugin::<BoxConfig>::default())
         // define frequency of rollback game logic update
         .set_rollback_schedule_fps(FPS)
         // this system will be executed as part of input reading
@@ -95,7 +95,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn print_events_system(mut session: ResMut<Session<GgrsConfig>>) {
+fn print_events_system(mut session: ResMut<Session<BoxConfig>>) {
     match session.as_mut() {
         Session::P2P(s) => {
             for event in s.events() {
@@ -115,7 +115,7 @@ fn print_events_system(mut session: ResMut<Session<GgrsConfig>>) {
 fn print_network_stats_system(
     time: Res<Time>,
     mut timer: ResMut<NetworkStatsTimer>,
-    p2p_session: Option<Res<Session<GgrsConfig>>>,
+    p2p_session: Option<Res<Session<BoxConfig>>>,
 ) {
     // print only when timer runs out
     if timer.0.tick(time.delta()).just_finished() {

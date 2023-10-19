@@ -6,8 +6,8 @@ use bevy::{
     MinimalPlugins,
 };
 use bevy_ggrs::{
-    AddRollbackCommandExtension, GgrsPlugin, GgrsSchedule, LocalInputs, LocalPlayers, PlayerInputs,
-    ReadInputs, Rollback, Session,
+    AddRollbackCommandExtension, GgrsConfig, GgrsPlugin, GgrsSchedule, LocalInputs, LocalPlayers,
+    PlayerInputs, ReadInputs, Rollback, Session,
 };
 use bytemuck::{Pod, Zeroable};
 use ggrs::{Config, P2PSession, PlayerHandle, PlayerType, SessionBuilder, UdpNonBlockingSocket};
@@ -19,12 +19,12 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 fn it_runs_advance_frame_schedule_systems() -> Result<(), Box<dyn std::error::Error>> {
     let (player1, player2) = create_players();
     let session1 = start_session(&player1, &player2)?;
-    let mut app1 = create_app::<GgrsConfig>(session1);
+    let mut app1 = create_app::<TestConfig>(session1);
     let session2 = start_session(&player2, &player1)?;
-    let mut app2 = create_app::<GgrsConfig>(session2);
+    let mut app2 = create_app::<TestConfig>(session2);
 
     let inputs1 = HashMap::from([(player1.handle, BoxInput { inp: 0 })]);
-    let inputs_resource = LocalInputs::<GgrsConfig>(inputs1);
+    let inputs_resource = LocalInputs::<TestConfig>(inputs1);
     app1.insert_resource(inputs_resource);
 
     for _ in 0..50 {
@@ -50,9 +50,9 @@ fn it_runs_advance_frame_schedule_systems() -> Result<(), Box<dyn std::error::Er
 fn it_syncs_rollback_components() -> Result<(), Box<dyn std::error::Error>> {
     let (player1, player2) = create_players();
     let session1 = start_session(&player1, &player2)?;
-    let mut app1 = create_app::<GgrsConfig>(session1);
+    let mut app1 = create_app::<TestConfig>(session1);
     let session2 = start_session(&player2, &player1)?;
-    let mut app2 = create_app::<GgrsConfig>(session2);
+    let mut app2 = create_app::<TestConfig>(session2);
 
     for _ in 0..50 {
         press_key(&mut app1, KeyCode::W);
@@ -69,7 +69,7 @@ fn it_syncs_rollback_components() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn create_app<T: Config + Default>(session: P2PSession<T>) -> App {
+fn create_app<T: Config>(session: P2PSession<T>) -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
         .add_plugins(InputPlugin::default())
@@ -85,13 +85,7 @@ fn create_app<T: Config + Default>(session: P2PSession<T>) -> App {
     app
 }
 
-#[derive(Debug, Default)]
-pub struct GgrsConfig;
-impl Config for GgrsConfig {
-    type Input = BoxInput;
-    type State = u8;
-    type Address = SocketAddr;
-}
+type TestConfig = GgrsConfig<BoxInput>;
 
 #[repr(C)]
 #[derive(Copy, Clone, PartialEq, Eq, Pod, Zeroable)]
@@ -124,8 +118,8 @@ fn create_players() -> (TestPlayer, TestPlayer) {
 fn start_session(
     local_player: &TestPlayer,
     remote_player: &TestPlayer,
-) -> Result<P2PSession<GgrsConfig>, Box<dyn std::error::Error>> {
-    let mut session_builder = SessionBuilder::<GgrsConfig>::new()
+) -> Result<P2PSession<TestConfig>, Box<dyn std::error::Error>> {
+    let mut session_builder = SessionBuilder::<TestConfig>::new()
         .with_num_players(2)
         .with_max_prediction_window(12) // (optional) set max prediction window
         .with_input_delay(2); // (optional) set input delay for the local player
@@ -156,7 +150,7 @@ pub fn read_local_inputs(
         local_inputs.insert(*handle, BoxInput { inp: input });
     }
 
-    commands.insert_resource(LocalInputs::<GgrsConfig>(local_inputs));
+    commands.insert_resource(LocalInputs::<TestConfig>(local_inputs));
 }
 
 pub fn increase_frame_system(mut frame_count: ResMut<FrameCount>) {
@@ -193,7 +187,7 @@ pub struct Velocity {
 
 pub fn move_player_system(
     mut query: Query<(&mut Transform, &mut Velocity, &PlayerComponent), With<Rollback>>,
-    inputs: Res<PlayerInputs<GgrsConfig>>,
+    inputs: Res<PlayerInputs<TestConfig>>,
 ) {
     const MOVEMENT_SPEED: f32 = 0.1;
     for (mut t, mut v, p) in query.iter_mut() {
@@ -205,7 +199,7 @@ pub fn move_player_system(
     }
 }
 
-pub fn spawn_players(mut commands: Commands, session: Res<Session<GgrsConfig>>) {
+pub fn spawn_players(mut commands: Commands, session: Res<Session<TestConfig>>) {
     let num_players = match &*session {
         Session::SyncTest(s) => s.num_players(),
         Session::P2P(s) => s.num_players(),

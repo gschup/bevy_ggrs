@@ -1,5 +1,5 @@
 use bevy::{prelude::*, window::WindowResolution};
-use bevy_ggrs::prelude::*;
+use bevy_ggrs::{prelude::*, GgrsResourceSnapshotClonePlugin, GgrsComponentSnapshotClonePlugin};
 use ggrs::UdpNonBlockingSocket;
 use std::net::SocketAddr;
 use structopt::StructOpt;
@@ -63,10 +63,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .set_rollback_schedule_fps(FPS)
         // this system will be executed as part of input reading
         .add_systems(ReadInputs, read_local_inputs)
-        // register types of components AND resources you want to be rolled back
-        .register_rollback_component::<Transform>()
-        .register_rollback_component::<Velocity>()
-        .register_rollback_resource::<FrameCount>()
+        // add rollback functionality to components and resources as desired
+        .add_plugins((
+            GgrsResourceSnapshotClonePlugin::<FrameCount>::default(),
+            GgrsComponentSnapshotClonePlugin::<Transform>::default(),
+            GgrsComponentSnapshotClonePlugin::<Velocity>::default()
+        ))
         .insert_resource(opt)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {

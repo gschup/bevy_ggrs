@@ -15,7 +15,9 @@ use world_snapshot::RollbackSnapshots;
 pub use ggrs;
 
 pub use rollback::{AddRollbackCommand, AddRollbackCommandExtension, Rollback};
+pub use snapshot::*;
 
+pub(crate) mod snapshot;
 pub(crate) mod rollback;
 pub(crate) mod schedule_systems;
 pub(crate) mod world_snapshot;

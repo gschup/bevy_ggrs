@@ -8,17 +8,16 @@ use bevy::{
     utils::{Duration, HashMap},
 };
 use ggrs::{Config, InputStatus, P2PSession, PlayerHandle, SpectatorSession, SyncTestSession};
-
-use std::{fmt::Debug, hash::Hash, marker::PhantomData, net::SocketAddr, sync::Arc};
-
+use schedule_systems::{load_world, save_world};
+use std::{fmt::Debug, hash::Hash, marker::PhantomData, net::SocketAddr};
 use world_snapshot::RollbackSnapshots;
 
 pub use ggrs;
 
 pub use rollback::{AddRollbackCommand, AddRollbackCommandExtension, Rollback};
 
-pub(crate) mod ggrs_stage;
 pub(crate) mod rollback;
+pub(crate) mod schedule_systems;
 pub(crate) mod world_snapshot;
 
 pub mod prelude {
@@ -149,9 +148,17 @@ impl RollbackTypeRegistry {
     }
 }
 
-// Label for the schedule which reads the inputs for the current frame
+/// Label for the schedule which reads the inputs for the current frame
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct ReadInputs;
+
+/// Label for the schedule which loads and overwrites a snapshot of the world.
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct LoadWorld;
+
+/// Label for the schedule which saves a snapshot of the current world.
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct SaveWorld;
 
 /// GGRS plugin for bevy.
 pub struct GgrsPlugin<C: Config> {
@@ -182,7 +189,9 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
             .init_resource::<FixedTimestepData>()
             .add_schedule(GgrsSchedule, schedule)
             .add_schedule(ReadInputs, Schedule::new())
-            .add_systems(PreUpdate, ggrs_stage::run::<C>);
+            .add_systems(PreUpdate, schedule_systems::run_ggrs_schedules::<C>)
+            .add_systems(LoadWorld, load_world)
+            .add_systems(SaveWorld, save_world);
     }
 }
 

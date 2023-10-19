@@ -31,12 +31,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // create a GGRS session
 
     let socket = UdpNonBlockingSocket::bind_to_port(opt.local_port)?;
-    let sess = SessionBuilder::<GgrsConfig>::new()
+    let sess = SessionBuilder::<BoxConfig>::new()
         .with_num_players(opt.num_players)
         .start_spectator_session(opt.host, socket);
 
     App::new()
-        .add_plugins(GgrsPlugin::<GgrsConfig>::default())
+        .add_plugins(GgrsPlugin::<BoxConfig>::default())
         // define frequency of rollback game logic update
         .set_rollback_schedule_fps(FPS)
         // this system will be executed as part of input reading
@@ -66,7 +66,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn print_events_system(mut session: ResMut<Session<GgrsConfig>>) {
+fn print_events_system(mut session: ResMut<Session<BoxConfig>>) {
     match session.as_mut() {
         Session::Spectator(s) => {
             for event in s.events() {
@@ -80,7 +80,7 @@ fn print_events_system(mut session: ResMut<Session<GgrsConfig>>) {
 fn print_network_stats_system(
     time: Res<Time>,
     mut timer: ResMut<NetworkStatsTimer>,
-    p2p_session: Option<Res<Session<GgrsConfig>>>,
+    p2p_session: Option<Res<Session<BoxConfig>>>,
 ) {
     // print only when timer runs out
     if timer.0.tick(time.delta()).just_finished() {

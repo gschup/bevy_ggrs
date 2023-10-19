@@ -4,28 +4,49 @@
 use bevy::{
     ecs::schedule::{LogLevel, ScheduleBuildSettings, ScheduleLabel},
     prelude::*,
-    reflect::{FromType, GetTypeRegistration, TypeRegistry, TypeRegistryInternal},
+    reflect::{FromType, GetTypeRegistration, TypeRegistryInternal},
     utils::{Duration, HashMap},
 };
 use ggrs::{Config, InputStatus, P2PSession, PlayerHandle, SpectatorSession, SyncTestSession};
-use parking_lot::RwLock;
-use std::{marker::PhantomData, sync::Arc};
+use schedule_systems::{load_world, save_world};
+use std::{fmt::Debug, hash::Hash, marker::PhantomData, net::SocketAddr};
 use world_snapshot::RollbackSnapshots;
 
 pub use ggrs;
 
 pub use rollback::{AddRollbackCommand, AddRollbackCommandExtension, Rollback};
 
-pub(crate) mod ggrs_stage;
 pub(crate) mod rollback;
+pub(crate) mod schedule_systems;
 pub(crate) mod world_snapshot;
 
 pub mod prelude {
     pub use crate::{
-        AddRollbackCommandExtension, GgrsApp, GgrsPlugin, GgrsSchedule, PlayerInputs, ReadInputs,
-        Rollback, Session,
+        AddRollbackCommandExtension, GgrsApp, GgrsConfig, GgrsPlugin, GgrsSchedule, PlayerInputs,
+        ReadInputs, Rollback, Session,
     };
     pub use ggrs::{GGRSEvent as GgrsEvent, PlayerType, SessionBuilder};
+}
+
+/// A sensible default [GGRS Config](`ggrs::Config`) type suitable for most applications.
+///
+/// If you require a more specialized configuration, you can create your own type implementing
+/// [`Config`](`ggrs::Config`).
+#[derive(Debug)]
+pub struct GgrsConfig<Input, Address = SocketAddr, State = u8> {
+    _phantom: PhantomData<(Input, Address, State)>,
+}
+
+impl<Input, Address, State> Config for GgrsConfig<Input, Address, State>
+where
+    Self: 'static,
+    Input: Send + Sync + PartialEq + bytemuck::Pod,
+    Address: Send + Sync + Debug + Hash + Eq + Clone,
+    State: Send + Sync + Clone,
+{
+    type Input = Input;
+    type State = State;
+    type Address = Address;
 }
 
 const DEFAULT_FPS: usize = 60;
@@ -70,7 +91,7 @@ impl Default for FixedTimestepData {
 pub struct RollbackFrameCount(i32);
 
 #[derive(Resource)]
-struct RollbackTypeRegistry(TypeRegistry);
+struct RollbackTypeRegistry(TypeRegistryInternal);
 
 /// Inputs from local players. You have to fill this resource in the ReadInputs schedule.
 #[derive(Resource)]
@@ -82,21 +103,19 @@ pub struct LocalPlayers(pub Vec<PlayerHandle>);
 
 impl Default for RollbackTypeRegistry {
     fn default() -> Self {
-        Self(TypeRegistry {
-            internal: Arc::new(RwLock::new({
-                let mut r = TypeRegistryInternal::empty();
-                // `Parent` and `Children` must be registered so that their `ReflectMapEntities`
-                // data may be used.
-                //
-                // While this is a little bit of a weird spot to register these, are the only
-                // Bevy core types implementing `MapEntities`, so for now it's probably fine to
-                // just manually register these here.
-                //
-                // The user can still register any custom types with `register_rollback_type()`.
-                r.register::<Parent>();
-                r.register::<Children>();
-                r
-            })),
+        Self({
+            let mut r = TypeRegistryInternal::empty();
+            // `Parent` and `Children` must be registered so that their `ReflectMapEntities`
+            // data may be used.
+            //
+            // While this is a little bit of a weird spot to register these, are the only
+            // Bevy core types implementing `MapEntities`, so for now it's probably fine to
+            // just manually register these here.
+            //
+            // The user can still register any custom types with `register_rollback_type()`.
+            r.register::<Parent>();
+            r.register::<Children>();
+            r
         })
     }
 }
@@ -107,12 +126,11 @@ impl RollbackTypeRegistry {
     where
         Type: GetTypeRegistration + Reflect + Default + Component,
     {
-        let mut registry = self.0.write();
+        let registry = &mut self.0;
         registry.register::<Type>();
 
         let registration = registry.get_mut(std::any::TypeId::of::<Type>()).unwrap();
         registration.insert(<ReflectComponent as FromType<Type>>::from_type());
-        drop(registry);
         self
     }
 
@@ -121,19 +139,26 @@ impl RollbackTypeRegistry {
     where
         Type: GetTypeRegistration + Reflect + Default + Resource,
     {
-        let mut registry = self.0.write();
+        let registry = &mut self.0;
         registry.register::<Type>();
 
         let registration = registry.get_mut(std::any::TypeId::of::<Type>()).unwrap();
         registration.insert(<ReflectResource as FromType<Type>>::from_type());
-        drop(registry);
         self
     }
 }
 
-// Label for the schedule which reads the inputs for the current frame
+/// Label for the schedule which reads the inputs for the current frame
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct ReadInputs;
+
+/// Label for the schedule which loads and overwrites a snapshot of the world.
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct LoadWorld;
+
+/// Label for the schedule which saves a snapshot of the current world.
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct SaveWorld;
 
 /// GGRS plugin for bevy.
 pub struct GgrsPlugin<C: Config> {
@@ -164,7 +189,9 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
             .init_resource::<FixedTimestepData>()
             .add_schedule(GgrsSchedule, schedule)
             .add_schedule(ReadInputs, Schedule::new())
-            .add_systems(PreUpdate, ggrs_stage::run::<C>);
+            .add_systems(PreUpdate, schedule_systems::run_ggrs_schedules::<C>)
+            .add_systems(LoadWorld, load_world)
+            .add_systems(SaveWorld, save_world);
     }
 }
 

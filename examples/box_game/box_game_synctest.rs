@@ -22,7 +22,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     assert!(opt.num_players > 0);
 
     // create a GGRS session
-    let mut sess_build = SessionBuilder::<GgrsConfig>::new()
+    let mut sess_build = SessionBuilder::<BoxConfig>::new()
         .with_num_players(opt.num_players)
         .with_check_distance(opt.check_distance)
         .with_input_delay(2); // (optional) set input delay for the local player
@@ -36,7 +36,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sess = sess_build.start_synctest_session()?;
 
     App::new()
-        .add_plugins(GgrsPlugin::<GgrsConfig>::default())
+        .add_plugins(GgrsPlugin::<BoxConfig>::default())
         // define frequency of rollback game logic update
         .set_rollback_schedule_fps(FPS)
         // this system will be executed as part of input reading

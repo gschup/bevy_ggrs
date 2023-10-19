@@ -1,7 +1,7 @@
 use bevy::{
     ecs::{entity::EntityMap, reflect::ReflectMapEntities},
     prelude::*,
-    reflect::{Reflect, TypeRegistry},
+    reflect::{Reflect, TypeRegistryInternal},
     utils::{HashMap, HashSet},
 };
 use std::{fmt::Debug, num::Wrapping};
@@ -59,9 +59,8 @@ pub(crate) struct WorldSnapshot {
 }
 
 impl WorldSnapshot {
-    pub(crate) fn from_world(world: &World, type_registry: &TypeRegistry) -> Self {
+    pub(crate) fn from_world(world: &World, type_registry: &TypeRegistryInternal) -> Self {
         let mut snapshot = WorldSnapshot::default();
-        let type_registry = type_registry.read();
 
         // create a `RollbackEntity` for every entity tagged with rollback
         for archetype in world.archetypes().iter() {
@@ -133,8 +132,7 @@ impl WorldSnapshot {
         snapshot
     }
 
-    pub(crate) fn write_to_world(&self, world: &mut World, type_registry: &TypeRegistry) {
-        let type_registry = type_registry.read();
+    pub(crate) fn write_to_world(&self, world: &mut World, type_registry: &TypeRegistryInternal) {
         let mut rid_map = rollback_id_map(world);
 
         // Keep track of entities which are being rolled back

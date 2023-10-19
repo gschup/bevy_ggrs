@@ -1,15 +1,15 @@
 use crate::{
     world_snapshot::{RollbackSnapshots, WorldSnapshot},
-    FixedTimestepData, GgrsSchedule, LocalInputs, LocalPlayers, PlayerInputs, ReadInputs,
-    RollbackFrameCount, RollbackTypeRegistry, Session,
+    FixedTimestepData, GgrsSchedule, LoadWorld, LocalInputs, LocalPlayers, PlayerInputs,
+    ReadInputs, RollbackFrameCount, RollbackTypeRegistry, SaveWorld, Session,
 };
 use bevy::{prelude::*, utils::Duration};
 use ggrs::{
-    Config, GGRSError, GGRSRequest, GameStateCell, InputStatus, P2PSession, SessionState,
-    SpectatorSession, SyncTestSession,
+    Config, GGRSError, GGRSRequest, InputStatus, P2PSession, SessionState, SpectatorSession,
+    SyncTestSession,
 };
 
-pub(crate) fn run<T: Config>(world: &mut World) {
+pub(crate) fn run_ggrs_schedules<T: Config>(world: &mut World) {
     let mut time_data = world
         .remove_resource::<FixedTimestepData>()
         .expect("failed to extract GGRS FixedTimeStepData");
@@ -87,7 +87,7 @@ pub(crate) fn run_synctest<C: Config>(world: &mut World, mut sess: SyncTestSessi
 
     match sess.advance_frame() {
         Ok(requests) => handle_requests(requests, world),
-        Err(e) => warn!("{}", e),
+        Err(e) => warn!("{e}"),
     }
 
     world.insert_resource(Session::SyncTest(sess));
@@ -101,7 +101,7 @@ pub(crate) fn run_spectator<T: Config>(world: &mut World, mut sess: SpectatorSes
             Err(GGRSError::PredictionThreshold) => {
                 info!("P2PSpectatorSession: Waiting for input from host.")
             }
-            Err(e) => warn!("{}", e),
+            Err(e) => warn!("{e}"),
         };
     }
 
@@ -129,7 +129,7 @@ pub(crate) fn run_p2p<C: Config>(world: &mut World, mut sess: P2PSession<C>) {
             Err(GGRSError::PredictionThreshold) => {
                 info!("Skipping a frame: PredictionThreshold.")
             }
-            Err(e) => warn!("{}", e),
+            Err(e) => warn!("{e}"),
         };
     }
 
@@ -139,26 +139,39 @@ pub(crate) fn run_p2p<C: Config>(world: &mut World, mut sess: P2PSession<C>) {
 pub(crate) fn handle_requests<T: Config>(requests: Vec<GGRSRequest<T>>, world: &mut World) {
     for request in requests {
         match request {
-            GGRSRequest::SaveGameState { cell, frame } => save_world::<T>(cell, frame, world),
+            GGRSRequest::SaveGameState { cell, frame } => {
+                debug!("saving snapshot for frame {frame}");
+                world.run_schedule(SaveWorld);
+
+                // look into resources and find the checksum
+                let snapshots = world
+                    .get_resource::<RollbackSnapshots>()
+                    .expect("No GGRS RollbackSnapshots resource found. Did you remove it?");
+
+                // todo: make accessor?
+                let pos = frame as usize % snapshots.0.len();
+                let checksum = snapshots.0[pos].checksum;
+
+                // we don't really use the buffer provided by GGRS
+                cell.save(frame, None, Some(checksum as u128));
+            }
             GGRSRequest::LoadGameState { frame, .. } => {
+                // we don't really use the buffer provided by GGRS
+                debug!("restoring snapshot for frame {frame}");
+
                 world
                     .get_resource_mut::<RollbackFrameCount>()
                     .expect("Unable to find GGRS RollbackFrameCount. Did you remove it?")
                     .0 = frame;
-                load_world(frame, world)
+
+                world.run_schedule(LoadWorld);
             }
             GGRSRequest::AdvanceFrame { inputs } => advance_frame::<T>(inputs, world),
         }
     }
 }
 
-pub(crate) fn save_world<T: Config>(
-    cell: GameStateCell<T::State>,
-    frame_to_save: i32,
-    world: &mut World,
-) {
-    debug!("saving snapshot for frame {frame_to_save}");
-
+pub(crate) fn save_world(world: &mut World) {
     // we make a snapshot of our world
     let rollback_registry = world
         .remove_resource::<RollbackTypeRegistry>()
@@ -167,26 +180,24 @@ pub(crate) fn save_world<T: Config>(
     world.insert_resource(rollback_registry);
 
     let frame = world
-        .get_resource_mut::<RollbackFrameCount>()
+        .get_resource::<RollbackFrameCount>()
         .expect("Unable to find GGRS RollbackFrameCount. Did you remove it?")
         .0;
-
-    assert_eq!(frame_to_save, frame);
 
     let mut snapshots = world
         .get_resource_mut::<RollbackSnapshots>()
         .expect("No GGRS RollbackSnapshots resource found. Did you remove it?");
-
-    // we don't really use the buffer provided by GGRS
-    cell.save(frame, None, Some(snapshot.checksum as u128));
 
     // store the snapshot ourselves (since the snapshots don't implement clone)
     let pos = frame as usize % snapshots.0.len();
     snapshots.0[pos] = snapshot;
 }
 
-pub(crate) fn load_world(frame: i32, world: &mut World) {
-    debug!("restoring snapshot for frame {frame}");
+pub(crate) fn load_world(world: &mut World) {
+    let frame = world
+        .get_resource::<RollbackFrameCount>()
+        .expect("Unable to find GGRS RollbackFrameCount. Did you remove it?")
+        .0;
 
     let rollback_registry = world
         .remove_resource::<RollbackTypeRegistry>()

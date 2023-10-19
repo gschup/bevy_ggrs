@@ -253,6 +253,9 @@ impl WorldSnapshot {
             }
         }
 
+        // At this point, the map should only contain rollback entities
+        debug_assert_eq!(entity_map.len(), rollback_entities.len());
+
         // For every type that reflects `MapEntities`, map the entities so that they reference the
         // new IDs after applying the snapshot.
         for reflect_map_entities in type_registry
@@ -262,25 +265,28 @@ impl WorldSnapshot {
             reflect_map_entities.map_all_entities(world, &mut entity_map)
         }
 
-        // Reverse dead-mappings, no-op correct mappings
-        for original_entity in entity_map.keys().collect::<Vec<_>>() {
-            let mapped_entity = entity_map.remove(original_entity).unwrap();
+        // If the entity map is now larger than the set of rollback entities, then dead entities were created
+        if entity_map.len() > rollback_entities.len() {
+            // Reverse dead-mappings, no-op correct mappings
+            for original_entity in entity_map.keys().collect::<Vec<_>>() {
+                let mapped_entity = entity_map.remove(original_entity).unwrap();
 
-            if rollback_entities.remove(&original_entity) {
-                // Rollback entity was correctly mapped; no-op
-                entity_map.insert(mapped_entity, mapped_entity);
-            } else {
-                // An untracked bystander was mapped to a dead end; reverse
-                entity_map.insert(mapped_entity, original_entity);
+                if rollback_entities.remove(&original_entity) {
+                    // Rollback entity was correctly mapped; no-op
+                    entity_map.insert(mapped_entity, mapped_entity);
+                } else {
+                    // An untracked bystander was mapped to a dead end; reverse
+                    entity_map.insert(mapped_entity, original_entity);
+                }
             }
-        }
 
-        // Map entities a second time, fixing dead entities
-        for reflect_map_entities in type_registry
-            .iter()
-            .filter_map(|reg| reg.data::<ReflectMapEntities>())
-        {
-            reflect_map_entities.map_all_entities(world, &mut entity_map)
+            // Map entities a second time, fixing dead entities
+            for reflect_map_entities in type_registry
+                .iter()
+                .filter_map(|reg| reg.data::<ReflectMapEntities>())
+            {
+                reflect_map_entities.map_all_entities(world, &mut entity_map)
+            }
         }
     }
 }

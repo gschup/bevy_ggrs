@@ -255,7 +255,10 @@ impl WorldSnapshot {
 
         // For every type that reflects `MapEntities`, map the entities so that they reference the
         // new IDs after applying the snapshot.
-        for reflect_map_entities in type_registry.iter().filter_map(|reg| reg.data::<ReflectMapEntities>()) {
+        for reflect_map_entities in type_registry
+            .iter()
+            .filter_map(|reg| reg.data::<ReflectMapEntities>())
+        {
             reflect_map_entities.map_all_entities(world, &mut entity_map)
         }
 
@@ -273,7 +276,10 @@ impl WorldSnapshot {
         }
 
         // Map entities a second time, fixing dead entities
-        for reflect_map_entities in type_registry.iter().filter_map(|reg| reg.data::<ReflectMapEntities>()) {
+        for reflect_map_entities in type_registry
+            .iter()
+            .filter_map(|reg| reg.data::<ReflectMapEntities>())
+        {
             reflect_map_entities.map_all_entities(world, &mut entity_map)
         }
     }

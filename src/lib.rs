@@ -8,7 +8,9 @@ use bevy::{
     utils::{Duration, HashMap},
 };
 use ggrs::{Config, InputStatus, P2PSession, PlayerHandle, SpectatorSession, SyncTestSession};
-use std::marker::PhantomData;
+
+use std::{fmt::Debug, hash::Hash, marker::PhantomData, net::SocketAddr, sync::Arc};
+
 use world_snapshot::RollbackSnapshots;
 
 pub use ggrs;
@@ -21,10 +23,31 @@ pub(crate) mod world_snapshot;
 
 pub mod prelude {
     pub use crate::{
-        AddRollbackCommandExtension, GgrsApp, GgrsPlugin, GgrsSchedule, PlayerInputs, ReadInputs,
-        Rollback, Session,
+        AddRollbackCommandExtension, GgrsApp, GgrsConfig, GgrsPlugin, GgrsSchedule, PlayerInputs,
+        ReadInputs, Rollback, Session,
     };
     pub use ggrs::{GGRSEvent as GgrsEvent, PlayerType, SessionBuilder};
+}
+
+/// A sensible default [GGRS Config](`ggrs::Config`) type suitable for most applications.
+///
+/// If you require a more specialized configuration, you can create your own type implementing
+/// [`Config`](`ggrs::Config`).
+#[derive(Debug)]
+pub struct GgrsConfig<Input, Address = SocketAddr, State = u8> {
+    _phantom: PhantomData<(Input, Address, State)>,
+}
+
+impl<Input, Address, State> Config for GgrsConfig<Input, Address, State>
+where
+    Self: 'static,
+    Input: Send + Sync + PartialEq + bytemuck::Pod,
+    Address: Send + Sync + Debug + Hash + Eq + Clone,
+    State: Send + Sync + Clone,
+{
+    type Input = Input;
+    type State = State;
+    type Address = Address;
 }
 
 const DEFAULT_FPS: usize = 60;

@@ -1,10 +1,10 @@
 use bevy::{prelude::*, utils::HashMap};
 use bevy_ggrs::{
-    AddRollbackCommandExtension, LocalInputs, LocalPlayers, PlayerInputs, Rollback, Session,
+    AddRollbackCommandExtension, GgrsConfig, LocalInputs, LocalPlayers, PlayerInputs, Rollback,
+    Session,
 };
 use bytemuck::{Pod, Zeroable};
-use ggrs::Config;
-use std::{hash::Hash, net::SocketAddr};
+use std::hash::Hash;
 
 const BLUE: Color = Color::rgb(0.8, 0.6, 0.2);
 const ORANGE: Color = Color::rgb(0., 0.35, 0.8);
@@ -23,18 +23,12 @@ const FRICTION: f32 = 0.9;
 const PLANE_SIZE: f32 = 5.0;
 const CUBE_SIZE: f32 = 0.2;
 
-/// You need to define a config struct to bundle all the generics of GGRS. You can safely ignore `State` and leave it as u8 for all GGRS functionality.
-/// TODO: Find a way to hide the state type.
-#[derive(Debug)]
-pub struct GgrsConfig;
-impl Config for GgrsConfig {
-    type Input = BoxInput;
-    type State = u8;
-    type Address = SocketAddr;
-}
+// You need to define a config struct to bundle all the generics of GGRS. bevy_ggrs provides a sensible default in `GgrsConfig`.
+// (optional) You can define a type here for brevity.
+pub type BoxConfig = GgrsConfig<BoxInput>;
 
 #[repr(C)]
-#[derive(Copy, Clone, PartialEq, Eq, Pod, Zeroable)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Pod, Zeroable)]
 pub struct BoxInput {
     pub inp: u8,
 }
@@ -85,14 +79,14 @@ pub fn read_local_inputs(
         local_inputs.insert(*handle, BoxInput { inp: input });
     }
 
-    commands.insert_resource(LocalInputs::<GgrsConfig>(local_inputs));
+    commands.insert_resource(LocalInputs::<BoxConfig>(local_inputs));
 }
 
 pub fn setup_system(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    session: Res<Session<GgrsConfig>>,
+    session: Res<Session<BoxConfig>>,
 ) {
     let num_players = match &*session {
         Session::SyncTest(s) => s.num_players(),
@@ -166,7 +160,7 @@ pub fn increase_frame_system(mut frame_count: ResMut<FrameCount>) {
 #[allow(dead_code)]
 pub fn move_cube_system(
     mut query: Query<(&mut Transform, &mut Velocity, &Player), With<Rollback>>,
-    inputs: Res<PlayerInputs<GgrsConfig>>,
+    inputs: Res<PlayerInputs<BoxConfig>>,
 ) {
     for (mut t, mut v, p) in query.iter_mut() {
         let input = inputs[p.handle].0.inp;

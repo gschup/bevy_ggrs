@@ -2,7 +2,7 @@ use bevy::{
     ecs::{entity::EntityMap, reflect::ReflectMapEntities},
     prelude::*,
     reflect::{Reflect, TypeRegistryInternal},
-    utils::HashMap,
+    utils::{HashMap, HashSet},
 };
 use std::{fmt::Debug, num::Wrapping};
 
@@ -135,6 +135,9 @@ impl WorldSnapshot {
     pub(crate) fn write_to_world(&self, world: &mut World, type_registry: &TypeRegistryInternal) {
         let mut rid_map = rollback_id_map(world);
 
+        // Keep track of entities which are being rolled back
+        let mut rollback_entities = HashSet::new();
+
         // Mapping of the old entity ids ( when snapshot was taken ) to new entity ids
         let mut entity_map = EntityMap::default();
 
@@ -147,6 +150,9 @@ impl WorldSnapshot {
 
             // Add the mapping from the old entity ID to the new entity ID
             entity_map.insert(rollback_entity.entity, entity);
+
+            // Keep track of rollback entities for later...
+            rollback_entities.insert(rollback_entity.entity);
 
             // for each registered type, check what we need to do
             for registration in type_registry.iter() {
@@ -245,11 +251,42 @@ impl WorldSnapshot {
             }
         }
 
+        // At this point, the map should only contain rollback entities
+        debug_assert_eq!(entity_map.len(), rollback_entities.len());
+
         // For every type that reflects `MapEntities`, map the entities so that they reference the
         // new IDs after applying the snapshot.
-        for registration in type_registry.iter() {
-            if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
-                map_entities_reflect.map_all_entities(world, &mut entity_map)
+        for reflect_map_entities in type_registry
+            .iter()
+            .filter_map(|reg| reg.data::<ReflectMapEntities>())
+        {
+            reflect_map_entities.map_all_entities(world, &mut entity_map)
+        }
+
+        // If the entity map is now larger than the set of rollback entities, then dead entities were created.
+        // TODO: This workaround is required because the current behavior of `map_all_entities` is to change all entities,
+        // creating dead entities instead of leaving them with their original value. If `EntityMapper` behavior changes,
+        // then this workaround may no longer be required.
+        if entity_map.len() > rollback_entities.len() {
+            // Reverse dead-mappings, no-op correct mappings
+            for original_entity in entity_map.keys().collect::<Vec<_>>() {
+                let mapped_entity = entity_map.remove(original_entity).unwrap();
+
+                if rollback_entities.remove(&original_entity) {
+                    // Rollback entity was correctly mapped; no-op
+                    entity_map.insert(mapped_entity, mapped_entity);
+                } else {
+                    // An untracked bystander was mapped to a dead end; reverse
+                    entity_map.insert(mapped_entity, original_entity);
+                }
+            }
+
+            // Map entities a second time, fixing dead entities
+            for reflect_map_entities in type_registry
+                .iter()
+                .filter_map(|reg| reg.data::<ReflectMapEntities>())
+            {
+                reflect_map_entities.map_all_entities(world, &mut entity_map)
             }
         }
     }

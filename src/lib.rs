@@ -39,9 +39,10 @@ pub struct GgrsConfig<Input, Address = SocketAddr, State = u8> {
 
 impl<Input, Address, State> Config for GgrsConfig<Input, Address, State>
 where
-    Input: Send + Sync + 'static + PartialEq + bytemuck::Pod,
-    Address: Send + Sync + 'static + Debug + Hash + Eq + Clone,
-    State: Send + Sync + 'static + Clone,
+    Self: 'static,
+    Input: Send + Sync + PartialEq + bytemuck::Pod,
+    Address: Send + Sync + Debug + Hash + Eq + Clone,
+    State: Send + Sync + Clone,
 {
     type Input = Input;
     type State = State;

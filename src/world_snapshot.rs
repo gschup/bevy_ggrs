@@ -2,7 +2,7 @@ use bevy::{
     ecs::{entity::EntityMap, reflect::ReflectMapEntities},
     prelude::*,
     reflect::{Reflect, TypeRegistry},
-    utils::HashMap,
+    utils::{HashMap, HashSet},
 };
 use std::{fmt::Debug, num::Wrapping};
 
@@ -137,14 +137,11 @@ impl WorldSnapshot {
         let type_registry = type_registry.read();
         let mut rid_map = rollback_id_map(world);
 
+        // Keep track of entities which are being rolled back
+        let mut rollback_entities = HashSet::new();
+
         // Mapping of the old entity ids ( when snapshot was taken ) to new entity ids
         let mut entity_map = EntityMap::default();
-
-        // Include a no-op mapping as a baseline to preserve relationships between rollback and non-rollback entities
-        for entity in world.iter_entities() {
-            let entity = entity.id();
-            entity_map.insert(entity, entity);
-        }
 
         // first, we write all entities
         for rollback_entity in self.entities.iter() {
@@ -155,6 +152,9 @@ impl WorldSnapshot {
 
             // Add the mapping from the old entity ID to the new entity ID
             entity_map.insert(rollback_entity.entity, entity);
+
+            // Keep track of rollback entities for later...
+            rollback_entities.insert(rollback_entity.entity);
 
             // for each registered type, check what we need to do
             for registration in type_registry.iter() {
@@ -255,10 +255,26 @@ impl WorldSnapshot {
 
         // For every type that reflects `MapEntities`, map the entities so that they reference the
         // new IDs after applying the snapshot.
-        for registration in type_registry.iter() {
-            if let Some(map_entities_reflect) = registration.data::<ReflectMapEntities>() {
-                map_entities_reflect.map_all_entities(world, &mut entity_map)
+        for reflect_map_entities in type_registry.iter().filter_map(|reg| reg.data::<ReflectMapEntities>()) {
+            reflect_map_entities.map_all_entities(world, &mut entity_map)
+        }
+
+        // Reverse dead-mappings, no-op correct mappings
+        for original_entity in entity_map.keys().collect::<Vec<_>>() {
+            let mapped_entity = entity_map.remove(original_entity).unwrap();
+
+            if rollback_entities.remove(&original_entity) {
+                // Rollback entity was correctly mapped; no-op
+                entity_map.insert(mapped_entity, mapped_entity);
+            } else {
+                // An untracked bystander was mapped to a dead end; reverse
+                entity_map.insert(mapped_entity, original_entity);
             }
+        }
+
+        // Map entities a second time, fixing dead entities
+        for reflect_map_entities in type_registry.iter().filter_map(|reg| reg.data::<ReflectMapEntities>()) {
+            reflect_map_entities.map_all_entities(world, &mut entity_map)
         }
     }
 }

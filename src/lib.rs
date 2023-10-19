@@ -4,12 +4,11 @@
 use bevy::{
     ecs::schedule::{LogLevel, ScheduleBuildSettings, ScheduleLabel},
     prelude::*,
-    reflect::{FromType, GetTypeRegistration, TypeRegistry, TypeRegistryInternal},
+    reflect::{FromType, GetTypeRegistration, TypeRegistryInternal},
     utils::{Duration, HashMap},
 };
 use ggrs::{Config, InputStatus, P2PSession, PlayerHandle, SpectatorSession, SyncTestSession};
-use parking_lot::RwLock;
-use std::{marker::PhantomData, sync::Arc};
+use std::marker::PhantomData;
 use world_snapshot::RollbackSnapshots;
 
 pub use ggrs;
@@ -70,7 +69,7 @@ impl Default for FixedTimestepData {
 pub struct RollbackFrameCount(i32);
 
 #[derive(Resource)]
-struct RollbackTypeRegistry(TypeRegistry);
+struct RollbackTypeRegistry(TypeRegistryInternal);
 
 /// Inputs from local players. You have to fill this resource in the ReadInputs schedule.
 #[derive(Resource)]
@@ -82,21 +81,19 @@ pub struct LocalPlayers(pub Vec<PlayerHandle>);
 
 impl Default for RollbackTypeRegistry {
     fn default() -> Self {
-        Self(TypeRegistry {
-            internal: Arc::new(RwLock::new({
-                let mut r = TypeRegistryInternal::empty();
-                // `Parent` and `Children` must be registered so that their `ReflectMapEntities`
-                // data may be used.
-                //
-                // While this is a little bit of a weird spot to register these, are the only
-                // Bevy core types implementing `MapEntities`, so for now it's probably fine to
-                // just manually register these here.
-                //
-                // The user can still register any custom types with `register_rollback_type()`.
-                r.register::<Parent>();
-                r.register::<Children>();
-                r
-            })),
+        Self({
+            let mut r = TypeRegistryInternal::empty();
+            // `Parent` and `Children` must be registered so that their `ReflectMapEntities`
+            // data may be used.
+            //
+            // While this is a little bit of a weird spot to register these, are the only
+            // Bevy core types implementing `MapEntities`, so for now it's probably fine to
+            // just manually register these here.
+            //
+            // The user can still register any custom types with `register_rollback_type()`.
+            r.register::<Parent>();
+            r.register::<Children>();
+            r
         })
     }
 }
@@ -107,12 +104,11 @@ impl RollbackTypeRegistry {
     where
         Type: GetTypeRegistration + Reflect + Default + Component,
     {
-        let mut registry = self.0.write();
+        let registry = &mut self.0;
         registry.register::<Type>();
 
         let registration = registry.get_mut(std::any::TypeId::of::<Type>()).unwrap();
         registration.insert(<ReflectComponent as FromType<Type>>::from_type());
-        drop(registry);
         self
     }
 
@@ -121,12 +117,11 @@ impl RollbackTypeRegistry {
     where
         Type: GetTypeRegistration + Reflect + Default + Resource,
     {
-        let mut registry = self.0.write();
+        let registry = &mut self.0;
         registry.register::<Type>();
 
         let registration = registry.get_mut(std::any::TypeId::of::<Type>()).unwrap();
         registration.insert(<ReflectResource as FromType<Type>>::from_type());
-        drop(registry);
         self
     }
 }

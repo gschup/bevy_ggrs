@@ -265,7 +265,10 @@ impl WorldSnapshot {
             reflect_map_entities.map_all_entities(world, &mut entity_map)
         }
 
-        // If the entity map is now larger than the set of rollback entities, then dead entities were created
+        // If the entity map is now larger than the set of rollback entities, then dead entities were created.
+        // TODO: This workaround is required because the current behavior of `map_all_entities` is to change all entities,
+        // creating dead entities instead of leaving them with their original value. If `EntityMapper` behavior changes,
+        // then this workaround may no longer be required.
         if entity_map.len() > rollback_entities.len() {
             // Reverse dead-mappings, no-op correct mappings
             for original_entity in entity_map.keys().collect::<Vec<_>>() {

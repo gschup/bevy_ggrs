@@ -140,6 +140,12 @@ impl WorldSnapshot {
         // Mapping of the old entity ids ( when snapshot was taken ) to new entity ids
         let mut entity_map = EntityMap::default();
 
+        // Include a no-op mapping as a baseline to preserve relationships between rollback and non-rollback entities
+        for entity in world.iter_entities() {
+            let entity = entity.id();
+            entity_map.insert(entity, entity);
+        }
+
         // first, we write all entities
         for rollback_entity in self.entities.iter() {
             // find the corresponding current entity or create new entity, if it doesn't exist

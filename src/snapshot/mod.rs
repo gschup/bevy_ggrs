@@ -124,6 +124,15 @@ impl<For, As> GgrsSnapshots<For, As> {
     pub fn get(&self) -> &As {
         self.snapshots.front().unwrap()
     }
+
+    pub fn peek(&self, frame: i32) -> Option<&As> {
+        let (index, _) = self
+            .frames
+            .iter()
+            .enumerate()
+            .find(|(_, &saved_frame)| saved_frame == frame)?;
+        self.snapshots.get(index)
+    }
 }
 
 pub struct GgrsComponentSnapshot<For, As = For> {

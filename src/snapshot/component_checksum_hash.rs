@@ -8,12 +8,22 @@ use bevy::prelude::*;
 
 use crate::{ChecksumFlag, ChecksumPart, Rollback, SaveWorld};
 
-#[derive(Default)]
 pub struct GgrsComponentChecksumHashPlugin<C>
 where
     C: Component + Hash,
 {
     _phantom: PhantomData<C>,
+}
+
+impl<C> Default for GgrsComponentChecksumHashPlugin<C>
+where
+    C: Component + Hash,
+{
+    fn default() -> Self {
+        Self {
+            _phantom: Default::default(),
+        }
+    }
 }
 
 impl<C> GgrsComponentChecksumHashPlugin<C>

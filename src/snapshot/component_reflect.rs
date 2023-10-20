@@ -1,16 +1,25 @@
 use crate::{
-    schedule_systems::{load_world, save_world},
     GgrsComponentSnapshot, GgrsSnapshots, LoadWorld, Rollback, RollbackFrameCount, SaveWorld,
 };
 use bevy::prelude::*;
 use std::marker::PhantomData;
 
-#[derive(Default)]
 pub struct GgrsComponentSnapshotReflectPlugin<C>
 where
     C: Component + Reflect + FromWorld,
 {
     _phantom: PhantomData<C>,
+}
+
+impl<C> Default for GgrsComponentSnapshotReflectPlugin<C>
+where
+    C: Component + Reflect + FromWorld,
+{
+    fn default() -> Self {
+        Self {
+            _phantom: Default::default(),
+        }
+    }
 }
 
 impl<C> GgrsComponentSnapshotReflectPlugin<C>
@@ -68,7 +77,7 @@ where
 {
     fn build(&self, app: &mut App) {
         app.init_resource::<GgrsSnapshots<C, GgrsComponentSnapshot<C, Box<dyn Reflect>>>>()
-            .add_systems(SaveWorld, Self::save.after(save_world))
-            .add_systems(LoadWorld, Self::load.after(load_world));
+            .add_systems(SaveWorld, Self::save)
+            .add_systems(LoadWorld, Self::load);
     }
 }

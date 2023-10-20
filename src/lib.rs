@@ -4,13 +4,10 @@
 use bevy::{
     ecs::schedule::{LogLevel, ScheduleBuildSettings, ScheduleLabel},
     prelude::*,
-    reflect::{FromType, GetTypeRegistration, TypeRegistryInternal},
     utils::{Duration, HashMap},
 };
 use ggrs::{Config, InputStatus, P2PSession, PlayerHandle, SpectatorSession, SyncTestSession};
-use schedule_systems::{load_world, save_world};
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, net::SocketAddr};
-use world_snapshot::RollbackSnapshots;
 
 pub use ggrs;
 
@@ -20,7 +17,6 @@ pub use snapshot::*;
 pub(crate) mod rollback;
 pub(crate) mod schedule_systems;
 pub(crate) mod snapshot;
-pub(crate) mod world_snapshot;
 
 pub mod prelude {
     pub use crate::{
@@ -92,9 +88,6 @@ impl Default for FixedTimestepData {
 #[derive(Resource, Debug, Default)]
 pub struct RollbackFrameCount(i32);
 
-#[derive(Resource)]
-struct RollbackTypeRegistry(TypeRegistryInternal);
-
 /// Inputs from local players. You have to fill this resource in the ReadInputs schedule.
 #[derive(Resource)]
 pub struct LocalInputs<C: Config>(pub HashMap<PlayerHandle, C::Input>);
@@ -102,53 +95,6 @@ pub struct LocalInputs<C: Config>(pub HashMap<PlayerHandle, C::Input>);
 /// Handles for the local players, you can use this when writing an input system.
 #[derive(Resource, Default)]
 pub struct LocalPlayers(pub Vec<PlayerHandle>);
-
-impl Default for RollbackTypeRegistry {
-    fn default() -> Self {
-        Self({
-            let mut r = TypeRegistryInternal::empty();
-            // `Parent` and `Children` must be registered so that their `ReflectMapEntities`
-            // data may be used.
-            //
-            // While this is a little bit of a weird spot to register these, are the only
-            // Bevy core types implementing `MapEntities`, so for now it's probably fine to
-            // just manually register these here.
-            //
-            // The user can still register any custom types with `register_rollback_type()`.
-            r.register::<Parent>();
-            r.register::<Children>();
-            r
-        })
-    }
-}
-
-impl RollbackTypeRegistry {
-    /// Registers a type of component for saving and loading during rollbacks.
-    pub fn register_rollback_component<Type>(&mut self) -> &mut Self
-    where
-        Type: GetTypeRegistration + Reflect + Default + Component,
-    {
-        let registry = &mut self.0;
-        registry.register::<Type>();
-
-        let registration = registry.get_mut(std::any::TypeId::of::<Type>()).unwrap();
-        registration.insert(<ReflectComponent as FromType<Type>>::from_type());
-        self
-    }
-
-    /// Registers a type of resource for saving and loading during rollbacks.
-    pub fn register_rollback_resource<Type>(&mut self) -> &mut Self
-    where
-        Type: GetTypeRegistration + Reflect + Default + Resource,
-    {
-        let registry = &mut self.0;
-        registry.register::<Type>();
-
-        let registration = registry.get_mut(std::any::TypeId::of::<Type>()).unwrap();
-        registration.insert(<ReflectResource as FromType<Type>>::from_type());
-        self
-    }
-}
 
 /// Label for the schedule which reads the inputs for the current frame
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
@@ -184,16 +130,21 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
             ..default()
         });
 
-        app.init_resource::<RollbackTypeRegistry>()
-            .init_resource::<RollbackSnapshots>()
-            .init_resource::<RollbackFrameCount>()
+        app.init_resource::<RollbackFrameCount>()
             .init_resource::<LocalPlayers>()
             .init_resource::<FixedTimestepData>()
             .add_schedule(GgrsSchedule, schedule)
             .add_schedule(ReadInputs, Schedule::new())
             .add_systems(PreUpdate, schedule_systems::run_ggrs_schedules::<C>)
-            .add_systems(LoadWorld, load_world)
-            .add_systems(SaveWorld, save_world);
+            .add_plugins((
+                GgrsChecksumPlugin,
+                GgrsResourceSnapshotClonePlugin::<Checksum>::default(),
+                GgrsEntitySnapshotPlugin,
+                GgrsComponentSnapshotReflectPlugin::<Parent>::default(),
+                GgrsComponentMapEntitiesPlugin::<Parent>::default(),
+                GgrsComponentSnapshotReflectPlugin::<Children>::default(),
+                GgrsComponentMapEntitiesPlugin::<Children>::default(),
+            ));
     }
 }
 
@@ -202,12 +153,12 @@ pub trait GgrsApp {
     /// Registers a component type for saving and loading from the world.
     fn register_rollback_component<Type>(&mut self) -> &mut Self
     where
-        Type: GetTypeRegistration + Reflect + Default + Component;
+        Type: Component + Reflect + FromWorld;
 
     /// Registers a resource type for saving and loading from the world.
     fn register_rollback_resource<Type>(&mut self) -> &mut Self
     where
-        Type: GetTypeRegistration + Reflect + Default + Resource;
+        Type: Resource + Reflect + FromWorld;
 
     fn set_rollback_schedule_fps(&mut self, fps: usize) -> &mut Self;
 }
@@ -222,23 +173,15 @@ impl GgrsApp for App {
 
     fn register_rollback_component<Type>(&mut self) -> &mut Self
     where
-        Type: GetTypeRegistration + Reflect + Default + Component,
+        Type: Component + Reflect + FromWorld,
     {
-        self.world
-            .get_resource_mut::<RollbackTypeRegistry>()
-            .expect("RollbackTypeRegistry not found. Did you add the GgrsPlugin?")
-            .register_rollback_component::<Type>();
-        self
+        self.add_plugins(GgrsComponentSnapshotReflectPlugin::<Type>::default())
     }
 
     fn register_rollback_resource<Type>(&mut self) -> &mut Self
     where
-        Type: GetTypeRegistration + Reflect + Default + Resource,
+        Type: Resource + Reflect + FromWorld,
     {
-        self.world
-            .get_resource_mut::<RollbackTypeRegistry>()
-            .expect("RollbackTypeRegistry not found. Did you add the GgrsPlugin?")
-            .register_rollback_resource::<Type>();
-        self
+        self.add_plugins(GgrsResourceSnapshotReflectPlugin::<Type>::default())
     }
 }

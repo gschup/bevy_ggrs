@@ -4,7 +4,6 @@ use crate::{
 };
 use bevy::{ecs::entity::EntityMap, prelude::*, utils::HashMap};
 
-#[derive(Default)]
 pub struct GgrsEntitySnapshotPlugin;
 
 impl GgrsEntitySnapshotPlugin {

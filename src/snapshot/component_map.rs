@@ -7,12 +7,22 @@ use bevy::{
 
 use crate::{LoadWorld, RollbackEntityMap};
 
-#[derive(Default)]
 pub struct GgrsComponentMapEntitiesPlugin<C>
 where
     C: Component + MapEntities,
 {
     _phantom: PhantomData<C>,
+}
+
+impl<C> Default for GgrsComponentMapEntitiesPlugin<C>
+where
+    C: Component + MapEntities,
+{
+    fn default() -> Self {
+        Self {
+            _phantom: Default::default(),
+        }
+    }
 }
 
 impl<C> GgrsComponentMapEntitiesPlugin<C>

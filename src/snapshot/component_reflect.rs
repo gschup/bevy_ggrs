@@ -6,32 +6,32 @@ use bevy::prelude::*;
 use std::marker::PhantomData;
 
 #[derive(Default)]
-pub struct GgrsComponentSnapshotClonePlugin<C>
+pub struct GgrsComponentSnapshotReflectPlugin<C>
 where
-    C: Component + Clone,
+    C: Component + Reflect + FromWorld,
 {
     _phantom: PhantomData<C>,
 }
 
-impl<C> GgrsComponentSnapshotClonePlugin<C>
+impl<C> GgrsComponentSnapshotReflectPlugin<C>
 where
-    C: Component + Clone,
+    C: Component + Reflect + FromWorld,
 {
     pub fn save(
-        mut snapshots: ResMut<GgrsSnapshots<C, GgrsComponentSnapshot<C>>>,
+        mut snapshots: ResMut<GgrsSnapshots<C, GgrsComponentSnapshot<C, Box<dyn Reflect>>>>,
         frame: Res<RollbackFrameCount>,
         query: Query<(&Rollback, &C)>,
     ) {
         let components = query
             .iter()
-            .map(|(&rollback, component)| (rollback, component.clone()));
+            .map(|(&rollback, component)| (rollback, component.as_reflect().clone_value()));
         let snapshot = GgrsComponentSnapshot::new(components);
         snapshots.push(frame.0, snapshot);
     }
 
     pub fn load(
         mut commands: Commands,
-        mut snapshots: ResMut<GgrsSnapshots<C, GgrsComponentSnapshot<C>>>,
+        mut snapshots: ResMut<GgrsSnapshots<C, GgrsComponentSnapshot<C, Box<dyn Reflect>>>>,
         frame: Res<RollbackFrameCount>,
         mut query: Query<(Entity, &Rollback, Option<&mut C>)>,
     ) {
@@ -41,12 +41,20 @@ where
             let snapshot = snapshot.get(rollback);
 
             match (component, snapshot) {
-                (Some(mut component), Some(snapshot)) => *component = snapshot.clone(),
+                (Some(mut component), Some(snapshot)) => {
+                    component.apply(snapshot.as_ref());
+                }
                 (Some(_), None) => {
                     commands.entity(entity).remove::<C>();
                 }
                 (None, Some(snapshot)) => {
-                    commands.entity(entity).insert(snapshot.clone());
+                    let snapshot = snapshot.clone_value();
+
+                    commands.add(move |world: &mut World| {
+                        let mut component = C::from_world(world);
+                        component.apply(snapshot.as_ref());
+                        world.entity_mut(entity).insert(component);
+                    })
                 }
                 (None, None) => {}
             }
@@ -54,12 +62,12 @@ where
     }
 }
 
-impl<C> Plugin for GgrsComponentSnapshotClonePlugin<C>
+impl<C> Plugin for GgrsComponentSnapshotReflectPlugin<C>
 where
-    C: Component + Clone,
+    C: Component + Reflect + FromWorld,
 {
     fn build(&self, app: &mut App) {
-        app.init_resource::<GgrsSnapshots<C, GgrsComponentSnapshot<C>>>()
+        app.init_resource::<GgrsSnapshots<C, GgrsComponentSnapshot<C, Box<dyn Reflect>>>>()
             .add_systems(SaveWorld, Self::save.after(save_world))
             .add_systems(LoadWorld, Self::load.after(load_world));
     }

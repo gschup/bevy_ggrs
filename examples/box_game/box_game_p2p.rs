@@ -1,5 +1,5 @@
 use bevy::{prelude::*, window::WindowResolution};
-use bevy_ggrs::{prelude::*, GgrsResourceSnapshotClonePlugin, GgrsComponentSnapshotClonePlugin};
+use bevy_ggrs::{prelude::*, GgrsComponentSnapshotClonePlugin, GgrsResourceSnapshotClonePlugin};
 use ggrs::UdpNonBlockingSocket;
 use std::net::SocketAddr;
 use structopt::StructOpt;
@@ -67,7 +67,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .add_plugins((
             GgrsResourceSnapshotClonePlugin::<FrameCount>::default(),
             GgrsComponentSnapshotClonePlugin::<Transform>::default(),
-            GgrsComponentSnapshotClonePlugin::<Velocity>::default()
+            GgrsComponentSnapshotClonePlugin::<Velocity>::default(),
         ))
         .insert_resource(opt)
         .add_plugins(DefaultPlugins.set(WindowPlugin {

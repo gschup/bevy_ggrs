@@ -1,15 +1,28 @@
-use bevy::{
-    prelude::*,
-    utils::HashMap,
-};
 use crate::Rollback;
+use bevy::{prelude::*, utils::HashMap};
 use std::{collections::VecDeque, marker::PhantomData};
 
+mod checksum;
+mod component_checksum_hash;
 mod component_clone;
+mod component_map;
+mod component_reflect;
+mod entity;
 mod resource_clone;
+mod resource_map;
+mod resource_reflect;
+mod rollback_entity_map;
 
+pub use checksum::*;
+pub use component_checksum_hash::*;
 pub use component_clone::*;
+pub use component_map::*;
+pub use component_reflect::*;
+pub use entity::*;
 pub use resource_clone::*;
+pub use resource_map::*;
+pub use resource_reflect::*;
+pub use rollback_entity_map::*;
 
 /// Collection of snapshots for a type `For`, stored as `As`
 #[derive(Resource)]
@@ -142,5 +155,9 @@ impl<For, As> GgrsComponentSnapshot<For, As> {
 
     pub fn get(&self, entity: &Rollback) -> Option<&As> {
         self.snapshot.get(entity)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&Rollback, &As)> + '_ {
+        self.snapshot.iter()
     }
 }

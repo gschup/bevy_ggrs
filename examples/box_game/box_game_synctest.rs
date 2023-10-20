@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_ggrs::{prelude::*, GgrsResourceSnapshotClonePlugin, GgrsComponentSnapshotClonePlugin};
+use bevy_ggrs::{prelude::*, GgrsComponentSnapshotClonePlugin, GgrsResourceSnapshotClonePlugin};
 use structopt::StructOpt;
 
 mod box_game;
@@ -47,7 +47,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .add_plugins((
             GgrsResourceSnapshotClonePlugin::<FrameCount>::default(),
             GgrsComponentSnapshotClonePlugin::<Transform>::default(),
-            GgrsComponentSnapshotClonePlugin::<Velocity>::default()
+            GgrsComponentSnapshotClonePlugin::<Velocity>::default(),
         ))
         .add_systems(Startup, setup_system)
         // these systems will be executed as part of the advance frame update

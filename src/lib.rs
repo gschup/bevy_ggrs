@@ -17,9 +17,9 @@ pub use ggrs;
 pub use rollback::{AddRollbackCommand, AddRollbackCommandExtension, Rollback};
 pub use snapshot::*;
 
-pub(crate) mod snapshot;
 pub(crate) mod rollback;
 pub(crate) mod schedule_systems;
+pub(crate) mod snapshot;
 pub(crate) mod world_snapshot;
 
 pub mod prelude {

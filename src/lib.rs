@@ -88,6 +88,10 @@ impl Default for FixedTimestepData {
 #[derive(Resource, Debug, Default)]
 pub struct RollbackFrameCount(i32);
 
+/// The most recently confirmed frame. Any information for frames stored before this point can be safely discarded.
+#[derive(Resource, Debug, Default)]
+pub struct RollbackFrameConfirmed(i32);
+
 /// Inputs from local players. You have to fill this resource in the ReadInputs schedule.
 #[derive(Resource)]
 pub struct LocalInputs<C: Config>(pub HashMap<PlayerHandle, C::Input>);
@@ -131,6 +135,7 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
         });
 
         app.init_resource::<RollbackFrameCount>()
+            .init_resource::<RollbackFrameConfirmed>()
             .init_resource::<LocalPlayers>()
             .init_resource::<FixedTimestepData>()
             .add_schedule(GgrsSchedule, schedule)

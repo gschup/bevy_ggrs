@@ -13,6 +13,8 @@ where
     _phantom: PhantomData<C>,
 }
 
+type Snapshots<C> = GgrsSnapshots<C, GgrsComponentSnapshot<C>>;
+
 impl<C> Default for GgrsComponentSnapshotClonePlugin<C>
 where
     C: Component + Clone,
@@ -29,7 +31,7 @@ where
     C: Component + Clone,
 {
     pub fn save(
-        mut snapshots: ResMut<GgrsSnapshots<C, GgrsComponentSnapshot<C>>>,
+        mut snapshots: ResMut<Snapshots<C>>,
         frame: Res<RollbackFrameCount>,
         query: Query<(&Rollback, &C)>,
     ) {
@@ -42,7 +44,7 @@ where
 
     pub fn load(
         mut commands: Commands,
-        mut snapshots: ResMut<GgrsSnapshots<C, GgrsComponentSnapshot<C>>>,
+        mut snapshots: ResMut<Snapshots<C>>,
         frame: Res<RollbackFrameCount>,
         mut query: Query<(Entity, &Rollback, Option<&mut C>)>,
     ) {
@@ -70,8 +72,13 @@ where
     C: Component + Clone,
 {
     fn build(&self, app: &mut App) {
-        app.init_resource::<GgrsSnapshots<C, GgrsComponentSnapshot<C>>>()
-            .add_systems(SaveWorld, Self::save.in_set(SaveWorldSet::Snapshot))
+        app.init_resource::<Snapshots<C>>()
+            .add_systems(
+                SaveWorld,
+                (Snapshots::<C>::discard_old_snapshots, Self::save)
+                    .chain()
+                    .in_set(SaveWorldSet::Snapshot),
+            )
             .add_systems(LoadWorld, Self::load.in_set(LoadWorldSet::Data));
     }
 }

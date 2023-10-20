@@ -1,6 +1,6 @@
 use crate::{
     Checksum, FixedTimestepData, GgrsSchedule, GgrsSnapshots, LoadWorld, LocalInputs, LocalPlayers,
-    PlayerInputs, ReadInputs, RollbackFrameCount, SaveWorld, Session,
+    PlayerInputs, ReadInputs, RollbackFrameConfirmed, RollbackFrameCount, SaveWorld, Session,
 };
 use bevy::{prelude::*, utils::Duration};
 use ggrs::{
@@ -61,6 +61,7 @@ pub(crate) fn run_ggrs_schedules<T: Config>(world: &mut World) {
                 time_data.run_slow = false;
                 world.insert_resource(LocalPlayers::default());
                 world.insert_resource(RollbackFrameCount(0));
+                world.insert_resource(RollbackFrameConfirmed(0));
             }
         }
     }
@@ -81,57 +82,73 @@ pub(crate) fn run_synctest<C: Config>(world: &mut World, mut sess: SyncTestSessi
             .expect("All handles in local_handles should be valid");
     }
 
-    match sess.advance_frame() {
+    let requests = sess.advance_frame();
+
+    world.insert_resource(Session::SyncTest(sess));
+
+    match requests {
         Ok(requests) => handle_requests(requests, world),
         Err(e) => warn!("{e}"),
     }
-
-    world.insert_resource(Session::SyncTest(sess));
 }
 
 pub(crate) fn run_spectator<T: Config>(world: &mut World, mut sess: SpectatorSession<T>) {
     // if session is ready, try to advance the frame
-    if sess.current_state() == SessionState::Running {
-        match sess.advance_frame() {
-            Ok(requests) => handle_requests(requests, world),
-            Err(GGRSError::PredictionThreshold) => {
-                info!("P2PSpectatorSession: Waiting for input from host.")
-            }
-            Err(e) => warn!("{e}"),
-        };
-    }
+    let running = sess.current_state() == SessionState::Running;
+    let requests = running.then(|| sess.advance_frame());
 
     world.insert_resource(Session::Spectator(sess));
+
+    match requests {
+        Some(Ok(requests)) => handle_requests(requests, world),
+        Some(Err(GGRSError::PredictionThreshold)) => {
+            info!("P2PSpectatorSession: Waiting for input from host.")
+        }
+        Some(Err(e)) => warn!("{e}"),
+        None => {}
+    };
 }
 
 pub(crate) fn run_p2p<C: Config>(world: &mut World, mut sess: P2PSession<C>) {
     world.insert_resource(LocalPlayers(sess.local_player_handles()));
 
-    if sess.current_state() == SessionState::Running {
+    let running = sess.current_state() == SessionState::Running;
+
+    if running {
         // get local player inputs
         world.run_schedule(ReadInputs);
+
         let local_inputs = world.remove_resource::<LocalInputs<C>>().expect(
             "No local player inputs found. Did you insert systems into the ReadInputs schedule?",
         );
+
         for (handle, input) in local_inputs.0 {
             sess.add_local_input(handle, input)
                 .expect("All handles in local_inputs should be valid");
         }
-
-        match sess.advance_frame() {
-            Ok(requests) => handle_requests(requests, world),
-            Err(GGRSError::PredictionThreshold) => {
-                info!("Skipping a frame: PredictionThreshold.")
-            }
-            Err(e) => warn!("{e}"),
-        };
     }
 
+    let requests = running.then(|| sess.advance_frame());
+
     world.insert_resource(Session::P2P(sess));
+
+    match requests {
+        Some(Ok(requests)) => handle_requests(requests, world),
+        Some(Err(GGRSError::PredictionThreshold)) => {
+            info!("Skipping a frame: PredictionThreshold.")
+        }
+        Some(Err(e)) => warn!("{e}"),
+        None => {}
+    }
 }
 
 pub(crate) fn handle_requests<T: Config>(requests: Vec<GGRSRequest<T>>, world: &mut World) {
     for request in requests {
+        if let Some(Session::P2P(s)) = world.get_resource::<Session<T>>() {
+            let confirmed_frame = s.confirmed_frame();
+            world.insert_resource(RollbackFrameConfirmed(confirmed_frame));
+        }
+
         match request {
             GGRSRequest::SaveGameState { cell, frame } => {
                 debug!("saving snapshot for frame {frame}");

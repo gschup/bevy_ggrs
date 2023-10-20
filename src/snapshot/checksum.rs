@@ -32,7 +32,7 @@ pub struct Checksum(pub u64);
 
 /// A [`Plugin`] which creates a [`Checksum`] resource which can be read after the
 /// [`SaveWorldSet::Snapshot`] set in the [`SaveWorld`] schedule has been run.
-/// 
+///
 /// To add you own data to this [`Checksum`], create an [`Entity`] with a [`ChecksumPart`]
 /// [`Component`]. Every [`Entity`] with this [`Component`] will participate in the
 /// creation of a [`Checksum`].

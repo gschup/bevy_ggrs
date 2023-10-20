@@ -1,4 +1,4 @@
-use crate::Rollback;
+use crate::{Rollback, RollbackFrameConfirmed, DEFAULT_FPS};
 use bevy::{prelude::*, utils::HashMap};
 use std::{collections::VecDeque, marker::PhantomData};
 
@@ -46,7 +46,7 @@ impl<For, As> Default for GgrsSnapshots<For, As> {
         Self {
             snapshots: Default::default(),
             frames: Default::default(),
-            depth: 60, // TODO: Make sensible choice here
+            depth: DEFAULT_FPS, // TODO: Make sensible choice here
             _phantom: Default::default(),
         }
     }
@@ -107,6 +107,25 @@ impl<For, As> GgrsSnapshots<For, As> {
         self
     }
 
+    pub fn confirm(&mut self, confirmed_frame: i32) -> &mut Self {
+        debug_assert_eq!(
+            self.snapshots.len(),
+            self.frames.len(),
+            "Snapshot and Frame queues must always be in sync"
+        );
+
+        while let Some(&frame) = self.frames.back() {
+            if frame < confirmed_frame {
+                self.snapshots.pop_back().unwrap();
+                self.frames.pop_back().unwrap();
+            } else {
+                break;
+            }
+        }
+
+        self
+    }
+
     pub fn rollback(&mut self, frame: i32) -> &mut Self {
         loop {
             let Some(&current) = self.frames.front() else {
@@ -136,6 +155,20 @@ impl<For, As> GgrsSnapshots<For, As> {
             .enumerate()
             .find(|(_, &saved_frame)| saved_frame == frame)?;
         self.snapshots.get(index)
+    }
+
+    pub fn discard_old_snapshots(
+        mut snapshots: ResMut<Self>,
+        confirmed_frame: Option<Res<RollbackFrameConfirmed>>,
+    ) where
+        For: Send + Sync + 'static,
+        As: Send + Sync + 'static,
+    {
+        let Some(confirmed_frame) = confirmed_frame else {
+            return;
+        };
+
+        snapshots.confirm(confirmed_frame.0);
     }
 }
 

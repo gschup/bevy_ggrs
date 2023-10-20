@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use std::marker::PhantomData;
 
 /// A [`Plugin`] which manages snapshots for a [`Component`] `C` using [`Reflect`] and [`FromWorld`].
-/// 
+///
 /// NOTE: [`FromWorld`] is implemented for all types implementing [`Default`].
 pub struct GgrsComponentSnapshotReflectPlugin<C>
 where
@@ -14,6 +14,8 @@ where
 {
     _phantom: PhantomData<C>,
 }
+
+type Snapshots<C> = GgrsSnapshots<C, GgrsComponentSnapshot<C, Box<dyn Reflect>>>;
 
 impl<C> Default for GgrsComponentSnapshotReflectPlugin<C>
 where
@@ -31,7 +33,7 @@ where
     C: Component + Reflect + FromWorld,
 {
     pub fn save(
-        mut snapshots: ResMut<GgrsSnapshots<C, GgrsComponentSnapshot<C, Box<dyn Reflect>>>>,
+        mut snapshots: ResMut<Snapshots<C>>,
         frame: Res<RollbackFrameCount>,
         query: Query<(&Rollback, &C)>,
     ) {
@@ -44,7 +46,7 @@ where
 
     pub fn load(
         mut commands: Commands,
-        mut snapshots: ResMut<GgrsSnapshots<C, GgrsComponentSnapshot<C, Box<dyn Reflect>>>>,
+        mut snapshots: ResMut<Snapshots<C>>,
         frame: Res<RollbackFrameCount>,
         mut query: Query<(Entity, &Rollback, Option<&mut C>)>,
     ) {
@@ -80,8 +82,13 @@ where
     C: Component + Reflect + FromWorld,
 {
     fn build(&self, app: &mut App) {
-        app.init_resource::<GgrsSnapshots<C, GgrsComponentSnapshot<C, Box<dyn Reflect>>>>()
-            .add_systems(SaveWorld, Self::save.in_set(SaveWorldSet::Snapshot))
+        app.init_resource::<Snapshots<C>>()
+            .add_systems(
+                SaveWorld,
+                (Snapshots::<C>::discard_old_snapshots, Self::save)
+                    .chain()
+                    .in_set(SaveWorldSet::Snapshot),
+            )
             .add_systems(LoadWorld, Self::load.in_set(LoadWorldSet::Data));
     }
 }

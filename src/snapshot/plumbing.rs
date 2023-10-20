@@ -20,7 +20,7 @@ pub enum LoadWorldSet {
     /// Recreate the stored information as it was during the frame to be rolled back to.
     /// When this set is complete, all [`Components`](`Component`) and [`Resources`](`Resource`)
     /// will be rolled back to their exact state during the snapshot.
-    /// 
+    ///
     /// NOTE: At this point, [`Entity`] relationships may be broken, see [`LoadWorldSet::Mapping`]
     /// for when those relationships are fixed.
     Data,
@@ -52,32 +52,41 @@ pub struct GgrsPlumbingPlugin;
 impl Plugin for GgrsPlumbingPlugin {
     fn build(&self, app: &mut App) {
         app.configure_sets(
-                LoadWorld,
-                (
-                    LoadWorldSet::PreEntityFlush,
-                    LoadWorldSet::Entity,
-                    LoadWorldSet::EntityFlush,
-                    LoadWorldSet::Data,
-                    LoadWorldSet::DataFlush,
-                    LoadWorldSet::Mapping,
-                    LoadWorldSet::MappingFlush,
-                )
-                    .chain(),
+            LoadWorld,
+            (
+                LoadWorldSet::PreEntityFlush,
+                LoadWorldSet::Entity,
+                LoadWorldSet::EntityFlush,
+                LoadWorldSet::Data,
+                LoadWorldSet::DataFlush,
+                LoadWorldSet::Mapping,
+                LoadWorldSet::MappingFlush,
             )
-            .configure_sets(
-                SaveWorld,
-                (
-                    SaveWorldSet::PreSnapshotFlush,
-                    SaveWorldSet::Snapshot,
-                    SaveWorldSet::PostSnapshotFlush,
-                )
-                    .chain(),
+                .chain(),
+        )
+        .configure_sets(
+            SaveWorld,
+            (
+                SaveWorldSet::PreSnapshotFlush,
+                SaveWorldSet::Snapshot,
+                SaveWorldSet::PostSnapshotFlush,
             )
-            .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::PreEntityFlush))
-            .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::EntityFlush))
-            .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::DataFlush))
-            .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::MappingFlush))
-            .add_systems(SaveWorld, apply_deferred.in_set(SaveWorldSet::PreSnapshotFlush))
-            .add_systems(SaveWorld, apply_deferred.in_set(SaveWorldSet::PostSnapshotFlush));
+                .chain(),
+        )
+        .add_systems(
+            LoadWorld,
+            apply_deferred.in_set(LoadWorldSet::PreEntityFlush),
+        )
+        .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::EntityFlush))
+        .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::DataFlush))
+        .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::MappingFlush))
+        .add_systems(
+            SaveWorld,
+            apply_deferred.in_set(SaveWorldSet::PreSnapshotFlush),
+        )
+        .add_systems(
+            SaveWorld,
+            apply_deferred.in_set(SaveWorldSet::PostSnapshotFlush),
+        );
     }
 }

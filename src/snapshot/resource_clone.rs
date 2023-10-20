@@ -10,6 +10,8 @@ where
     _phantom: PhantomData<R>,
 }
 
+type Snapshots<R> = GgrsSnapshots<R, Option<R>>;
+
 impl<R> Default for GgrsResourceSnapshotClonePlugin<R>
 where
     R: Resource + Clone,
@@ -26,7 +28,7 @@ where
     R: Resource + Clone,
 {
     pub fn save(
-        mut snapshots: ResMut<GgrsSnapshots<R, Option<R>>>,
+        mut snapshots: ResMut<Snapshots<R>>,
         frame: Res<RollbackFrameCount>,
         resource: Option<Res<R>>,
     ) {
@@ -35,7 +37,7 @@ where
 
     pub fn load(
         mut commands: Commands,
-        mut snapshots: ResMut<GgrsSnapshots<R, Option<R>>>,
+        mut snapshots: ResMut<Snapshots<R>>,
         frame: Res<RollbackFrameCount>,
         resource: Option<ResMut<R>>,
     ) {
@@ -55,8 +57,13 @@ where
     R: Resource + Clone,
 {
     fn build(&self, app: &mut App) {
-        app.init_resource::<GgrsSnapshots<R, Option<R>>>()
-            .add_systems(SaveWorld, Self::save.in_set(SaveWorldSet::Snapshot))
+        app.init_resource::<Snapshots<R>>()
+            .add_systems(
+                SaveWorld,
+                (Snapshots::<R>::discard_old_snapshots, Self::save)
+                    .chain()
+                    .in_set(SaveWorldSet::Snapshot),
+            )
             .add_systems(LoadWorld, Self::load.in_set(LoadWorldSet::Data));
     }
 }

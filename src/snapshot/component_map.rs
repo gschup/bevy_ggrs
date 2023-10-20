@@ -5,7 +5,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::{LoadWorld, RollbackEntityMap};
+use crate::{LoadWorld, LoadWorldSet, RollbackEntityMap};
 
 pub struct GgrsComponentMapEntitiesPlugin<C>
 where
@@ -83,6 +83,6 @@ where
     C: Component + MapEntities,
 {
     fn build(&self, app: &mut App) {
-        app.add_systems(LoadWorld, Self::update);
+        app.add_systems(LoadWorld, Self::update.in_set(LoadWorldSet::Mapping));
     }
 }

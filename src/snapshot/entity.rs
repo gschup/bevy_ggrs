@@ -1,5 +1,5 @@
 use crate::{
-    GgrsComponentSnapshot, GgrsSnapshots, LoadWorld, Rollback, RollbackEntityMap,
+    GgrsComponentSnapshot, GgrsSnapshots, LoadWorld, LoadWorldSet, Rollback, RollbackEntityMap,
     RollbackFrameCount, SaveWorld,
 };
 use bevy::{ecs::entity::EntityMap, prelude::*, utils::HashMap};
@@ -64,6 +64,6 @@ impl Plugin for GgrsEntitySnapshotPlugin {
         app.init_resource::<GgrsSnapshots<Entity, GgrsComponentSnapshot<Entity>>>()
             .init_resource::<RollbackEntityMap>()
             .add_systems(SaveWorld, Self::save)
-            .add_systems(LoadWorld, Self::load);
+            .add_systems(LoadWorld, Self::load.in_set(LoadWorldSet::Entity));
     }
 }

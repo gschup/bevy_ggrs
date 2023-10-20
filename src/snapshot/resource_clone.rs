@@ -1,4 +1,4 @@
-use crate::{GgrsSnapshots, LoadWorld, RollbackFrameCount, SaveWorld};
+use crate::{GgrsSnapshots, LoadWorld, LoadWorldSet, RollbackFrameCount, SaveWorld};
 use bevy::prelude::*;
 use std::marker::PhantomData;
 
@@ -56,6 +56,6 @@ where
     fn build(&self, app: &mut App) {
         app.init_resource::<GgrsSnapshots<R, Option<R>>>()
             .add_systems(SaveWorld, Self::save)
-            .add_systems(LoadWorld, Self::load);
+            .add_systems(LoadWorld, Self::load.in_set(LoadWorldSet::Data));
     }
 }

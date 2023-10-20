@@ -1,5 +1,6 @@
 use crate::{
-    GgrsComponentSnapshot, GgrsSnapshots, LoadWorld, Rollback, RollbackFrameCount, SaveWorld,
+    GgrsComponentSnapshot, GgrsSnapshots, LoadWorld, LoadWorldSet, Rollback, RollbackFrameCount,
+    SaveWorld,
 };
 use bevy::prelude::*;
 use std::marker::PhantomData;
@@ -78,6 +79,6 @@ where
     fn build(&self, app: &mut App) {
         app.init_resource::<GgrsSnapshots<C, GgrsComponentSnapshot<C, Box<dyn Reflect>>>>()
             .add_systems(SaveWorld, Self::save)
-            .add_systems(LoadWorld, Self::load);
+            .add_systems(LoadWorld, Self::load.in_set(LoadWorldSet::Data));
     }
 }

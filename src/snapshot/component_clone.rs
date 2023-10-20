@@ -1,10 +1,11 @@
 use crate::{
     GgrsComponentSnapshot, GgrsSnapshots, LoadWorld, LoadWorldSet, Rollback, RollbackFrameCount,
-    SaveWorld,
+    SaveWorld, SaveWorldSet,
 };
 use bevy::prelude::*;
 use std::marker::PhantomData;
 
+/// A [`Plugin`] which manages snapshots for a [`Component`] `C` using [`Clone`].
 pub struct GgrsComponentSnapshotClonePlugin<C>
 where
     C: Component + Clone,
@@ -70,7 +71,7 @@ where
 {
     fn build(&self, app: &mut App) {
         app.init_resource::<GgrsSnapshots<C, GgrsComponentSnapshot<C>>>()
-            .add_systems(SaveWorld, Self::save)
+            .add_systems(SaveWorld, Self::save.in_set(SaveWorldSet::Snapshot))
             .add_systems(LoadWorld, Self::load.in_set(LoadWorldSet::Data));
     }
 }

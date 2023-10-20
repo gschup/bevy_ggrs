@@ -1,5 +1,7 @@
 use bevy::{ecs::entity::EntityMap, prelude::*};
 
+/// A [`Resource`] which provides an [`EntityMap`], describing how [`Entities`](`Entity`)
+/// changed during a rollback.
 #[derive(Resource, Default)]
 pub struct RollbackEntityMap(EntityMap);
 

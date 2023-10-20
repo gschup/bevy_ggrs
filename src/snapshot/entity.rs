@@ -1,9 +1,12 @@
 use crate::{
     GgrsComponentSnapshot, GgrsSnapshots, LoadWorld, LoadWorldSet, Rollback, RollbackEntityMap,
-    RollbackFrameCount, SaveWorld,
+    RollbackFrameCount, SaveWorld, SaveWorldSet,
 };
 use bevy::{ecs::entity::EntityMap, prelude::*, utils::HashMap};
 
+/// A [`Plugin`] which manages the rollback for [`Entities`](`Entity`). This will ensure
+/// all [`Entities`](`Entity`) match the state of the desired frame, or can be mapped using a
+/// [`RollbackEntityMap`], which this [`Plugin`] will also manage.
 pub struct GgrsEntitySnapshotPlugin;
 
 impl GgrsEntitySnapshotPlugin {
@@ -63,7 +66,7 @@ impl Plugin for GgrsEntitySnapshotPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GgrsSnapshots<Entity, GgrsComponentSnapshot<Entity>>>()
             .init_resource::<RollbackEntityMap>()
-            .add_systems(SaveWorld, Self::save)
+            .add_systems(SaveWorld, Self::save.in_set(SaveWorldSet::Snapshot))
             .add_systems(LoadWorld, Self::load.in_set(LoadWorldSet::Entity));
     }
 }

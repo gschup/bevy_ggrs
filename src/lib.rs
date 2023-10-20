@@ -114,17 +114,6 @@ pub struct GgrsPlugin<C: Config> {
     _marker: PhantomData<C>,
 }
 
-#[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
-pub enum LoadWorldSet {
-    PreEntityFlush,
-    Entity,
-    EntityFlush,
-    Data,
-    DataFlush,
-    Mapping,
-    MappingFlush,
-}
-
 impl<C: Config> Default for GgrsPlugin<C> {
     fn default() -> Self {
         Self {
@@ -146,25 +135,9 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
             .init_resource::<FixedTimestepData>()
             .add_schedule(GgrsSchedule, schedule)
             .add_schedule(ReadInputs, Schedule::new())
-            .configure_sets(
-                LoadWorld,
-                (
-                    LoadWorldSet::PreEntityFlush,
-                    LoadWorldSet::Entity,
-                    LoadWorldSet::EntityFlush,
-                    LoadWorldSet::Data,
-                    LoadWorldSet::DataFlush,
-                    LoadWorldSet::Mapping,
-                    LoadWorldSet::MappingFlush,
-                )
-                    .chain(),
-            )
             .add_systems(PreUpdate, schedule_systems::run_ggrs_schedules::<C>)
-            .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::PreEntityFlush))
-            .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::EntityFlush))
-            .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::DataFlush))
-            .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::MappingFlush))
             .add_plugins((
+                GgrsPlumbingPlugin,
                 GgrsChecksumPlugin,
                 GgrsResourceSnapshotClonePlugin::<Checksum>::default(),
                 GgrsEntitySnapshotPlugin,

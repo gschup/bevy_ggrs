@@ -1,7 +1,10 @@
-use crate::{GgrsSnapshots, LoadWorld, LoadWorldSet, RollbackFrameCount, SaveWorld};
+use crate::{GgrsSnapshots, LoadWorld, LoadWorldSet, RollbackFrameCount, SaveWorld, SaveWorldSet};
 use bevy::prelude::*;
 use std::marker::PhantomData;
 
+/// A [`Plugin`] which manages snapshots for a [`Resource`] `R` using [`Reflect`] and [`FromWorld`].
+/// 
+/// NOTE: [`FromWorld`] is implemented for all types implementing [`Default`].
 pub struct GgrsResourceSnapshotReflectPlugin<R>
 where
     R: Resource + Reflect + FromWorld,
@@ -65,7 +68,7 @@ where
 {
     fn build(&self, app: &mut App) {
         app.init_resource::<GgrsSnapshots<R, Option<Box<dyn Reflect>>>>()
-            .add_systems(SaveWorld, Self::save)
+            .add_systems(SaveWorld, Self::save.in_set(SaveWorldSet::Snapshot))
             .add_systems(LoadWorld, Self::load.in_set(LoadWorldSet::Data));
     }
 }

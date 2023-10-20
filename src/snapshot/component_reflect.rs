@@ -1,10 +1,13 @@
 use crate::{
     GgrsComponentSnapshot, GgrsSnapshots, LoadWorld, LoadWorldSet, Rollback, RollbackFrameCount,
-    SaveWorld,
+    SaveWorld, SaveWorldSet,
 };
 use bevy::prelude::*;
 use std::marker::PhantomData;
 
+/// A [`Plugin`] which manages snapshots for a [`Component`] `C` using [`Reflect`] and [`FromWorld`].
+/// 
+/// NOTE: [`FromWorld`] is implemented for all types implementing [`Default`].
 pub struct GgrsComponentSnapshotReflectPlugin<C>
 where
     C: Component + Reflect + FromWorld,
@@ -78,7 +81,7 @@ where
 {
     fn build(&self, app: &mut App) {
         app.init_resource::<GgrsSnapshots<C, GgrsComponentSnapshot<C, Box<dyn Reflect>>>>()
-            .add_systems(SaveWorld, Self::save)
+            .add_systems(SaveWorld, Self::save.in_set(SaveWorldSet::Snapshot))
             .add_systems(LoadWorld, Self::load.in_set(LoadWorldSet::Data));
     }
 }

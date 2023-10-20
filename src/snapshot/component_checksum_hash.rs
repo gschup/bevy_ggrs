@@ -8,6 +8,8 @@ use bevy::prelude::*;
 
 use crate::{ChecksumFlag, ChecksumPart, Rollback, SaveWorld};
 
+/// A [`Plugin`]` which will track the [`Component`] `C` on [`Rollback Entities`](`Rollback`) and ensure a
+/// [`ChecksumPart`] is available and updated. This can be used to generate a [`Checksum`](`crate::Checksum`).
 pub struct GgrsComponentChecksumHashPlugin<C>
 where
     C: Component + Hash,
@@ -30,6 +32,7 @@ impl<C> GgrsComponentChecksumHashPlugin<C>
 where
     C: Component + Hash,
 {
+    /// A [`System`] responsible for managing a [`ChecksumPart`] for the [`Component`] type `C`.
     pub fn update(
         mut commands: Commands,
         components: Query<&C, (With<Rollback>, Without<ChecksumFlag<C>>)>,
@@ -37,17 +40,17 @@ where
     ) {
         let mut hasher = DefaultHasher::new();
 
-        let Ok(mut checksum) = checksum.get_single_mut() else {
-            commands.spawn((ChecksumPart::default(), ChecksumFlag::<C>::default()));
-
-            return;
-        };
-
         for component in components.iter() {
             component.hash(&mut hasher);
         }
 
-        *checksum = ChecksumPart(hasher.finish());
+        let result = ChecksumPart(hasher.finish());
+
+        if let Ok(mut checksum) = checksum.get_single_mut() {
+            *checksum = result;
+        } else {
+            commands.spawn((result, ChecksumFlag::<C>::default()));
+        }
     }
 }
 

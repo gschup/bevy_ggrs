@@ -7,6 +7,7 @@ use bevy::{
 
 use crate::{LoadWorld, LoadWorldSet, RollbackEntityMap};
 
+/// A [`Plugin`] which updates the state of a post-rollback [`Component`] `C` using [`MapEntities`].
 pub struct GgrsComponentMapEntitiesPlugin<C>
 where
     C: Component + MapEntities,

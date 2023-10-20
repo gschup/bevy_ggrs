@@ -47,7 +47,7 @@ impl GgrsEntitySnapshotPlugin {
                 }
                 (None, Some(old_entity)) => {
                     let current_entity = commands.spawn_empty().id();
-                    entity_map.insert(current_entity, *old_entity);
+                    entity_map.insert(*old_entity, current_entity);
                 }
                 (None, None) => unreachable!(
                     "Rollback keys could only be added if they had an old or current Entity"

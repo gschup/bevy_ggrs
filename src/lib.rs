@@ -116,6 +116,7 @@ pub struct GgrsPlugin<C: Config> {
 
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
 pub enum LoadWorldSet {
+    PreEntityFlush,
     Entity,
     EntityFlush,
     Data,
@@ -148,6 +149,7 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
             .configure_sets(
                 LoadWorld,
                 (
+                    LoadWorldSet::PreEntityFlush,
                     LoadWorldSet::Entity,
                     LoadWorldSet::EntityFlush,
                     LoadWorldSet::Data,
@@ -158,6 +160,7 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
                     .chain(),
             )
             .add_systems(PreUpdate, schedule_systems::run_ggrs_schedules::<C>)
+            .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::PreEntityFlush))
             .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::EntityFlush))
             .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::DataFlush))
             .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::MappingFlush))

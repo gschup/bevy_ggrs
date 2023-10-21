@@ -27,7 +27,7 @@ impl<T> Default for ChecksumFlag<T> {
 pub struct ChecksumPart(pub u64);
 
 /// Represents a total checksum for a given frame.
-#[derive(Resource, Default, Clone)]
+#[derive(Resource, Default, Clone, Copy)]
 pub struct Checksum(pub u64);
 
 /// A [`Plugin`] which creates a [`Checksum`] resource which can be read after the

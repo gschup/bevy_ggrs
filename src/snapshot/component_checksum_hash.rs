@@ -8,7 +8,7 @@ use bevy::prelude::*;
 
 use crate::{ChecksumFlag, ChecksumPart, Rollback, SaveWorld, SaveWorldSet};
 
-/// A [`Plugin`]` which will track the [`Component`] `C` on [`Rollback Entities`](`Rollback`) and ensure a
+/// A [`Plugin`] which will track the [`Component`] `C` on [`Rollback Entities`](`Rollback`) and ensure a
 /// [`ChecksumPart`] is available and updated. This can be used to generate a [`Checksum`](`crate::Checksum`).
 pub struct GgrsComponentChecksumHashPlugin<C>
 where

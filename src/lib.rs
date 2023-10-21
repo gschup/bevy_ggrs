@@ -144,7 +144,7 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
             .add_plugins((
                 GgrsPlumbingPlugin,
                 GgrsChecksumPlugin,
-                GgrsResourceSnapshotClonePlugin::<Checksum>::default(),
+                GgrsResourceSnapshotCopyPlugin::<Checksum>::default(),
                 GgrsEntitySnapshotPlugin,
                 GgrsComponentSnapshotReflectPlugin::<Parent>::default(),
                 GgrsComponentMapEntitiesPlugin::<Parent>::default(),

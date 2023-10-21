@@ -47,9 +47,9 @@ pub enum SaveWorldSet {
 
 /// Sets up the [`LoadWorldSet`] and [`SaveWorldSet`] sets, allowing for explicit ordering of
 /// rollback systems across plugins.
-pub struct GgrsPlumbingPlugin;
+pub struct GgrsSnapshotSetPlugin;
 
-impl Plugin for GgrsPlumbingPlugin {
+impl Plugin for GgrsSnapshotSetPlugin {
     fn build(&self, app: &mut App) {
         app.configure_sets(
             LoadWorld,

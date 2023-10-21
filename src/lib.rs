@@ -142,7 +142,7 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
             .add_schedule(ReadInputs, Schedule::new())
             .add_systems(PreUpdate, schedule_systems::run_ggrs_schedules::<C>)
             .add_plugins((
-                GgrsPlumbingPlugin,
+                GgrsSnapshotSetPlugin,
                 GgrsChecksumPlugin,
                 GgrsResourceSnapshotCopyPlugin::<Checksum>::default(),
                 GgrsEntitySnapshotPlugin,

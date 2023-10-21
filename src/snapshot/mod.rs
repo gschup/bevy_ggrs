@@ -9,7 +9,7 @@ mod component_copy;
 mod component_map;
 mod component_reflect;
 mod entity;
-mod plumbing;
+mod set;
 mod resource_checksum_hash;
 mod resource_clone;
 mod resource_copy;
@@ -24,7 +24,7 @@ pub use component_copy::*;
 pub use component_map::*;
 pub use component_reflect::*;
 pub use entity::*;
-pub use plumbing::*;
+pub use set::*;
 pub use resource_checksum_hash::*;
 pub use resource_clone::*;
 pub use resource_copy::*;
@@ -37,7 +37,7 @@ pub mod prelude {
         Checksum, GgrsChecksumPlugin, GgrsComponentChecksumHashPlugin,
         GgrsComponentMapEntitiesPlugin, GgrsComponentSnapshotClonePlugin,
         GgrsComponentSnapshotCopyPlugin, GgrsComponentSnapshotReflectPlugin,
-        GgrsEntitySnapshotPlugin, GgrsPlumbingPlugin, GgrsResourceChecksumHashPlugin,
+        GgrsEntitySnapshotPlugin, GgrsSnapshotSetPlugin, GgrsResourceChecksumHashPlugin,
         GgrsResourceMapEntitiesPlugin, GgrsResourceSnapshotClonePlugin,
         GgrsResourceSnapshotCopyPlugin, GgrsResourceSnapshotReflectPlugin, LoadWorldSet,
         SaveWorldSet,

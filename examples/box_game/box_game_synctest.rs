@@ -43,9 +43,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .add_systems(ReadInputs, read_local_inputs)
         .insert_resource(opt)
         .add_plugins(DefaultPlugins)
-        // add rollback functionality to components and resources as desired
+        // Rollback behavior can be controlled through many modular plugins
         .add_plugins((
-            GgrsResourceSnapshotClonePlugin::<FrameCount>::default(),
+            // The FrameCount resource implements Copy
+            // We can use that to have minimal overhead rollback
+            GgrsResourceSnapshotCopyPlugin::<FrameCount>::default(),
+            // Transform and Velocity components only implement Clone,
+            // so instead we'll use that to snapshot and rollback with
             GgrsComponentSnapshotClonePlugin::<Transform>::default(),
             GgrsComponentSnapshotClonePlugin::<Velocity>::default(),
         ))

@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_ggrs::{prelude::*, GgrsComponentSnapshotClonePlugin, GgrsResourceSnapshotClonePlugin};
+use bevy_ggrs::prelude::*;
 use structopt::StructOpt;
 
 mod box_game;

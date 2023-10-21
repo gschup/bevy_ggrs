@@ -1,5 +1,5 @@
 use bevy::{prelude::*, window::WindowResolution};
-use bevy_ggrs::{prelude::*, GgrsComponentSnapshotClonePlugin, GgrsResourceSnapshotClonePlugin};
+use bevy_ggrs::prelude::*;
 use ggrs::UdpNonBlockingSocket;
 use std::net::SocketAddr;
 use structopt::StructOpt;

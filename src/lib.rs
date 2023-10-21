@@ -20,8 +20,8 @@ pub(crate) mod snapshot;
 
 pub mod prelude {
     pub use crate::{
-        AddRollbackCommandExtension, GgrsApp, GgrsConfig, GgrsPlugin, GgrsSchedule, PlayerInputs,
-        ReadInputs, Rollback, Session,
+        snapshot::prelude::*, AddRollbackCommandExtension, GgrsApp, GgrsConfig, GgrsPlugin,
+        GgrsSchedule, PlayerInputs, ReadInputs, Rollback, Session,
     };
     pub use ggrs::{GGRSEvent as GgrsEvent, PlayerType, SessionBuilder};
 }

@@ -32,6 +32,18 @@ pub use resource_map::*;
 pub use resource_reflect::*;
 pub use rollback_entity_map::*;
 
+pub mod prelude {
+    pub use super::{
+        Checksum, GgrsChecksumPlugin, GgrsComponentChecksumHashPlugin,
+        GgrsComponentMapEntitiesPlugin, GgrsComponentSnapshotClonePlugin,
+        GgrsComponentSnapshotCopyPlugin, GgrsComponentSnapshotReflectPlugin,
+        GgrsEntitySnapshotPlugin, GgrsPlumbingPlugin, GgrsResourceChecksumHashPlugin,
+        GgrsResourceMapEntitiesPlugin, GgrsResourceSnapshotClonePlugin,
+        GgrsResourceSnapshotCopyPlugin, GgrsResourceSnapshotReflectPlugin, LoadWorldSet,
+        SaveWorldSet,
+    };
+}
+
 /// Collection of snapshots for a type `For`, stored as `As`
 #[derive(Resource)]
 pub struct GgrsSnapshots<For, As = For> {

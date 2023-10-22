@@ -48,7 +48,7 @@ where
             component.hash(&mut hasher);
         }
 
-        let result = ChecksumPart(hasher.finish());
+        let result = ChecksumPart(hasher.finish() as u128);
 
         if let Ok(mut checksum) = checksum.get_single_mut() {
             *checksum = result;

@@ -24,11 +24,11 @@ impl<T> Default for ChecksumFlag<T> {
 
 /// Represents a checksum value for a specific type, flagged by [`ChecksumFlag`].
 #[derive(Component, Default, Hash)]
-pub struct ChecksumPart(pub u64);
+pub struct ChecksumPart(pub u128);
 
 /// Represents a total checksum for a given frame.
 #[derive(Resource, Default, Clone, Copy)]
-pub struct Checksum(pub u64);
+pub struct Checksum(pub u128);
 
 /// A [`Plugin`] which creates a [`Checksum`] resource which can be read after the
 /// [`SaveWorldSet::Snapshot`] set in the [`SaveWorld`] schedule has been run.
@@ -41,7 +41,7 @@ pub struct GgrsChecksumPlugin;
 impl GgrsChecksumPlugin {
     /// A [`System`] responsible for updating [`Checksum`] based on [`ChecksumParts`](`ChecksumPart`).
     pub fn update(mut checksum: ResMut<Checksum>, parts: Query<&ChecksumPart>) {
-        let parts = parts.iter().fold(0, |result: u64, &ChecksumPart(part)| {
+        let parts = parts.iter().fold(0, |result: u128, &ChecksumPart(part)| {
             result.wrapping_add(part)
         });
 
@@ -49,7 +49,7 @@ impl GgrsChecksumPlugin {
 
         parts.hash(&mut hasher);
 
-        *checksum = Checksum(hasher.finish());
+        *checksum = Checksum(hasher.finish() as u128);
     }
 }
 

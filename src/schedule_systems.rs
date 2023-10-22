@@ -1,5 +1,5 @@
 use crate::{
-    Checksum, FixedTimestepData, GgrsSchedule, GgrsSnapshots, LoadWorld, LocalInputs, LocalPlayers,
+    Checksum, FixedTimestepData, GgrsSchedule, LoadWorld, LocalInputs, LocalPlayers,
     PlayerInputs, ReadInputs, RollbackFrameConfirmed, RollbackFrameCount, SaveWorld, Session,
 };
 use bevy::{prelude::*, utils::Duration};
@@ -155,14 +155,9 @@ pub(crate) fn handle_requests<T: Config>(requests: Vec<GGRSRequest<T>>, world: &
                 world.run_schedule(SaveWorld);
 
                 // look into resources and find the checksum
-                let snapshots = world
-                    .get_resource::<GgrsSnapshots<Checksum, Option<Checksum>>>()
-                    .expect("No GGRS RollbackSnapshots resource found. Did you remove it?");
-
-                let checksum = match snapshots.peek(frame) {
-                    Some(Some(Checksum(checksum))) => Some(*checksum as u128),
-                    _ => None,
-                };
+                let checksum = world
+                    .get_resource::<Checksum>()
+                    .map(|&Checksum(checksum)| checksum as u128);
 
                 // we don't really use the buffer provided by GGRS
                 cell.save(frame, None, checksum);

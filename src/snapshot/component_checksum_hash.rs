@@ -63,6 +63,6 @@ where
     C: Component + Hash,
 {
     fn build(&self, app: &mut App) {
-        app.add_systems(SaveWorld, Self::update.in_set(SaveWorldSet::Snapshot));
+        app.add_systems(SaveWorld, Self::update.in_set(SaveWorldSet::Checksum));
     }
 }

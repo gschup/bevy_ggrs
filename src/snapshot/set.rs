@@ -37,6 +37,8 @@ pub enum LoadWorldSet {
 
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
 pub enum SaveWorldSet {
+    /// Generate checksums for any tracked data.
+    Checksum,
     /// Flush any deferred operations
     PreSnapshotFlush,
     /// Saves a snapshot of the [`World`] in this state for future possible rollback.
@@ -67,6 +69,7 @@ impl Plugin for GgrsSnapshotSetPlugin {
         .configure_sets(
             SaveWorld,
             (
+                SaveWorldSet::Checksum,
                 SaveWorldSet::PreSnapshotFlush,
                 SaveWorldSet::Snapshot,
                 SaveWorldSet::PostSnapshotFlush,

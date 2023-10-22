@@ -56,6 +56,6 @@ impl GgrsChecksumPlugin {
 impl Plugin for GgrsChecksumPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Checksum>()
-            .add_systems(SaveWorld, Self::update.in_set(SaveWorldSet::Snapshot));
+            .add_systems(SaveWorld, Self::update.after(SaveWorldSet::Checksum).before(SaveWorldSet::Snapshot));
     }
 }

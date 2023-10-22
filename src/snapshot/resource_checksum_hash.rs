@@ -1,6 +1,5 @@
 use std::{
-    collections::hash_map::DefaultHasher,
-    hash::{Hash, Hasher},
+    hash::{Hash, Hasher, BuildHasher},
     marker::PhantomData,
 };
 
@@ -38,7 +37,7 @@ where
         resource: Res<R>,
         mut checksum: Query<&mut ChecksumPart, (Without<Rollback>, With<ChecksumFlag<R>>)>,
     ) {
-        let mut hasher = DefaultHasher::new();
+        let mut hasher = bevy::utils::FixedState::default().build_hasher();
 
         resource.hash(&mut hasher);
 

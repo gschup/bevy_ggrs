@@ -1,6 +1,5 @@
 use std::{
-    collections::hash_map::DefaultHasher,
-    hash::{Hash, Hasher},
+    hash::{Hash, Hasher, BuildHasher},
     marker::PhantomData,
 };
 
@@ -45,7 +44,7 @@ impl GgrsChecksumPlugin {
             result.wrapping_add(part)
         });
 
-        let mut hasher = DefaultHasher::new();
+        let mut hasher = bevy::utils::FixedState::default().build_hasher();
 
         parts.hash(&mut hasher);
 

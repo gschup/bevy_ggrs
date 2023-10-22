@@ -1,6 +1,5 @@
 use std::{
-    collections::hash_map::DefaultHasher,
-    hash::{Hash, Hasher},
+    hash::{Hash, Hasher, BuildHasher},
     marker::PhantomData,
 };
 
@@ -38,7 +37,7 @@ where
         components: Query<(&Rollback, &C), (With<Rollback>, Without<ChecksumFlag<C>>)>,
         mut checksum: Query<&mut ChecksumPart, (Without<Rollback>, With<ChecksumFlag<C>>)>,
     ) {
-        let mut hasher = DefaultHasher::new();
+        let mut hasher = bevy::utils::FixedState::default().build_hasher();
 
         let mut components = components.iter().collect::<Vec<_>>();
 

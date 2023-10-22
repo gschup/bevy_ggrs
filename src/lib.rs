@@ -120,9 +120,7 @@ pub struct GgrsPlugin<C: Config> {
 
 impl<C: Config> Default for GgrsPlugin<C> {
     fn default() -> Self {
-        Self {
-            _marker: Default::default(),
-        }
+        Self { _marker: default() }
     }
 }
 

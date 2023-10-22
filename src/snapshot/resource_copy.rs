@@ -18,7 +18,7 @@ where
 {
     fn default() -> Self {
         Self {
-            _phantom: Default::default(),
+            _phantom: default(),
         }
     }
 }

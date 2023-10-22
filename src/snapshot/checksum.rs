@@ -17,7 +17,7 @@ pub struct ChecksumFlag<T> {
 impl<T> Default for ChecksumFlag<T> {
     fn default() -> Self {
         Self {
-            _phantom: Default::default(),
+            _phantom: default(),
         }
     }
 }

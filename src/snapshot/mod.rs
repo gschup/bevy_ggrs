@@ -59,10 +59,10 @@ pub struct GgrsSnapshots<For, As = For> {
 impl<For, As> Default for GgrsSnapshots<For, As> {
     fn default() -> Self {
         Self {
-            snapshots: Default::default(),
-            frames: Default::default(),
+            snapshots: default(),
+            frames: default(),
             depth: DEFAULT_FPS, // TODO: Make sensible choice here
-            _phantom: Default::default(),
+            _phantom: default(),
         }
     }
 }
@@ -195,8 +195,8 @@ pub struct GgrsComponentSnapshot<For, As = For> {
 impl<For, As> Default for GgrsComponentSnapshot<For, As> {
     fn default() -> Self {
         Self {
-            snapshot: Default::default(),
-            _phantom: Default::default(),
+            snapshot: default(),
+            _phantom: default(),
         }
     }
 }
@@ -205,7 +205,7 @@ impl<For, As> GgrsComponentSnapshot<For, As> {
     pub fn new(components: impl IntoIterator<Item = (Rollback, As)>) -> Self {
         Self {
             snapshot: components.into_iter().collect(),
-            ..Default::default()
+            ..default()
         }
     }
 

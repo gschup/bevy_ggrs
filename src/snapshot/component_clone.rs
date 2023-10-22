@@ -1,6 +1,6 @@
 use crate::{
-    GgrsComponentSnapshot, GgrsSnapshots, LoadWorld, LoadWorldSet, Rollback, RollbackFrameCount,
-    SaveWorld, SaveWorldSet,
+    GgrsComponentSnapshot, GgrsComponentSnapshots, LoadWorld, LoadWorldSet, Rollback,
+    RollbackFrameCount, SaveWorld, SaveWorldSet,
 };
 use bevy::prelude::*;
 use std::marker::PhantomData;
@@ -12,8 +12,6 @@ where
 {
     _phantom: PhantomData<C>,
 }
-
-type Snapshots<C> = GgrsSnapshots<C, GgrsComponentSnapshot<C>>;
 
 impl<C> Default for GgrsComponentSnapshotClonePlugin<C>
 where
@@ -31,7 +29,7 @@ where
     C: Component + Clone,
 {
     pub fn save(
-        mut snapshots: ResMut<Snapshots<C>>,
+        mut snapshots: ResMut<GgrsComponentSnapshots<C>>,
         frame: Res<RollbackFrameCount>,
         query: Query<(&Rollback, &C)>,
     ) {
@@ -44,7 +42,7 @@ where
 
     pub fn load(
         mut commands: Commands,
-        mut snapshots: ResMut<Snapshots<C>>,
+        mut snapshots: ResMut<GgrsComponentSnapshots<C>>,
         frame: Res<RollbackFrameCount>,
         mut query: Query<(Entity, &Rollback, Option<&mut C>)>,
     ) {
@@ -72,10 +70,13 @@ where
     C: Component + Clone,
 {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Snapshots<C>>()
+        app.init_resource::<GgrsComponentSnapshots<C>>()
             .add_systems(
                 SaveWorld,
-                (Snapshots::<C>::discard_old_snapshots, Self::save)
+                (
+                    GgrsComponentSnapshots::<C>::discard_old_snapshots,
+                    Self::save,
+                )
                     .chain()
                     .in_set(SaveWorldSet::Snapshot),
             )

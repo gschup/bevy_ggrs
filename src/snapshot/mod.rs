@@ -43,6 +43,14 @@ pub mod prelude {
     };
 }
 
+/// Typical [`Resource`] used to store snapshots for a [`Resource`] `R` as the type `As`.
+/// For most types, the default `As = R` will suffice.
+pub type GgrsResourceSnapshots<R, As = R> = GgrsSnapshots<R, Option<As>>;
+
+/// Typical [`Resource`] used to store snapshots for a [`Component`] `C` as the type `As`.
+/// For most types, the default `As = C` will suffice.
+pub type GgrsComponentSnapshots<C, As = C> = GgrsSnapshots<C, GgrsComponentSnapshot<C, As>>;
+
 /// Collection of snapshots for a type `For`, stored as `As`
 #[derive(Resource)]
 pub struct GgrsSnapshots<For, As = For> {

@@ -1,6 +1,6 @@
 use crate::{
-    GgrsComponentSnapshot, GgrsSnapshots, LoadWorld, LoadWorldSet, Rollback, RollbackEntityMap,
-    RollbackFrameCount, SaveWorld, SaveWorldSet,
+    GgrsComponentSnapshot, GgrsComponentSnapshots, LoadWorld, LoadWorldSet, Rollback,
+    RollbackEntityMap, RollbackFrameCount, SaveWorld, SaveWorldSet,
 };
 use bevy::{ecs::entity::EntityMap, prelude::*, utils::HashMap};
 
@@ -9,11 +9,9 @@ use bevy::{ecs::entity::EntityMap, prelude::*, utils::HashMap};
 /// [`RollbackEntityMap`], which this [`Plugin`] will also manage.
 pub struct GgrsEntitySnapshotPlugin;
 
-type Snapshots = GgrsSnapshots<Entity, GgrsComponentSnapshot<Entity>>;
-
 impl GgrsEntitySnapshotPlugin {
     pub fn save(
-        mut snapshots: ResMut<Snapshots>,
+        mut snapshots: ResMut<GgrsComponentSnapshots<Entity>>,
         frame: Res<RollbackFrameCount>,
         query: Query<(&Rollback, Entity)>,
     ) {
@@ -24,7 +22,7 @@ impl GgrsEntitySnapshotPlugin {
 
     pub fn load(
         mut commands: Commands,
-        mut snapshots: ResMut<Snapshots>,
+        mut snapshots: ResMut<GgrsComponentSnapshots<Entity>>,
         mut map: ResMut<RollbackEntityMap>,
         frame: Res<RollbackFrameCount>,
         query: Query<(&Rollback, Entity)>,
@@ -66,11 +64,14 @@ impl GgrsEntitySnapshotPlugin {
 
 impl Plugin for GgrsEntitySnapshotPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Snapshots>()
+        app.init_resource::<GgrsComponentSnapshots<Entity>>()
             .init_resource::<RollbackEntityMap>()
             .add_systems(
                 SaveWorld,
-                (Snapshots::discard_old_snapshots, Self::save)
+                (
+                    GgrsComponentSnapshots::<Entity>::discard_old_snapshots,
+                    Self::save,
+                )
                     .chain()
                     .in_set(SaveWorldSet::Snapshot),
             )

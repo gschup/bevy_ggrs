@@ -1,4 +1,6 @@
-use crate::{GgrsSnapshots, LoadWorld, LoadWorldSet, RollbackFrameCount, SaveWorld, SaveWorldSet};
+use crate::{
+    GgrsResourceSnapshots, LoadWorld, LoadWorldSet, RollbackFrameCount, SaveWorld, SaveWorldSet,
+};
 use bevy::prelude::*;
 use std::marker::PhantomData;
 
@@ -11,8 +13,6 @@ where
 {
     _phantom: PhantomData<R>,
 }
-
-type Snapshots<R> = GgrsSnapshots<R, Option<Box<dyn Reflect>>>;
 
 impl<R> Default for GgrsResourceSnapshotReflectPlugin<R>
 where
@@ -30,7 +30,7 @@ where
     R: Resource + Reflect + FromWorld,
 {
     pub fn save(
-        mut snapshots: ResMut<Snapshots<R>>,
+        mut snapshots: ResMut<GgrsResourceSnapshots<R, Box<dyn Reflect>>>,
         frame: Res<RollbackFrameCount>,
         resource: Option<Res<R>>,
     ) {
@@ -39,7 +39,7 @@ where
 
     pub fn load(
         mut commands: Commands,
-        mut snapshots: ResMut<Snapshots<R>>,
+        mut snapshots: ResMut<GgrsResourceSnapshots<R, Box<dyn Reflect>>>,
         frame: Res<RollbackFrameCount>,
         resource: Option<ResMut<R>>,
     ) {
@@ -69,10 +69,13 @@ where
     R: Resource + Reflect + FromWorld,
 {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Snapshots<R>>()
+        app.init_resource::<GgrsResourceSnapshots<R, Box<dyn Reflect>>>()
             .add_systems(
                 SaveWorld,
-                (Snapshots::<R>::discard_old_snapshots, Self::save)
+                (
+                    GgrsResourceSnapshots::<R, Box<dyn Reflect>>::discard_old_snapshots,
+                    Self::save,
+                )
                     .chain()
                     .in_set(SaveWorldSet::Snapshot),
             )

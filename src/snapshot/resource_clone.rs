@@ -1,4 +1,6 @@
-use crate::{GgrsSnapshots, LoadWorld, LoadWorldSet, RollbackFrameCount, SaveWorld, SaveWorldSet};
+use crate::{
+    GgrsResourceSnapshots, LoadWorld, LoadWorldSet, RollbackFrameCount, SaveWorld, SaveWorldSet,
+};
 use bevy::prelude::*;
 use std::marker::PhantomData;
 
@@ -9,8 +11,6 @@ where
 {
     _phantom: PhantomData<R>,
 }
-
-type Snapshots<R> = GgrsSnapshots<R, Option<R>>;
 
 impl<R> Default for GgrsResourceSnapshotClonePlugin<R>
 where
@@ -28,7 +28,7 @@ where
     R: Resource + Clone,
 {
     pub fn save(
-        mut snapshots: ResMut<Snapshots<R>>,
+        mut snapshots: ResMut<GgrsResourceSnapshots<R>>,
         frame: Res<RollbackFrameCount>,
         resource: Option<Res<R>>,
     ) {
@@ -37,7 +37,7 @@ where
 
     pub fn load(
         mut commands: Commands,
-        mut snapshots: ResMut<Snapshots<R>>,
+        mut snapshots: ResMut<GgrsResourceSnapshots<R>>,
         frame: Res<RollbackFrameCount>,
         resource: Option<ResMut<R>>,
     ) {
@@ -57,10 +57,13 @@ where
     R: Resource + Clone,
 {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Snapshots<R>>()
+        app.init_resource::<GgrsResourceSnapshots<R>>()
             .add_systems(
                 SaveWorld,
-                (Snapshots::<R>::discard_old_snapshots, Self::save)
+                (
+                    GgrsResourceSnapshots::<R>::discard_old_snapshots,
+                    Self::save,
+                )
                     .chain()
                     .in_set(SaveWorldSet::Snapshot),
             )

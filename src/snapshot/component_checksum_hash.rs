@@ -35,12 +35,16 @@ where
     /// A [`System`] responsible for managing a [`ChecksumPart`] for the [`Component`] type `C`.
     pub fn update(
         mut commands: Commands,
-        components: Query<&C, (With<Rollback>, Without<ChecksumFlag<C>>)>,
+        components: Query<(&Rollback, &C), (With<Rollback>, Without<ChecksumFlag<C>>)>,
         mut checksum: Query<&mut ChecksumPart, (Without<Rollback>, With<ChecksumFlag<C>>)>,
     ) {
         let mut hasher = DefaultHasher::new();
 
-        for component in components.iter() {
+        let mut components = components.iter().collect::<Vec<_>>();
+
+        components.sort_by_key(|(&rollback, _)| rollback);
+
+        for (_, component) in components {
             component.hash(&mut hasher);
         }
 

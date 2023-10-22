@@ -9,13 +9,13 @@ mod component_copy;
 mod component_map;
 mod component_reflect;
 mod entity;
-mod set;
 mod resource_checksum_hash;
 mod resource_clone;
 mod resource_copy;
 mod resource_map;
 mod resource_reflect;
 mod rollback_entity_map;
+mod set;
 
 pub use checksum::*;
 pub use component_checksum_hash::*;
@@ -24,23 +24,22 @@ pub use component_copy::*;
 pub use component_map::*;
 pub use component_reflect::*;
 pub use entity::*;
-pub use set::*;
 pub use resource_checksum_hash::*;
 pub use resource_clone::*;
 pub use resource_copy::*;
 pub use resource_map::*;
 pub use resource_reflect::*;
 pub use rollback_entity_map::*;
+pub use set::*;
 
 pub mod prelude {
     pub use super::{
         Checksum, GgrsChecksumPlugin, GgrsComponentChecksumHashPlugin,
         GgrsComponentMapEntitiesPlugin, GgrsComponentSnapshotClonePlugin,
         GgrsComponentSnapshotCopyPlugin, GgrsComponentSnapshotReflectPlugin,
-        GgrsEntitySnapshotPlugin, GgrsSnapshotSetPlugin, GgrsResourceChecksumHashPlugin,
-        GgrsResourceMapEntitiesPlugin, GgrsResourceSnapshotClonePlugin,
-        GgrsResourceSnapshotCopyPlugin, GgrsResourceSnapshotReflectPlugin, LoadWorldSet,
-        SaveWorldSet,
+        GgrsEntitySnapshotPlugin, GgrsResourceChecksumHashPlugin, GgrsResourceMapEntitiesPlugin,
+        GgrsResourceSnapshotClonePlugin, GgrsResourceSnapshotCopyPlugin,
+        GgrsResourceSnapshotReflectPlugin, GgrsSnapshotSetPlugin, LoadWorldSet, SaveWorldSet,
     };
 }
 

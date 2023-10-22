@@ -41,11 +41,13 @@ pub struct GgrsChecksumPlugin;
 impl GgrsChecksumPlugin {
     /// A [`System`] responsible for updating [`Checksum`] based on [`ChecksumParts`](`ChecksumPart`).
     pub fn update(mut checksum: ResMut<Checksum>, parts: Query<&ChecksumPart>) {
+        let parts = parts.iter().fold(0, |result: u64, &ChecksumPart(part)| {
+            result.wrapping_add(part)
+        });
+
         let mut hasher = DefaultHasher::new();
 
-        for part in parts.iter() {
-            part.hash(&mut hasher);
-        }
+        parts.hash(&mut hasher);
 
         *checksum = Checksum(hasher.finish());
     }

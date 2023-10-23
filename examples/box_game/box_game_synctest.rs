@@ -44,15 +44,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .insert_resource(opt)
         .add_plugins(DefaultPlugins)
         // Rollback behavior can be controlled through many modular plugins
-        .add_plugins((
-            // The FrameCount resource implements Copy
-            // We can use that to have minimal overhead rollback
-            GgrsResourceSnapshotCopyPlugin::<FrameCount>::default(),
-            // Transform and Velocity components only implement Clone,
-            // so instead we'll use that to snapshot and rollback with
-            GgrsComponentSnapshotClonePlugin::<Transform>::default(),
-            GgrsComponentSnapshotClonePlugin::<Velocity>::default(),
-        ))
+        // The FrameCount resource implements Copy
+        // We can use that to have minimal overhead rollback
+        .rollback_resource_with_copy::<FrameCount>()
+        // Transform and Velocity components only implement Clone,
+        // so instead we'll use that to snapshot and rollback with
+        .rollback_component_with_clone::<Transform>()
+        .rollback_component_with_clone::<Velocity>()
         .add_systems(Startup, setup_system)
         // these systems will be executed as part of the advance frame update
         .add_systems(GgrsSchedule, (move_cube_system, increase_frame_system))

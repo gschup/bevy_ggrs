@@ -29,7 +29,7 @@ pub struct ChecksumPart(pub u128);
 #[derive(Resource, Default, Clone, Copy)]
 pub struct Checksum(pub u128);
 
-/// A [`Plugin`] which creates a [`Checksum`] resource which can be read after the
+/// A [`Plugin`] which creates a [`Checksum`] resource which can be read after or during the
 /// [`SaveWorldSet::Snapshot`] set in the [`SaveWorld`] schedule has been run.
 ///
 /// To add you own data to this [`Checksum`], create an [`Entity`] with a [`ChecksumPart`]

@@ -1,6 +1,6 @@
 use crate::{
-    Checksum, FixedTimestepData, GgrsSchedule, LoadWorld, LocalInputs, LocalPlayers, PlayerInputs,
-    ReadInputs, RollbackFrameConfirmed, RollbackFrameCount, SaveWorld, Session,
+    Checksum, ConfirmedFrameCount, FixedTimestepData, GgrsSchedule, LoadWorld, LocalInputs,
+    LocalPlayers, PlayerInputs, ReadInputs, RollbackFrameCount, SaveWorld, Session,
 };
 use bevy::{prelude::*, utils::Duration};
 use ggrs::{
@@ -61,7 +61,7 @@ pub(crate) fn run_ggrs_schedules<T: Config>(world: &mut World) {
                 time_data.run_slow = false;
                 world.insert_resource(LocalPlayers::default());
                 world.insert_resource(RollbackFrameCount(0));
-                world.insert_resource(RollbackFrameConfirmed(-1));
+                world.insert_resource(ConfirmedFrameCount(-1));
             }
         }
     }
@@ -161,12 +161,12 @@ pub(crate) fn handle_requests<T: Config>(requests: Vec<GGRSRequest<T>>, world: &
         };
 
         if let Some(confirmed_frame) = confirmed_frame {
-            world.insert_resource(RollbackFrameConfirmed(confirmed_frame));
+            world.insert_resource(ConfirmedFrameCount(confirmed_frame));
         }
 
         if let Some(Session::P2P(s)) = world.get_resource::<Session<T>>() {
             let confirmed_frame = s.confirmed_frame();
-            world.insert_resource(RollbackFrameConfirmed(confirmed_frame));
+            world.insert_resource(ConfirmedFrameCount(confirmed_frame));
         }
 
         match request {

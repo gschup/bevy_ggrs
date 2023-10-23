@@ -90,7 +90,7 @@ pub struct RollbackFrameCount(i32);
 
 /// The most recently confirmed frame. Any information for frames stored before this point can be safely discarded.
 #[derive(Resource, Debug, Default)]
-pub struct RollbackFrameConfirmed(i32);
+pub struct ConfirmedFrameCount(i32);
 
 /// Inputs from local players. You have to fill this resource in the ReadInputs schedule.
 #[derive(Resource)]
@@ -133,7 +133,7 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
         });
 
         app.init_resource::<RollbackFrameCount>()
-            .init_resource::<RollbackFrameConfirmed>()
+            .init_resource::<ConfirmedFrameCount>()
             .init_resource::<LocalPlayers>()
             .init_resource::<FixedTimestepData>()
             .add_schedule(GgrsSchedule, schedule)
@@ -156,37 +156,37 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
 pub trait GgrsApp {
     /// Registers a component type for saving and loading from the world. This
     /// uses [`Copy`] based snapshots for rollback.
-    fn register_rollback_component_with_copy<Type>(&mut self) -> &mut Self
+    fn rollback_component_with_copy<Type>(&mut self) -> &mut Self
     where
         Type: Component + Copy;
 
     /// Registers a resource type for saving and loading from the world. This
     /// uses [`Copy`] based snapshots for rollback.
-    fn register_rollback_resource_with_copy<Type>(&mut self) -> &mut Self
+    fn rollback_resource_with_copy<Type>(&mut self) -> &mut Self
     where
         Type: Resource + Copy;
 
     /// Registers a component type for saving and loading from the world. This
     /// uses [`Clone`] based snapshots for rollback.
-    fn register_rollback_component_with_clone<Type>(&mut self) -> &mut Self
+    fn rollback_component_with_clone<Type>(&mut self) -> &mut Self
     where
         Type: Component + Clone;
 
     /// Registers a resource type for saving and loading from the world. This
     /// uses [`Clone`] based snapshots for rollback.
-    fn register_rollback_resource_with_clone<Type>(&mut self) -> &mut Self
+    fn rollback_resource_with_clone<Type>(&mut self) -> &mut Self
     where
         Type: Resource + Clone;
 
     /// Registers a component type for saving and loading from the world. This
     /// uses [`reflection`](`Reflect`) based snapshots for rollback.
-    fn register_rollback_component_with_reflect<Type>(&mut self) -> &mut Self
+    fn rollback_component_with_reflect<Type>(&mut self) -> &mut Self
     where
         Type: Component + Reflect + FromWorld;
 
     /// Registers a resource type for saving and loading from the world. This
     /// uses [`reflection`](`Reflect`) based snapshots for rollback.
-    fn register_rollback_resource_with_reflect<Type>(&mut self) -> &mut Self
+    fn rollback_resource_with_reflect<Type>(&mut self) -> &mut Self
     where
         Type: Resource + Reflect + FromWorld;
 
@@ -201,42 +201,42 @@ impl GgrsApp for App {
         self
     }
 
-    fn register_rollback_component_with_reflect<Type>(&mut self) -> &mut Self
+    fn rollback_component_with_reflect<Type>(&mut self) -> &mut Self
     where
         Type: Component + Reflect + FromWorld,
     {
         self.add_plugins(GgrsComponentSnapshotReflectPlugin::<Type>::default())
     }
 
-    fn register_rollback_resource_with_reflect<Type>(&mut self) -> &mut Self
+    fn rollback_resource_with_reflect<Type>(&mut self) -> &mut Self
     where
         Type: Resource + Reflect + FromWorld,
     {
         self.add_plugins(GgrsResourceSnapshotReflectPlugin::<Type>::default())
     }
 
-    fn register_rollback_component_with_copy<Type>(&mut self) -> &mut Self
+    fn rollback_component_with_copy<Type>(&mut self) -> &mut Self
     where
         Type: Component + Copy,
     {
         self.add_plugins(GgrsComponentSnapshotCopyPlugin::<Type>::default())
     }
 
-    fn register_rollback_resource_with_copy<Type>(&mut self) -> &mut Self
+    fn rollback_resource_with_copy<Type>(&mut self) -> &mut Self
     where
         Type: Resource + Copy,
     {
         self.add_plugins(GgrsResourceSnapshotCopyPlugin::<Type>::default())
     }
 
-    fn register_rollback_component_with_clone<Type>(&mut self) -> &mut Self
+    fn rollback_component_with_clone<Type>(&mut self) -> &mut Self
     where
         Type: Component + Clone,
     {
         self.add_plugins(GgrsComponentSnapshotClonePlugin::<Type>::default())
     }
 
-    fn register_rollback_resource_with_clone<Type>(&mut self) -> &mut Self
+    fn rollback_resource_with_clone<Type>(&mut self) -> &mut Self
     where
         Type: Resource + Clone,
     {

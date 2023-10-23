@@ -1,4 +1,4 @@
-use crate::{Rollback, RollbackFrameConfirmed, DEFAULT_FPS};
+use crate::{ConfirmedFrameCount, Rollback, DEFAULT_FPS};
 use bevy::{prelude::*, utils::HashMap};
 use std::{collections::VecDeque, marker::PhantomData};
 
@@ -182,7 +182,7 @@ impl<For, As> GgrsSnapshots<For, As> {
 
     pub fn discard_old_snapshots(
         mut snapshots: ResMut<Self>,
-        confirmed_frame: Option<Res<RollbackFrameConfirmed>>,
+        confirmed_frame: Option<Res<ConfirmedFrameCount>>,
     ) where
         For: Send + Sync + 'static,
         As: Send + Sync + 'static,

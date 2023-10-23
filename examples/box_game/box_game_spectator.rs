@@ -42,15 +42,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // this system will be executed as part of input reading
         .add_systems(ReadInputs, read_local_inputs)
         // Rollback behavior can be controlled through many modular plugins
-        .add_plugins((
-            // The FrameCount resource implements Copy
-            // We can use that to have minimal overhead rollback
-            GgrsResourceSnapshotCopyPlugin::<FrameCount>::default(),
-            // Transform and Velocity components only implement Clone,
-            // so instead we'll use that to snapshot and rollback with
-            GgrsComponentSnapshotClonePlugin::<Transform>::default(),
-            GgrsComponentSnapshotClonePlugin::<Velocity>::default(),
-        ))
+        // The FrameCount resource implements Copy
+        // We can use that to have minimal overhead rollback
+        .rollback_resource_with_copy::<FrameCount>()
+        // Transform and Velocity components only implement Clone,
+        // so instead we'll use that to snapshot and rollback with
+        .rollback_component_with_clone::<Transform>()
+        .rollback_component_with_clone::<Velocity>()
         .insert_resource(opt)
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup_system)

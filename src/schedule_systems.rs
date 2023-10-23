@@ -1,6 +1,6 @@
 use crate::{
-    Checksum, FixedTimestepData, GgrsSchedule, LoadWorld, LocalInputs, LocalPlayers,
-    PlayerInputs, ReadInputs, RollbackFrameConfirmed, RollbackFrameCount, SaveWorld, Session,
+    Checksum, FixedTimestepData, GgrsSchedule, LoadWorld, LocalInputs, LocalPlayers, PlayerInputs,
+    ReadInputs, RollbackFrameConfirmed, RollbackFrameCount, SaveWorld, Session,
 };
 use bevy::{prelude::*, utils::Duration};
 use ggrs::{

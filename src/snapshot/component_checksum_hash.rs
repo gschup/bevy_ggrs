@@ -1,5 +1,5 @@
 use std::{
-    hash::{Hash, Hasher, BuildHasher},
+    hash::{BuildHasher, Hash, Hasher},
     marker::PhantomData,
 };
 

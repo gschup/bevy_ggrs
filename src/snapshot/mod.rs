@@ -67,8 +67,8 @@ pub struct GgrsSnapshots<For, As = For> {
 impl<For, As> Default for GgrsSnapshots<For, As> {
     fn default() -> Self {
         Self {
-            snapshots: default(),
-            frames: default(),
+            snapshots: VecDeque::with_capacity(DEFAULT_FPS),
+            frames: VecDeque::with_capacity(DEFAULT_FPS),
             depth: DEFAULT_FPS, // TODO: Make sensible choice here
             _phantom: default(),
         }

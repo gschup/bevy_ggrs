@@ -164,11 +164,6 @@ pub(crate) fn handle_requests<T: Config>(requests: Vec<GGRSRequest<T>>, world: &
             world.insert_resource(ConfirmedFrameCount(confirmed_frame));
         }
 
-        if let Some(Session::P2P(s)) = world.get_resource::<Session<T>>() {
-            let confirmed_frame = s.confirmed_frame();
-            world.insert_resource(ConfirmedFrameCount(confirmed_frame));
-        }
-
         match request {
             GGRSRequest::SaveGameState { cell, frame } => {
                 debug!("saving snapshot for frame {frame}");

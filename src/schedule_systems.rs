@@ -61,7 +61,7 @@ pub(crate) fn run_ggrs_schedules<T: Config>(world: &mut World) {
                 time_data.run_slow = false;
                 world.insert_resource(LocalPlayers::default());
                 world.insert_resource(RollbackFrameCount(0));
-                world.insert_resource(RollbackFrameConfirmed(0));
+                world.insert_resource(RollbackFrameConfirmed(-1));
             }
         }
     }
@@ -144,6 +144,26 @@ pub(crate) fn run_p2p<C: Config>(world: &mut World, mut sess: P2PSession<C>) {
 
 pub(crate) fn handle_requests<T: Config>(requests: Vec<GGRSRequest<T>>, world: &mut World) {
     for request in requests {
+        let current_frame = world
+            .get_resource::<RollbackFrameCount>()
+            .map(|frame| frame.0)
+            .unwrap_or_default();
+
+        let confirmed_frame = match world.get_resource::<Session<T>>() {
+            Some(Session::P2P(s)) => Some(s.confirmed_frame()),
+            Some(Session::SyncTest(s)) => {
+                // TODO: `max_prediction` should be replaced with `depth`, but it is private.
+                let current_frame = current_frame - (s.max_prediction() as i32);
+                (current_frame < 0).then_some(current_frame)
+            }
+            Some(Session::Spectator(_)) => Some(current_frame),
+            None => None,
+        };
+
+        if let Some(confirmed_frame) = confirmed_frame {
+            world.insert_resource(RollbackFrameConfirmed(confirmed_frame));
+        }
+
         if let Some(Session::P2P(s)) = world.get_resource::<Session<T>>() {
             let confirmed_frame = s.confirmed_frame();
             world.insert_resource(RollbackFrameConfirmed(confirmed_frame));

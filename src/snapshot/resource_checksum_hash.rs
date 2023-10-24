@@ -1,5 +1,5 @@
 use std::{
-    hash::{BuildHasher, Hash, Hasher},
+    hash::Hash,
     marker::PhantomData,
 };
 
@@ -37,11 +37,7 @@ where
         resource: Res<R>,
         mut checksum: Query<&mut ChecksumPart, (Without<Rollback>, With<ChecksumFlag<R>>)>,
     ) {
-        let mut hasher = bevy::utils::FixedState.build_hasher();
-
-        resource.hash(&mut hasher);
-
-        let result = ChecksumPart(hasher.finish() as u128);
+        let result = ChecksumPart::from_value(resource.as_ref());
 
         trace!(
             "Resource {} has checksum {:X}",

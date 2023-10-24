@@ -1,4 +1,4 @@
-use std::{hash::Hash, marker::PhantomData};
+use std::{hash::{Hash, BuildHasher, Hasher}, marker::PhantomData};
 
 use bevy::prelude::*;
 
@@ -21,6 +21,17 @@ impl<T> Default for ChecksumFlag<T> {
 /// Represents a checksum value for a specific type, flagged by [`ChecksumFlag`].
 #[derive(Component, Default, Hash)]
 pub struct ChecksumPart(pub u128);
+
+impl ChecksumPart {
+    /// Converts a provided value `T` into a [Hash] using Bevy's [`FixedState`](`bevy::utils::FixedState`) hasher.
+    pub fn from_value<T: Hash>(value: &T) -> Self {
+        let mut hasher = bevy::utils::FixedState.build_hasher();
+
+        value.hash(&mut hasher);
+
+        Self(hasher.finish() as u128)
+    }
+}
 
 /// Represents a total checksum for a given frame.
 #[derive(Resource, Default, Clone, Copy)]

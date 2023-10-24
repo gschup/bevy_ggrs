@@ -23,7 +23,7 @@ use std::marker::PhantomData;
 /// # let mut app = App::new();
 /// #[derive(Resource, Reflect, Default)]
 /// struct ThemeColor(Color);
-/// 
+///
 /// app.add_plugins(GgrsResourceSnapshotReflectPlugin::<ThemeColor>::default());
 /// # }
 /// ```

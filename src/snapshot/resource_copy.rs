@@ -22,7 +22,7 @@ use std::marker::PhantomData;
 /// // A marker is an ideal data type to rollback with Copy
 /// #[derive(Resource, Clone, Copy)]
 /// struct MyMarker;
-/// 
+///
 /// app.add_plugins(GgrsResourceSnapshotCopyPlugin::<MyMarker>::default());
 /// # }
 /// ```

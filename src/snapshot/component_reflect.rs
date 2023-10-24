@@ -24,7 +24,7 @@ use std::marker::PhantomData;
 /// # let mut app = App::new();
 /// #[derive(Component, Reflect, Default)]
 /// struct FavoriteColor(Color);
-/// 
+///
 /// app.add_plugins(GgrsComponentSnapshotReflectPlugin::<FavoriteColor>::default());
 /// # }
 /// ```

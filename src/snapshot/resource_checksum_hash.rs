@@ -22,10 +22,10 @@ use crate::{ChecksumFlag, ChecksumPart, Rollback, SaveWorld, SaveWorldSet};
 /// # let mut app = App::new();
 /// #[derive(Resource, Clone, Hash)]
 /// struct BossHealth(u32);
-/// 
+///
 /// // To include something in the checksum, it should also be rolled back
 /// app.rollback_resource_with_clone::<BossHealth>();
-/// 
+///
 /// // This will update the checksum every frame to include BossHealth
 /// app.add_plugins(GgrsResourceChecksumHashPlugin::<BossHealth>::default());
 /// # }

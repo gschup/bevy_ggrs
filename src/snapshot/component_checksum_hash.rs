@@ -25,10 +25,10 @@ use crate::{ChecksumFlag, ChecksumPart, Rollback, RollbackOrdered, SaveWorld, Sa
 /// # let mut app = App::new();
 /// #[derive(Component, Clone, Copy, Hash)]
 /// struct Health(u32);
-/// 
+///
 /// // To include something in the checksum, it should also be rolled back
 /// app.rollback_component_with_clone::<Health>();
-/// 
+///
 /// // This will update the checksum every frame to include Health on rollback entities
 /// app.add_plugins(GgrsComponentChecksumHashPlugin::<Health>::default());
 /// # }

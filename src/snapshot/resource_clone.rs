@@ -21,7 +21,7 @@ use std::marker::PhantomData;
 /// # let mut app = App::new();
 /// #[derive(Resource, Clone)]
 /// struct BossHealth(u32);
-/// 
+///
 /// // This will ensure the BossHealth resource is rolled back
 /// app.add_plugins(GgrsResourceSnapshotClonePlugin::<BossHealth>::default());
 /// # }

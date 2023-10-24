@@ -24,16 +24,16 @@ use crate::{LoadWorld, LoadWorldSet, RollbackEntityMap};
 /// # let mut app = App::new();
 /// #[derive(Component, Clone)]
 /// struct BestFriend(Entity);
-/// 
+///
 /// impl MapEntities for BestFriend {
 ///     fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
 ///         self.0 = entity_mapper.get_or_reserve(self.0);
 ///     }
 /// }
-/// 
+///
 /// // Mapped components must be snapshot using any supported method
 /// app.rollback_component_with_clone::<BestFriend>();
-/// 
+///
 /// // This will apply MapEntities on each rollback
 /// app.add_plugins(GgrsComponentMapEntitiesPlugin::<BestFriend>::default());
 /// # }

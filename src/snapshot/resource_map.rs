@@ -24,16 +24,16 @@ use crate::{LoadWorld, LoadWorldSet, RollbackEntityMap};
 /// # let mut app = App::new();
 /// #[derive(Resource, Clone)]
 /// struct Player(Entity);
-/// 
+///
 /// impl MapEntities for Player {
 ///     fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
 ///         self.0 = entity_mapper.get_or_reserve(self.0);
 ///     }
 /// }
-/// 
+///
 /// // Mapped resources must be snapshot using any supported method
 /// app.rollback_resource_with_clone::<Player>();
-/// 
+///
 /// // This will apply MapEntities on each rollback
 /// app.add_plugins(GgrsResourceMapEntitiesPlugin::<Player>::default());
 /// # }

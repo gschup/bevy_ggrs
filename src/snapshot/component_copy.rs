@@ -23,7 +23,7 @@ use std::marker::PhantomData;
 /// // A marker component is an ideal data type to rollback with Copy
 /// #[derive(Component, Clone, Copy)]
 /// struct MyMarker;
-/// 
+///
 /// app.add_plugins(GgrsComponentSnapshotCopyPlugin::<MyMarker>::default());
 /// # }
 /// ```

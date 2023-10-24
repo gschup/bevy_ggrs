@@ -56,7 +56,7 @@ pub type GgrsComponentSnapshots<C, As = C> = GgrsSnapshots<C, GgrsComponentSnaps
 pub struct GgrsSnapshots<For, As = For> {
     /// Queue of snapshots, newest at the front, oldest at the back.
     snapshots: VecDeque<As>,
-    /// Queue of snapshots, newest at the front, oldest at the back.\
+    /// Queue of snapshots, newest at the front, oldest at the back.
     /// Separate from snapshots to avoid padding.
     frames: VecDeque<i32>,
     /// Maximum amount of snapshots to store at any one time
@@ -65,11 +65,16 @@ pub struct GgrsSnapshots<For, As = For> {
 }
 
 impl<For, As> Default for GgrsSnapshots<For, As> {
+    /// Create a default [`GgrsSnapshots`] resource. This will only track a maximum of 1 second
+    /// worth of snapshots. If you require a longer rollback window, use [`set_depth`](`GgrsSnapshots::set_depth`)
     fn default() -> Self {
+        // Arbitrarily choosing 1 second to be the longest possible rollback.
+        let depth = DEFAULT_FPS;
+
         Self {
-            snapshots: VecDeque::with_capacity(DEFAULT_FPS),
-            frames: VecDeque::with_capacity(DEFAULT_FPS),
-            depth: DEFAULT_FPS, // TODO: Make sensible choice here
+            snapshots: VecDeque::with_capacity(depth),
+            frames: VecDeque::with_capacity(depth),
+            depth,
             _phantom: default(),
         }
     }

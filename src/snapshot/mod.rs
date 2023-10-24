@@ -1,4 +1,4 @@
-use crate::{ConfirmedFrameCount, MaxPredictionWindow, Rollback};
+use crate::{ConfirmedFrameCount, Rollback, DEFAULT_FPS};
 use bevy::{prelude::*, utils::HashMap};
 use std::{collections::VecDeque, marker::PhantomData};
 
@@ -56,7 +56,7 @@ pub type GgrsComponentSnapshots<C, As = C> = GgrsSnapshots<C, GgrsComponentSnaps
 pub struct GgrsSnapshots<For, As = For> {
     /// Queue of snapshots, newest at the front, oldest at the back.
     snapshots: VecDeque<As>,
-    /// Queue of snapshots, newest at the front, oldest at the back.
+    /// Queue of snapshots, newest at the front, oldest at the back.\
     /// Separate from snapshots to avoid padding.
     frames: VecDeque<i32>,
     /// Maximum amount of snapshots to store at any one time
@@ -65,16 +65,11 @@ pub struct GgrsSnapshots<For, As = For> {
 }
 
 impl<For, As> Default for GgrsSnapshots<For, As> {
-    /// Create a default [`GgrsSnapshots`] resource. This will only track a maximum of 8 snapshots.
-    /// If you require a longer rollback window, use [`set_depth`](`GgrsSnapshots::set_depth`)
     fn default() -> Self {
-        // 8 is the current default `max_prediction_window`
-        let depth = 8;
-
         Self {
-            snapshots: VecDeque::with_capacity(depth),
-            frames: VecDeque::with_capacity(depth),
-            depth,
+            snapshots: VecDeque::with_capacity(DEFAULT_FPS),
+            frames: VecDeque::with_capacity(DEFAULT_FPS),
+            depth: DEFAULT_FPS, // TODO: Make sensible choice here
             _phantom: default(),
         }
     }
@@ -114,9 +109,12 @@ impl<For, As> GgrsSnapshots<For, As> {
                 break;
             };
 
-            // TODO: Handle wrapping behavior (wrapping_sub, etc.)
+            // Handle the possiblility of wrapping i32
+            let wrapped = current.abs_diff(frame) > u32::MAX / 2;
+            let current_after_frame = current >= frame && !wrapped;
+            let current_after_frame_wrapped = frame >= current && wrapped;
 
-            if current >= frame {
+            if current_after_frame || current_after_frame_wrapped {
                 self.snapshots.pop_front().unwrap();
                 self.frames.pop_front().unwrap();
             } else {
@@ -188,15 +186,10 @@ impl<For, As> GgrsSnapshots<For, As> {
     pub fn discard_old_snapshots(
         mut snapshots: ResMut<Self>,
         confirmed_frame: Option<Res<ConfirmedFrameCount>>,
-        max_prediction_window: Option<Res<MaxPredictionWindow>>,
     ) where
         For: Send + Sync + 'static,
         As: Send + Sync + 'static,
     {
-        if let Some(max_prediction_window) = max_prediction_window {
-            snapshots.set_depth(max_prediction_window.0);
-        }
-
         let Some(confirmed_frame) = confirmed_frame else {
             return;
         };

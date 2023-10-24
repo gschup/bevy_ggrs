@@ -42,7 +42,7 @@ fn apply_rollback_map_to_resource_inner<R>(world: &mut World, map: Mut<RollbackE
 where
     R: Resource + MapEntities,
 {
-    let mut applied_entity_map = map.get_map();
+    let mut applied_entity_map = map.generate_map();
 
     applied_entity_map.world_scope(world, apply_map::<R>);
 

@@ -86,12 +86,24 @@ impl Default for FixedTimestepData {
 }
 
 /// Keeps track of the current frame the rollback simulation is in
-#[derive(Resource, Debug, Default)]
+#[derive(Resource, Debug, Default, Clone, Copy)]
 pub struct RollbackFrameCount(i32);
 
+impl Into<i32> for RollbackFrameCount {
+    fn into(self) -> i32 {
+        self.0
+    }
+}
+
 /// The most recently confirmed frame. Any information for frames stored before this point can be safely discarded.
-#[derive(Resource, Debug, Default)]
+#[derive(Resource, Debug, Default, Clone, Copy)]
 pub struct ConfirmedFrameCount(i32);
+
+impl Into<i32> for ConfirmedFrameCount {
+    fn into(self) -> i32 {
+        self.0
+    }
+}
 
 /// Inputs from local players. You have to fill this resource in the ReadInputs schedule.
 #[derive(Resource)]

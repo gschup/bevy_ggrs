@@ -6,6 +6,30 @@ use crate::{ChecksumFlag, ChecksumPart, Rollback, SaveWorld, SaveWorldSet};
 
 /// Plugin which will track the [`Resource`] `R` and ensure a [`ChecksumPart`] is
 /// available and updated. This can be used to generate a [`Checksum`](`crate::Checksum`).
+///
+/// # Examples
+/// ```rust
+/// # use bevy::prelude::*;
+/// # use bevy_ggrs::prelude::*;
+/// #
+/// # const FPS: usize = 60;
+/// #
+/// # type MyInputType = u8;
+/// #
+/// # fn read_local_inputs() {}
+/// #
+/// # fn start(session: Session<GgrsConfig<MyInputType>>) {
+/// # let mut app = App::new();
+/// #[derive(Resource, Clone, Hash)]
+/// struct BossHealth(u32);
+/// 
+/// // To include something in the checksum, it should also be rolled back
+/// app.rollback_resource_with_clone::<BossHealth>();
+/// 
+/// // This will update the checksum every frame to include BossHealth
+/// app.add_plugins(GgrsResourceChecksumHashPlugin::<BossHealth>::default());
+/// # }
+/// ```
 pub struct GgrsResourceChecksumHashPlugin<R>
 where
     R: Resource + Hash,

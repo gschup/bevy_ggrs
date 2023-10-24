@@ -2,7 +2,7 @@
 #![forbid(unsafe_code)] // let us try
 
 use bevy::{
-    ecs::schedule::{LogLevel, ScheduleBuildSettings, ScheduleLabel},
+    ecs::{schedule::{LogLevel, ScheduleBuildSettings, ScheduleLabel}, entity::MapEntities},
     prelude::*,
     utils::{Duration, HashMap},
 };
@@ -130,6 +130,36 @@ pub struct LoadWorld;
 pub struct SaveWorld;
 
 /// GGRS plugin for bevy.
+///
+/// # Examples
+/// ```rust
+/// # use bevy::prelude::*;
+/// # use bevy_ggrs::prelude::*;
+/// #
+/// # const FPS: usize = 60;
+/// #
+/// # type MyInputType = u8;
+/// #
+/// # fn read_local_inputs() {}
+/// #
+/// # fn start(session: Session<GgrsConfig<MyInputType>>) {
+/// # let mut app = App::new();
+/// // Add the GgrsPlugin with your input type
+/// app.add_plugins(GgrsPlugin::<GgrsConfig<MyInputType>>::default());
+/// 
+/// // (optional) Override the default frequency of rollback game logic updates
+/// app.set_rollback_schedule_fps(FPS);
+/// 
+/// // Provide a system to get player input
+/// app.add_systems(ReadInputs, read_local_inputs);
+/// 
+/// // Add custom resources/components to be rolled back
+/// app.rollback_component_with_clone::<Transform>();
+/// 
+/// // Once started, add your Session
+/// app.insert_resource(session);
+/// # }
+/// ```
 pub struct GgrsPlugin<C: Config> {
     /// phantom marker for ggrs config
     _marker: PhantomData<C>,
@@ -217,7 +247,20 @@ pub trait GgrsApp {
     where
         Type: Resource + Reflect + FromWorld;
 
+    /// Set the frequency that game updates should be performed at.
     fn set_rollback_schedule_fps(&mut self, fps: usize) -> &mut Self;
+
+    /// Adds a component type to the checksum generation pipeline using [`Hash`].
+    fn checksum_component_with_hash<Type>(&mut self) -> &mut Self where Type: Component + Hash;
+
+    /// Updates a component after rollback using [`MapEntities`].
+    fn update_component_with_map_entities<Type>(&mut self) -> &mut Self where Type: Component + MapEntities;
+
+    /// Adds a resource type to the checksum generation pipeline using [`Hash`].
+    fn checksum_resource_with_hash<Type>(&mut self) -> &mut Self where Type: Resource + Hash;
+
+    /// Updates a resource after rollback using [`MapEntities`].
+    fn update_resource_with_map_entities<Type>(&mut self) -> &mut Self where Type: Resource + MapEntities;
 }
 
 impl GgrsApp for App {
@@ -268,5 +311,21 @@ impl GgrsApp for App {
         Type: Resource + Clone,
     {
         self.add_plugins(GgrsResourceSnapshotClonePlugin::<Type>::default())
+    }
+
+    fn checksum_component_with_hash<Type>(&mut self) -> &mut Self where Type: Component + Hash {
+        self.add_plugins(GgrsComponentChecksumHashPlugin::<Type>::default())
+    }
+
+    fn update_component_with_map_entities<Type>(&mut self) -> &mut Self where Type: Component + MapEntities {
+        self.add_plugins(GgrsComponentMapEntitiesPlugin::<Type>::default())
+    }
+
+    fn checksum_resource_with_hash<Type>(&mut self) -> &mut Self where Type: Resource + Hash {
+        self.add_plugins(GgrsResourceChecksumHashPlugin::<Type>::default())
+    }
+
+    fn update_resource_with_map_entities<Type>(&mut self) -> &mut Self where Type: Resource + MapEntities {
+        self.add_plugins(GgrsResourceMapEntitiesPlugin::<Type>::default())
     }
 }

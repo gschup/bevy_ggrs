@@ -9,6 +9,30 @@ use crate::{ChecksumFlag, ChecksumPart, Rollback, RollbackOrdered, SaveWorld, Sa
 
 /// A [`Plugin`] which will track the [`Component`] `C` on [`Rollback Entities`](`Rollback`) and ensure a
 /// [`ChecksumPart`] is available and updated. This can be used to generate a [`Checksum`](`crate::Checksum`).
+///
+/// # Examples
+/// ```rust
+/// # use bevy::prelude::*;
+/// # use bevy_ggrs::prelude::*;
+/// #
+/// # const FPS: usize = 60;
+/// #
+/// # type MyInputType = u8;
+/// #
+/// # fn read_local_inputs() {}
+/// #
+/// # fn start(session: Session<GgrsConfig<MyInputType>>) {
+/// # let mut app = App::new();
+/// #[derive(Component, Clone, Copy, Hash)]
+/// struct Health(u32);
+/// 
+/// // To include something in the checksum, it should also be rolled back
+/// app.rollback_component_with_clone::<Health>();
+/// 
+/// // This will update the checksum every frame to include Health on rollback entities
+/// app.add_plugins(GgrsComponentChecksumHashPlugin::<Health>::default());
+/// # }
+/// ```
 pub struct GgrsComponentChecksumHashPlugin<C>
 where
     C: Component + Hash,

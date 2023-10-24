@@ -8,6 +8,36 @@ use bevy::{
 use crate::{LoadWorld, LoadWorldSet, RollbackEntityMap};
 
 /// A [`Plugin`] which updates the state of a post-rollback [`Component`] `C` using [`MapEntities`].
+///
+/// # Examples
+/// ```rust
+/// # use bevy::{prelude::*, ecs::entity::{MapEntities, EntityMapper}};
+/// # use bevy_ggrs::prelude::*;
+/// #
+/// # const FPS: usize = 60;
+/// #
+/// # type MyInputType = u8;
+/// #
+/// # fn read_local_inputs() {}
+/// #
+/// # fn start(session: Session<GgrsConfig<MyInputType>>) {
+/// # let mut app = App::new();
+/// #[derive(Component, Clone)]
+/// struct BestFriend(Entity);
+/// 
+/// impl MapEntities for BestFriend {
+///     fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
+///         self.0 = entity_mapper.get_or_reserve(self.0);
+///     }
+/// }
+/// 
+/// // Mapped components must be snapshot using any supported method
+/// app.rollback_component_with_clone::<BestFriend>();
+/// 
+/// // This will apply MapEntities on each rollback
+/// app.add_plugins(GgrsComponentMapEntitiesPlugin::<BestFriend>::default());
+/// # }
+/// ```
 pub struct GgrsComponentMapEntitiesPlugin<C>
 where
     C: Component + MapEntities,

@@ -5,6 +5,27 @@ use bevy::prelude::*;
 use std::marker::PhantomData;
 
 /// A [`Plugin`] which manages snapshots for a [`Resource`] `R` using [`Clone`].
+///
+/// # Examples
+/// ```rust
+/// # use bevy::prelude::*;
+/// # use bevy_ggrs::prelude::*;
+/// #
+/// # const FPS: usize = 60;
+/// #
+/// # type MyInputType = u8;
+/// #
+/// # fn read_local_inputs() {}
+/// #
+/// # fn start(session: Session<GgrsConfig<MyInputType>>) {
+/// # let mut app = App::new();
+/// #[derive(Resource, Clone)]
+/// struct BossHealth(u32);
+/// 
+/// // This will ensure the BossHealth resource is rolled back
+/// app.add_plugins(GgrsResourceSnapshotClonePlugin::<BossHealth>::default());
+/// # }
+/// ```
 pub struct GgrsResourceSnapshotClonePlugin<R>
 where
     R: Resource + Clone,

@@ -6,6 +6,24 @@ use bevy::prelude::*;
 use std::marker::PhantomData;
 
 /// A [`Plugin`] which manages snapshots for a [`Component`] `C` using [`Clone`].
+///
+/// # Examples
+/// ```rust
+/// # use bevy::prelude::*;
+/// # use bevy_ggrs::prelude::*;
+/// #
+/// # const FPS: usize = 60;
+/// #
+/// # type MyInputType = u8;
+/// #
+/// # fn read_local_inputs() {}
+/// #
+/// # fn start(session: Session<GgrsConfig<MyInputType>>) {
+/// # let mut app = App::new();
+/// // The Transform component is a good candidate for Clone-based rollback
+/// app.add_plugins(GgrsComponentSnapshotClonePlugin::<Transform>::default());
+/// # }
+/// ```
 pub struct GgrsComponentSnapshotClonePlugin<C>
 where
     C: Component + Clone,

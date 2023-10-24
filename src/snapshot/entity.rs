@@ -7,6 +7,24 @@ use bevy::{ecs::entity::EntityMap, prelude::*, utils::HashMap};
 /// A [`Plugin`] which manages the rollback for [`Entities`](`Entity`). This will ensure
 /// all [`Entities`](`Entity`) match the state of the desired frame, or can be mapped using a
 /// [`RollbackEntityMap`], which this [`Plugin`] will also manage.
+///
+/// # Examples
+/// ```rust
+/// # use bevy::prelude::*;
+/// # use bevy_ggrs::prelude::*;
+/// #
+/// # const FPS: usize = 60;
+/// #
+/// # type MyInputType = u8;
+/// #
+/// # fn read_local_inputs() {}
+/// #
+/// # fn start(session: Session<GgrsConfig<MyInputType>>) {
+/// # let mut app = App::new();
+/// // This will ensure entities are updated on rollback to match the state of the target snapshot
+/// app.add_plugins(GgrsEntitySnapshotPlugin);
+/// # }
+/// ```
 pub struct GgrsEntitySnapshotPlugin;
 
 impl GgrsEntitySnapshotPlugin {

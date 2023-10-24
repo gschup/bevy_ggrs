@@ -6,6 +6,27 @@ use bevy::prelude::*;
 use std::marker::PhantomData;
 
 /// A [`Plugin`] which manages snapshots for a [`Component`] `C` using [`Copy`].
+///
+/// # Examples
+/// ```rust
+/// # use bevy::prelude::*;
+/// # use bevy_ggrs::prelude::*;
+/// #
+/// # const FPS: usize = 60;
+/// #
+/// # type MyInputType = u8;
+/// #
+/// # fn read_local_inputs() {}
+/// #
+/// # fn start(session: Session<GgrsConfig<MyInputType>>) {
+/// # let mut app = App::new();
+/// // A marker component is an ideal data type to rollback with Copy
+/// #[derive(Component, Clone, Copy)]
+/// struct MyMarker;
+/// 
+/// app.add_plugins(GgrsComponentSnapshotCopyPlugin::<MyMarker>::default());
+/// # }
+/// ```
 pub struct GgrsComponentSnapshotCopyPlugin<C>
 where
     C: Component + Copy,

@@ -46,6 +46,33 @@ pub struct Checksum(pub u128);
 /// To add you own data to this [`Checksum`], create an [`Entity`] with a [`ChecksumPart`]
 /// [`Component`]. Every [`Entity`] with this [`Component`] will participate in the
 /// creation of a [`Checksum`].
+///
+/// # Examples
+/// ```rust
+/// # use bevy::prelude::*;
+/// # use bevy_ggrs::prelude::*;
+/// #
+/// # const FPS: usize = 60;
+/// #
+/// # type MyInputType = u8;
+/// #
+/// # fn read_local_inputs() {}
+/// #
+/// # fn start(session: Session<GgrsConfig<MyInputType>>) {
+/// # let mut app = App::new();
+/// #[derive(Component, Clone, Copy, Hash)]
+/// struct Health(u32);
+/// 
+/// // To include something in the checksum, it should also be rolled back
+/// app.rollback_component_with_clone::<Health>();
+/// 
+/// // This will update the checksum every frame to include Health on rollback entities
+/// app.checksum_component_with_hash::<Health>();
+/// 
+/// // This will take the Health checksum (and any others) and create a total checksum for the frame
+/// app.add_plugins(GgrsChecksumPlugin);
+/// # }
+/// ```
 pub struct GgrsChecksumPlugin;
 
 impl GgrsChecksumPlugin {

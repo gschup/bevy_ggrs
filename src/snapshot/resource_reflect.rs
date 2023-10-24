@@ -7,6 +7,26 @@ use std::marker::PhantomData;
 /// A [`Plugin`] which manages snapshots for a [`Resource`] `R` using [`Reflect`] and [`FromWorld`].
 ///
 /// NOTE: [`FromWorld`] is implemented for all types implementing [`Default`].
+///
+/// # Examples
+/// ```rust
+/// # use bevy::prelude::*;
+/// # use bevy_ggrs::prelude::*;
+/// #
+/// # const FPS: usize = 60;
+/// #
+/// # type MyInputType = u8;
+/// #
+/// # fn read_local_inputs() {}
+/// #
+/// # fn start(session: Session<GgrsConfig<MyInputType>>) {
+/// # let mut app = App::new();
+/// #[derive(Resource, Reflect, Default)]
+/// struct ThemeColor(Color);
+/// 
+/// app.add_plugins(GgrsResourceSnapshotReflectPlugin::<ThemeColor>::default());
+/// # }
+/// ```
 pub struct GgrsResourceSnapshotReflectPlugin<R>
 where
     R: Resource + Reflect + FromWorld,

@@ -8,6 +8,36 @@ use bevy::{
 use crate::{LoadWorld, LoadWorldSet, RollbackEntityMap};
 
 /// A [`Plugin`] which updates the state of a post-rollback [`Resource`] `R` using [`MapEntities`].
+///
+/// # Examples
+/// ```rust
+/// # use bevy::{prelude::*, ecs::entity::{MapEntities, EntityMapper}};
+/// # use bevy_ggrs::prelude::*;
+/// #
+/// # const FPS: usize = 60;
+/// #
+/// # type MyInputType = u8;
+/// #
+/// # fn read_local_inputs() {}
+/// #
+/// # fn start(session: Session<GgrsConfig<MyInputType>>) {
+/// # let mut app = App::new();
+/// #[derive(Resource, Clone)]
+/// struct Player(Entity);
+/// 
+/// impl MapEntities for Player {
+///     fn map_entities(&mut self, entity_mapper: &mut EntityMapper) {
+///         self.0 = entity_mapper.get_or_reserve(self.0);
+///     }
+/// }
+/// 
+/// // Mapped resources must be snapshot using any supported method
+/// app.rollback_resource_with_clone::<Player>();
+/// 
+/// // This will apply MapEntities on each rollback
+/// app.add_plugins(GgrsResourceMapEntitiesPlugin::<Player>::default());
+/// # }
+/// ```
 pub struct GgrsResourceMapEntitiesPlugin<R>
 where
     R: Resource + MapEntities,

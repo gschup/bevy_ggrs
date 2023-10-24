@@ -109,7 +109,7 @@ impl<For, As> GgrsSnapshots<For, As> {
                 break;
             };
 
-            // Handle the possiblility of wrapping i32
+            // Handle the possibility of wrapping i32
             let wrapped = current.abs_diff(frame) > u32::MAX / 2;
             let current_after_frame = current >= frame && !wrapped;
             let current_after_frame_wrapped = frame >= current && wrapped;

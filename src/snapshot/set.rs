@@ -38,11 +38,11 @@ pub enum LoadWorldSet {
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
 pub enum SaveWorldSet {
     /// Generate checksums for any tracked data.
-    /// 
+    ///
     /// Within this set, it is expected that all data which will participate in the
     /// total checksum recorded for this frame will have updated/created a single [`Entity`]
     /// with a [`ChecksumPart`](`crate::ChecksumPart`) component, containing its contribution.
-    /// 
+    ///
     /// The final [`Checksum`](`crate::Checksum`) for the frame will be produced after this set, but before
     /// the [`Snapshot`](`SaveWorldSet::Snapshot`) set.
     Checksum,

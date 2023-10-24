@@ -59,7 +59,11 @@ where
 
         let result = ChecksumPart(hasher.finish() as u128);
 
-        trace!("Component {} has checksum {:X}", std::any::type_name::<C>(), result.0);
+        trace!(
+            "Component {} has checksum {:X}",
+            std::any::type_name::<C>(),
+            result.0
+        );
 
         if let Ok(mut checksum) = checksum.get_single_mut() {
             *checksum = result;

@@ -41,12 +41,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .set_rollback_schedule_fps(FPS)
         // this system will be executed as part of input reading
         .add_systems(ReadInputs, read_local_inputs)
-        // Rollback behavior can be controlled through many modular plugins
-        // The FrameCount resource implements Copy
-        // We can use that to have minimal overhead rollback
+        // Rollback behavior can be customized using a variety of extension methods and plugins:
+        // The FrameCount resource implements Copy, we can use that to have minimal overhead rollback
         .rollback_resource_with_copy::<FrameCount>()
-        // Transform and Velocity components only implement Clone,
-        // so instead we'll use that to snapshot and rollback with
+        // Transform and Velocity components only implement Clone, so instead we'll use that to snapshot and rollback with
         .rollback_component_with_clone::<Transform>()
         .rollback_component_with_clone::<Velocity>()
         .insert_resource(opt)

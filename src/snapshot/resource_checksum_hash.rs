@@ -43,7 +43,11 @@ where
 
         let result = ChecksumPart(hasher.finish() as u128);
 
-        trace!("Resource {} has checksum {:X}", std::any::type_name::<R>(), result.0);
+        trace!(
+            "Resource {} has checksum {:X}",
+            std::any::type_name::<R>(),
+            result.0
+        );
 
         if let Ok(mut checksum) = checksum.get_single_mut() {
             *checksum = result;

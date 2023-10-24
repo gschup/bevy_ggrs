@@ -194,7 +194,7 @@ pub trait GgrsApp {
 
     /// Registers a component type for saving and loading from the world. This
     /// uses [`reflection`](`Reflect`) based snapshots for rollback.
-    /// 
+    ///
     /// NOTE: Unlike previous versions of `bevy_ggrs`, this will no longer automatically
     /// apply entity mapping through the [`MapEntities`](`bevy::ecs::entity::MapEntities`) trait.
     /// If you require this behavior, see [`GgrsComponentMapEntitiesPlugin`].
@@ -204,7 +204,7 @@ pub trait GgrsApp {
 
     /// Registers a resource type for saving and loading from the world. This
     /// uses [`reflection`](`Reflect`) based snapshots for rollback.
-    /// 
+    ///
     /// NOTE: Unlike previous versions of `bevy_ggrs`, this will no longer automatically
     /// apply entity mapping through the [`MapEntities`](`bevy::ecs::entity::MapEntities`) trait.
     /// If you require this behavior, see [`GgrsComponentMapEntitiesPlugin`].

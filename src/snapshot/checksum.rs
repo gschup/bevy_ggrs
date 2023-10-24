@@ -43,6 +43,8 @@ impl GgrsChecksumPlugin {
         // Chosen over addition and multiplication as XOR is closed on u128
         let parts = parts.iter().fold(0, |a: u128, &ChecksumPart(b)| a ^ b);
 
+        trace!("Frame has checksum {:X}", parts);
+
         *checksum = Checksum(parts);
     }
 }

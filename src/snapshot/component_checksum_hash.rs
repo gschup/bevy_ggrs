@@ -61,7 +61,7 @@ where
 
         trace!(
             "Component {} has checksum {:X}",
-            std::any::type_name::<C>(),
+            bevy::utils::get_short_name(std::any::type_name::<C>()),
             result.0
         );
 

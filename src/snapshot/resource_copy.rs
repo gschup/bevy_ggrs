@@ -33,6 +33,8 @@ where
         resource: Option<Res<R>>,
     ) {
         snapshots.push(frame.0, resource.map(|res| *res));
+
+        trace!("Snapshot {}", bevy::utils::get_short_name(std::any::type_name::<R>()));
     }
 
     pub fn load(
@@ -49,6 +51,8 @@ where
             (None, Some(snapshot)) => commands.insert_resource(*snapshot),
             (None, None) => {}
         }
+
+        trace!("Rolled Back {}", bevy::utils::get_short_name(std::any::type_name::<R>()));
     }
 }
 

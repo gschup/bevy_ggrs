@@ -46,6 +46,8 @@ where
 
     applied_entity_map.world_scope(world, apply_map::<R>);
 
+    trace!("Mapped {}", bevy::utils::get_short_name(std::any::type_name::<R>()));
+
     // If the entity map is now larger than the set of rollback entities, then dead entities were created.
     // TODO: This workaround is required because the current behavior of `map_all_entities` is to change all entities,
     // creating dead entities instead of leaving them with their original value. If `EntityMapper` behavior changes,
@@ -66,6 +68,8 @@ where
 
         // Map entities a second time, fixing dead entities
         applied_entity_map.world_scope(world, apply_map::<R>);
+
+        trace!("Re-Mapped {}", bevy::utils::get_short_name(std::any::type_name::<R>()));
     }
 }
 

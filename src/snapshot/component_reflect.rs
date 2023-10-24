@@ -38,7 +38,11 @@ where
         let components = query
             .iter()
             .map(|(&rollback, component)| (rollback, component.as_reflect().clone_value()));
+
         let snapshot = GgrsComponentSnapshot::new(components);
+
+        trace!("Snapshot {} {} component(s)", snapshot.iter().count(), bevy::utils::get_short_name(std::any::type_name::<C>()));
+
         snapshots.push(frame.0, snapshot);
     }
 
@@ -72,6 +76,8 @@ where
                 (None, None) => {}
             }
         }
+
+        trace!("Rolled Back {} {} component(s)", snapshot.iter().count(), bevy::utils::get_short_name(std::any::type_name::<C>()));
     }
 }
 

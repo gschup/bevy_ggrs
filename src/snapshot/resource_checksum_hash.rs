@@ -41,7 +41,7 @@ where
 
         trace!(
             "Resource {} has checksum {:X}",
-            std::any::type_name::<R>(),
+            bevy::utils::get_short_name(std::any::type_name::<R>()),
             result.0
         );
 

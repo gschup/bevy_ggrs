@@ -43,7 +43,6 @@ pub struct Checksum(pub u128);
 /// To add you own data to this [`Checksum`], create an [`Entity`] with a [`ChecksumPart`]
 /// [`Component`]. Every [`Entity`] with this [`Component`] will participate in the
 /// creation of a [`Checksum`].
-
 pub struct GgrsChecksumPlugin;
 
 impl GgrsChecksumPlugin {

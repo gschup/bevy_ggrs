@@ -7,8 +7,6 @@ use crate::{LoadWorld, SaveWorld};
 /// and [`Resource`] snapshots are loaded and applied to the [`World`].
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
 pub enum LoadWorldSet {
-    /// Flush any deferred operations
-    PreEntityFlush,
     /// Recreate the [`Entity`] graph as it was during the frame to be rolled back to.
     /// When this set is complete, all entities that were alive during the snapshot
     /// frame have been recreated, and any that were not have been removed. If the
@@ -31,8 +29,6 @@ pub enum LoadWorldSet {
     /// which had to be recreated could not use the same ID, so any data referring to that ID is now invalid.
     /// Once this set completes, all data should now be coherent with the [`World`].
     Mapping,
-    /// Flush any deferred operations
-    MappingFlush,
 }
 
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
@@ -50,8 +46,6 @@ pub enum SaveWorldSet {
     PreSnapshotFlush,
     /// Saves a snapshot of the [`World`] in this state for future possible rollback.
     Snapshot,
-    /// Flush any deferred operations
-    PostSnapshotFlush,
 }
 
 /// Sets up the [`LoadWorldSet`] and [`SaveWorldSet`] sets, allowing for explicit ordering of
@@ -63,13 +57,11 @@ impl Plugin for GgrsSnapshotSetPlugin {
         app.configure_sets(
             LoadWorld,
             (
-                LoadWorldSet::PreEntityFlush,
                 LoadWorldSet::Entity,
                 LoadWorldSet::EntityFlush,
                 LoadWorldSet::Data,
                 LoadWorldSet::DataFlush,
                 LoadWorldSet::Mapping,
-                LoadWorldSet::MappingFlush,
             )
                 .chain(),
         )
@@ -79,24 +71,14 @@ impl Plugin for GgrsSnapshotSetPlugin {
                 SaveWorldSet::Checksum,
                 SaveWorldSet::PreSnapshotFlush,
                 SaveWorldSet::Snapshot,
-                SaveWorldSet::PostSnapshotFlush,
             )
                 .chain(),
         )
-        .add_systems(
-            LoadWorld,
-            apply_deferred.in_set(LoadWorldSet::PreEntityFlush),
-        )
         .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::EntityFlush))
         .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::DataFlush))
-        .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::MappingFlush))
         .add_systems(
             SaveWorld,
             apply_deferred.in_set(SaveWorldSet::PreSnapshotFlush),
-        )
-        .add_systems(
-            SaveWorld,
-            apply_deferred.in_set(SaveWorldSet::PostSnapshotFlush),
         );
     }
 }

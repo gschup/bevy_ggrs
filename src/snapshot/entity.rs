@@ -16,7 +16,11 @@ impl GgrsEntitySnapshotPlugin {
         query: Query<(&Rollback, Entity)>,
     ) {
         let entities = query.iter().map(|(&rollback, entity)| (rollback, entity));
+
         let snapshot = GgrsComponentSnapshot::new(entities);
+
+        trace!("Snapshot {} entity(s)", snapshot.iter().count());
+
         snapshots.push(frame.0, snapshot);
     }
 
@@ -57,6 +61,8 @@ impl GgrsEntitySnapshotPlugin {
                 ),
             }
         }
+
+        trace!("Rolled Back {} entity(s)", snapshot.iter().count());
 
         *map = RollbackEntityMap::new(entity_map);
     }

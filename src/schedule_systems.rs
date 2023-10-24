@@ -5,8 +5,7 @@ use crate::{
 };
 use bevy::{prelude::*, utils::Duration};
 use ggrs::{
-    Config, GGRSError, GGRSRequest, InputStatus, P2PSession, SessionState, SpectatorSession,
-    SyncTestSession,
+    Config, GGRSError, GGRSRequest, P2PSession, SessionState, SpectatorSession, SyncTestSession,
 };
 
 pub(crate) fn run_ggrs_schedules<T: Config>(world: &mut World) {
@@ -145,6 +144,30 @@ pub(crate) fn run_p2p<C: Config>(world: &mut World, mut sess: P2PSession<C>) {
 }
 
 pub(crate) fn handle_requests<T: Config>(requests: Vec<GGRSRequest<T>>, world: &mut World) {
+    let _span = bevy::utils::tracing::info_span!("ggrs", name = "HandleRequests").entered();
+
+    // Extracting schedules before processing requests to avoid repeated remove/insert operations
+    let mut schedules = world.resource_mut::<Schedules>();
+
+    let Some((extracted_load_world_label, mut load_world_schedule)) =
+        schedules.remove_entry(&LoadWorld)
+    else {
+        panic!("Could not extract LoadWorld Schedule!");
+    };
+
+    let Some((extracted_save_world_label, mut save_world_schedule)) =
+        schedules.remove_entry(&SaveWorld)
+    else {
+        panic!("Could not extract SaveWorld Schedule!");
+    };
+
+    let Some((extracted_advance_world_label, mut advance_world_schedule)) =
+        schedules.remove_entry(&GgrsSchedule)
+    else {
+        panic!("Could not extract GgrsSchedule Schedule!");
+    };
+
+    // Run Schedules as Required
     for request in requests {
         let current_frame = world
             .get_resource::<RollbackFrameCount>()
@@ -181,8 +204,11 @@ pub(crate) fn handle_requests<T: Config>(requests: Vec<GGRSRequest<T>>, world: &
 
         match request {
             GGRSRequest::SaveGameState { cell, frame } => {
+                let _span =
+                    bevy::utils::tracing::info_span!("schedule", name = "SaveWorld").entered();
                 debug!("saving snapshot for frame {frame}");
-                world.run_schedule(SaveWorld);
+
+                save_world_schedule.run(world);
 
                 // look into resources and find the checksum
                 let checksum = world
@@ -193,6 +219,8 @@ pub(crate) fn handle_requests<T: Config>(requests: Vec<GGRSRequest<T>>, world: &
                 cell.save(frame, None, checksum);
             }
             GGRSRequest::LoadGameState { frame, .. } => {
+                let _span =
+                    bevy::utils::tracing::info_span!("schedule", name = "LoadWorld").entered();
                 // we don't really use the buffer provided by GGRS
                 debug!("restoring snapshot for frame {frame}");
 
@@ -201,24 +229,44 @@ pub(crate) fn handle_requests<T: Config>(requests: Vec<GGRSRequest<T>>, world: &
                     .expect("Unable to find GGRS RollbackFrameCount. Did you remove it?")
                     .0 = frame;
 
-                world.run_schedule(LoadWorld);
+                load_world_schedule.run(world);
             }
-            GGRSRequest::AdvanceFrame { inputs } => advance_frame::<T>(inputs, world),
+            GGRSRequest::AdvanceFrame { inputs } => {
+                let _span =
+                    bevy::utils::tracing::info_span!("schedule", name = "AdvanceWorld").entered();
+                let mut frame_count = world
+                    .get_resource_mut::<RollbackFrameCount>()
+                    .expect("Unable to find GGRS RollbackFrameCount. Did you remove it?");
+
+                frame_count.0 += 1;
+                let frame = frame_count.0;
+
+                debug!("advancing to frame: {}", frame);
+                world.insert_resource(PlayerInputs::<T>(inputs));
+
+                advance_world_schedule.run(world);
+
+                world.remove_resource::<PlayerInputs<T>>();
+                debug!("frame {frame} completed");
+            }
         }
     }
-}
 
-pub(crate) fn advance_frame<T: Config>(inputs: Vec<(T::Input, InputStatus)>, world: &mut World) {
-    let mut frame_count = world
-        .get_resource_mut::<RollbackFrameCount>()
-        .expect("Unable to find GGRS RollbackFrameCount. Did you remove it?");
+    // Replace Schedules when Done
+    let mut schedules = world.resource_mut::<Schedules>();
 
-    frame_count.0 += 1;
-    let frame = frame_count.0;
+    let old = schedules.insert(extracted_load_world_label, load_world_schedule);
+    if old.is_some() {
+        panic!("LoadWorld Schedule was Duplicated!");
+    }
 
-    debug!("advancing to frame: {}", frame);
-    world.insert_resource(PlayerInputs::<T>(inputs));
-    world.run_schedule(GgrsSchedule);
-    world.remove_resource::<PlayerInputs<T>>();
-    debug!("frame {frame} completed");
+    let old = schedules.insert(extracted_save_world_label, save_world_schedule);
+    if old.is_some() {
+        panic!("SaveWorld Schedule was Duplicated!");
+    }
+
+    let old = schedules.insert(extracted_advance_world_label, advance_world_schedule);
+    if old.is_some() {
+        panic!("GgrsSchedule Schedule was Duplicated!");
+    }
 }

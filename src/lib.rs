@@ -86,7 +86,7 @@ impl Default for FixedTimestepData {
 }
 
 /// Keeps track of the current frame the rollback simulation is in
-#[derive(Resource, Debug, Default, Clone, Copy)]
+#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RollbackFrameCount(i32);
 
 impl Into<i32> for RollbackFrameCount {
@@ -96,7 +96,7 @@ impl Into<i32> for RollbackFrameCount {
 }
 
 /// The most recently confirmed frame. Any information for frames stored before this point can be safely discarded.
-#[derive(Resource, Debug, Default, Clone, Copy)]
+#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ConfirmedFrameCount(i32);
 
 impl Into<i32> for ConfirmedFrameCount {

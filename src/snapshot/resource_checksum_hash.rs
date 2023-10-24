@@ -37,7 +37,7 @@ where
         resource: Res<R>,
         mut checksum: Query<&mut ChecksumPart, (Without<Rollback>, With<ChecksumFlag<R>>)>,
     ) {
-        let mut hasher = bevy::utils::FixedState::default().build_hasher();
+        let mut hasher = bevy::utils::FixedState.build_hasher();
 
         resource.hash(&mut hasher);
 

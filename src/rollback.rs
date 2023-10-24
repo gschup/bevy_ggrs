@@ -28,7 +28,7 @@ impl EntityCommand for AddRollbackCommand {
         world.entity_mut(id).insert(rollback);
 
         world
-            .get_resource_or_insert_with::<RollbackOrdered>(|| default())
+            .get_resource_or_insert_with::<RollbackOrdered>(default)
             .push(rollback);
     }
 }

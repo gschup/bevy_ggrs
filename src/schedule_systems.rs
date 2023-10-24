@@ -172,7 +172,7 @@ pub(crate) fn handle_requests<T: Config>(requests: Vec<GGRSRequest<T>>, world: &
                 // look into resources and find the checksum
                 let checksum = world
                     .get_resource::<Checksum>()
-                    .map(|&Checksum(checksum)| checksum as u128);
+                    .map(|&Checksum(checksum)| checksum);
 
                 // we don't really use the buffer provided by GGRS
                 cell.save(frame, None, checksum);

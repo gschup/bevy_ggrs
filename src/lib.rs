@@ -53,6 +53,7 @@ const DEFAULT_FPS: usize = 60;
 pub struct GgrsSchedule;
 
 /// Defines the Session that the GGRS Plugin should expect as a resource.
+#[allow(clippy::large_enum_variant)]
 #[derive(Resource)]
 pub enum Session<T: Config> {
     SyncTest(SyncTestSession<T>),
@@ -196,9 +197,9 @@ pub trait GgrsApp {
 
 impl GgrsApp for App {
     fn set_rollback_schedule_fps(&mut self, fps: usize) -> &mut Self {
-        let mut time_data = FixedTimestepData::default();
-        time_data.fps = fps;
-        self.world.insert_resource(time_data);
+        self.world
+            .insert_resource(FixedTimestepData { fps, ..default() });
+
         self
     }
 

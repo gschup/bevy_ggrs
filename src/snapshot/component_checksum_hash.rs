@@ -32,13 +32,14 @@ where
     C: Component + Hash,
 {
     /// A [`System`] responsible for managing a [`ChecksumPart`] for the [`Component`] type `C`.
+    #[allow(clippy::type_complexity)]
     pub fn update(
         mut commands: Commands,
         rollback_ordered: Res<RollbackOrdered>,
         components: Query<(&Rollback, &C), (With<Rollback>, Without<ChecksumFlag<C>>)>,
         mut checksum: Query<&mut ChecksumPart, (Without<Rollback>, With<ChecksumFlag<C>>)>,
     ) {
-        let mut hasher = bevy::utils::FixedState::default().build_hasher();
+        let mut hasher = bevy::utils::FixedState.build_hasher();
 
         let mut result = 0;
 
@@ -50,7 +51,7 @@ where
             component.hash(&mut hasher);
 
             // XOR chosen over addition or multiplication as it is closed on u64 and commutative
-            result = result ^ hasher.finish();
+            result ^= hasher.finish();
         }
 
         // Hash the XOR'ed result to break commutativity with other types

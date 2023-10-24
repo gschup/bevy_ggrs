@@ -34,6 +34,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_num_players(num_players)
         .with_desync_detection_mode(ggrs::DesyncDetection::On { interval: 10 }) // (optional) set how often to exchange state checksums
         .with_max_prediction_window(12) // (optional) set max prediction window
+        .unwrap()
         .with_input_delay(2); // (optional) set input delay for the local player
 
     // add players

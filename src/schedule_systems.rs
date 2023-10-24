@@ -186,8 +186,7 @@ pub(crate) fn handle_requests<T: Config>(requests: Vec<GGRSRequest<T>>, world: &
         let confirmed_frame = match session {
             Some(Session::P2P(s)) => Some(s.confirmed_frame()),
             Some(Session::SyncTest(s)) => {
-                // TODO: `max_prediction` should be replaced with `depth`, but it is private.
-                let current_frame = current_frame - (s.max_prediction() as i32);
+                let current_frame = current_frame - (s.check_distance() as i32);
                 (current_frame < 0).then_some(current_frame)
             }
             Some(Session::Spectator(_)) => Some(current_frame),

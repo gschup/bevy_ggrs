@@ -11,7 +11,7 @@ use std::{fmt::Debug, hash::Hash, marker::PhantomData, net::SocketAddr};
 
 pub use ggrs;
 
-pub use rollback::{AddRollbackCommand, AddRollbackCommandExtension, Rollback};
+pub use rollback::*;
 pub use snapshot::*;
 
 pub(crate) mod rollback;
@@ -134,6 +134,7 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
 
         app.init_resource::<RollbackFrameCount>()
             .init_resource::<ConfirmedFrameCount>()
+            .init_resource::<RollbackOrdered>()
             .init_resource::<LocalPlayers>()
             .init_resource::<FixedTimestepData>()
             .add_schedule(GgrsSchedule, schedule)

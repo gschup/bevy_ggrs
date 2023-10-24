@@ -1,7 +1,4 @@
-use std::{
-    hash::{BuildHasher, Hash, Hasher},
-    marker::PhantomData,
-};
+use std::{hash::Hash, marker::PhantomData};
 
 use bevy::prelude::*;
 
@@ -35,20 +32,18 @@ pub struct Checksum(pub u128);
 /// To add you own data to this [`Checksum`], create an [`Entity`] with a [`ChecksumPart`]
 /// [`Component`]. Every [`Entity`] with this [`Component`] will participate in the
 /// creation of a [`Checksum`].
+
 pub struct GgrsChecksumPlugin;
 
 impl GgrsChecksumPlugin {
     /// A [`System`] responsible for updating [`Checksum`] based on [`ChecksumParts`](`ChecksumPart`).
     pub fn update(mut checksum: ResMut<Checksum>, parts: Query<&ChecksumPart>) {
-        let parts = parts.iter().fold(0, |result: u128, &ChecksumPart(part)| {
-            result.wrapping_add(part)
-        });
+        // TODO: Add explicit ordering to `ChecksumPart`'s to make checksum more robust to transposition
+        // XOR is commutative, ensuring order does not matter.
+        // Chosen over addition and multiplication as XOR is closed on u128
+        let parts = parts.iter().fold(0, |a: u128, &ChecksumPart(b)| a ^ b);
 
-        let mut hasher = bevy::utils::FixedState::default().build_hasher();
-
-        parts.hash(&mut hasher);
-
-        *checksum = Checksum(hasher.finish() as u128);
+        *checksum = Checksum(parts);
     }
 }
 

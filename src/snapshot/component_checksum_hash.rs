@@ -5,7 +5,7 @@ use std::{
 
 use bevy::prelude::*;
 
-use crate::{ChecksumFlag, ChecksumPart, Rollback, SaveWorld, SaveWorldSet};
+use crate::{ChecksumFlag, ChecksumPart, Rollback, RollbackOrdered, SaveWorld, SaveWorldSet};
 
 /// A [`Plugin`] which will track the [`Component`] `C` on [`Rollback Entities`](`Rollback`) and ensure a
 /// [`ChecksumPart`] is available and updated. This can be used to generate a [`Checksum`](`crate::Checksum`).
@@ -34,18 +34,27 @@ where
     /// A [`System`] responsible for managing a [`ChecksumPart`] for the [`Component`] type `C`.
     pub fn update(
         mut commands: Commands,
+        rollback_ordered: Res<RollbackOrdered>,
         components: Query<(&Rollback, &C), (With<Rollback>, Without<ChecksumFlag<C>>)>,
         mut checksum: Query<&mut ChecksumPart, (Without<Rollback>, With<ChecksumFlag<C>>)>,
     ) {
         let mut hasher = bevy::utils::FixedState::default().build_hasher();
 
-        let mut components = components.iter().collect::<Vec<_>>();
+        let mut result = 0;
 
-        components.sort_by_key(|(&rollback, _)| rollback);
+        for (&rollback, component) in components.iter() {
+            let mut hasher = hasher.clone();
 
-        for (_, component) in components {
+            // Hashing the rollback index ensures this hash is unique and stable
+            rollback_ordered.order(rollback).hash(&mut hasher);
             component.hash(&mut hasher);
+
+            // XOR chosen over addition or multiplication as it is closed on u64 and commutative
+            result = result ^ hasher.finish();
         }
+
+        // Hash the XOR'ed result to break commutativity with other types
+        result.hash(&mut hasher);
 
         let result = ChecksumPart(hasher.finish() as u128);
 

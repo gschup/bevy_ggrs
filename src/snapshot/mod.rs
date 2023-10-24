@@ -1,4 +1,4 @@
-use crate::{ConfirmedFrameCount, Rollback, DEFAULT_FPS};
+use crate::{ConfirmedFrameCount, Rollback, MaxPredictionWindow};
 use bevy::{prelude::*, utils::HashMap};
 use std::{collections::VecDeque, marker::PhantomData};
 
@@ -65,11 +65,11 @@ pub struct GgrsSnapshots<For, As = For> {
 }
 
 impl<For, As> Default for GgrsSnapshots<For, As> {
-    /// Create a default [`GgrsSnapshots`] resource. This will only track a maximum of 1 second
-    /// worth of snapshots. If you require a longer rollback window, use [`set_depth`](`GgrsSnapshots::set_depth`)
+    /// Create a default [`GgrsSnapshots`] resource. This will only track a maximum of 8 snapshots.
+    /// If you require a longer rollback window, use [`set_depth`](`GgrsSnapshots::set_depth`)
     fn default() -> Self {
-        // Arbitrarily choosing 1 second to be the longest possible rollback.
-        let depth = DEFAULT_FPS;
+        // 8 is the current default `max_prediction_window`
+        let depth = 8;
 
         Self {
             snapshots: VecDeque::with_capacity(depth),
@@ -188,10 +188,15 @@ impl<For, As> GgrsSnapshots<For, As> {
     pub fn discard_old_snapshots(
         mut snapshots: ResMut<Self>,
         confirmed_frame: Option<Res<ConfirmedFrameCount>>,
+        max_prediction_window: Option<Res<MaxPredictionWindow>>,
     ) where
         For: Send + Sync + 'static,
         As: Send + Sync + 'static,
     {
+        if let Some(max_prediction_window) = max_prediction_window {
+            snapshots.set_depth(max_prediction_window.0);
+        }
+
         let Some(confirmed_frame) = confirmed_frame else {
             return;
         };

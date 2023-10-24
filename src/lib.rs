@@ -105,6 +105,10 @@ impl Into<i32> for ConfirmedFrameCount {
     }
 }
 
+/// The maximum prediction window for this [`Session`], provided as a concrete [`Resource`].
+#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MaxPredictionWindow(usize);
+
 /// Inputs from local players. You have to fill this resource in the ReadInputs schedule.
 #[derive(Resource)]
 pub struct LocalInputs<C: Config>(pub HashMap<PlayerHandle, C::Input>);
@@ -147,6 +151,7 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
 
         app.init_resource::<RollbackFrameCount>()
             .init_resource::<ConfirmedFrameCount>()
+            .init_resource::<MaxPredictionWindow>()
             .init_resource::<RollbackOrdered>()
             .init_resource::<LocalPlayers>()
             .init_resource::<FixedTimestepData>()

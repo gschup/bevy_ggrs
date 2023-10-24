@@ -1,6 +1,6 @@
 use crate::{
     Checksum, ConfirmedFrameCount, FixedTimestepData, GgrsSchedule, LoadWorld, LocalInputs,
-    LocalPlayers, PlayerInputs, ReadInputs, RollbackFrameCount, SaveWorld, Session,
+    LocalPlayers, PlayerInputs, ReadInputs, RollbackFrameCount, SaveWorld, Session, MaxPredictionWindow,
 };
 use bevy::{prelude::*, utils::Duration};
 use ggrs::{
@@ -62,6 +62,7 @@ pub(crate) fn run_ggrs_schedules<T: Config>(world: &mut World) {
                 world.insert_resource(LocalPlayers::default());
                 world.insert_resource(RollbackFrameCount(0));
                 world.insert_resource(ConfirmedFrameCount(-1));
+                world.insert_resource(MaxPredictionWindow(8));
             }
         }
     }
@@ -149,7 +150,16 @@ pub(crate) fn handle_requests<T: Config>(requests: Vec<GGRSRequest<T>>, world: &
             .map(|frame| frame.0)
             .unwrap_or_default();
 
-        let confirmed_frame = match world.get_resource::<Session<T>>() {
+        let session = world.get_resource::<Session<T>>();
+
+        let max_prediction = match session {
+            Some(Session::P2P(s)) => Some(s.max_prediction()),
+            Some(Session::SyncTest(s)) => Some(s.max_prediction()),
+            Some(Session::Spectator(_)) => Some(0),
+            None => None,
+        };
+
+        let confirmed_frame = match session {
             Some(Session::P2P(s)) => Some(s.confirmed_frame()),
             Some(Session::SyncTest(s)) => {
                 // TODO: `max_prediction` should be replaced with `depth`, but it is private.
@@ -159,6 +169,10 @@ pub(crate) fn handle_requests<T: Config>(requests: Vec<GGRSRequest<T>>, world: &
             Some(Session::Spectator(_)) => Some(current_frame),
             None => None,
         };
+
+        if let Some(max_prediction) = max_prediction {
+            world.insert_resource(MaxPredictionWindow(max_prediction));
+        }
 
         if let Some(confirmed_frame) = confirmed_frame {
             world.insert_resource(ConfirmedFrameCount(confirmed_frame));

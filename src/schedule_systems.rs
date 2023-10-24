@@ -1,6 +1,7 @@
 use crate::{
     Checksum, ConfirmedFrameCount, FixedTimestepData, GgrsSchedule, LoadWorld, LocalInputs,
-    LocalPlayers, PlayerInputs, ReadInputs, RollbackFrameCount, SaveWorld, Session, MaxPredictionWindow,
+    LocalPlayers, MaxPredictionWindow, PlayerInputs, ReadInputs, RollbackFrameCount, SaveWorld,
+    Session,
 };
 use bevy::{prelude::*, utils::Duration};
 use ggrs::{

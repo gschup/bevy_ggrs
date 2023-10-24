@@ -1,7 +1,4 @@
-use std::{
-    hash::Hash,
-    marker::PhantomData,
-};
+use std::{hash::Hash, marker::PhantomData};
 
 use bevy::prelude::*;
 

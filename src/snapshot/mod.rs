@@ -1,4 +1,4 @@
-use crate::{ConfirmedFrameCount, Rollback, MaxPredictionWindow};
+use crate::{ConfirmedFrameCount, MaxPredictionWindow, Rollback};
 use bevy::{prelude::*, utils::HashMap};
 use std::{collections::VecDeque, marker::PhantomData};
 

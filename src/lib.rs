@@ -89,9 +89,9 @@ impl Default for FixedTimestepData {
 #[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RollbackFrameCount(i32);
 
-impl Into<i32> for RollbackFrameCount {
-    fn into(self) -> i32 {
-        self.0
+impl From<RollbackFrameCount> for i32 {
+    fn from(value: RollbackFrameCount) -> i32 {
+        value.0
     }
 }
 
@@ -99,9 +99,9 @@ impl Into<i32> for RollbackFrameCount {
 #[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ConfirmedFrameCount(i32);
 
-impl Into<i32> for ConfirmedFrameCount {
-    fn into(self) -> i32 {
-        self.0
+impl From<ConfirmedFrameCount> for i32 {
+    fn from(value: ConfirmedFrameCount) -> i32 {
+        value.0
     }
 }
 

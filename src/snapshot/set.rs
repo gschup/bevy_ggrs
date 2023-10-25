@@ -42,8 +42,6 @@ pub enum SaveWorldSet {
     /// The final [`Checksum`](`crate::Checksum`) for the frame will be produced after this set, but before
     /// the [`Snapshot`](`SaveWorldSet::Snapshot`) set.
     Checksum,
-    /// Flush any deferred operations
-    PreSnapshotFlush,
     /// Saves a snapshot of the [`World`] in this state for future possible rollback.
     Snapshot,
 }
@@ -69,16 +67,11 @@ impl Plugin for GgrsSnapshotSetPlugin {
             SaveWorld,
             (
                 SaveWorldSet::Checksum,
-                SaveWorldSet::PreSnapshotFlush,
                 SaveWorldSet::Snapshot,
             )
                 .chain(),
         )
         .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::EntityFlush))
-        .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::DataFlush))
-        .add_systems(
-            SaveWorld,
-            apply_deferred.in_set(SaveWorldSet::PreSnapshotFlush),
-        );
+        .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::DataFlush));
     }
 }

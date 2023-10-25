@@ -94,7 +94,7 @@ impl Plugin for GgrsChecksumPlugin {
         app.init_resource::<Checksum>().add_systems(
             SaveWorld,
             Self::update
-                .after(SaveWorldSet::PreSnapshotFlush)
+                .after(SaveWorldSet::Checksum)
                 .before(SaveWorldSet::Snapshot),
         );
     }

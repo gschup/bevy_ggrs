@@ -22,12 +22,12 @@ use bevy::{ecs::entity::EntityMap, prelude::*, utils::HashMap};
 /// # fn start(session: Session<GgrsConfig<MyInputType>>) {
 /// # let mut app = App::new();
 /// // This will ensure entities are updated on rollback to match the state of the target snapshot
-/// app.add_plugins(GgrsEntitySnapshotPlugin);
+/// app.add_plugins(EntitySnapshotPlugin);
 /// # }
 /// ```
-pub struct GgrsEntitySnapshotPlugin;
+pub struct EntitySnapshotPlugin;
 
-impl GgrsEntitySnapshotPlugin {
+impl EntitySnapshotPlugin {
     pub fn save(
         mut snapshots: ResMut<GgrsComponentSnapshots<Entity>>,
         frame: Res<RollbackFrameCount>,
@@ -86,7 +86,7 @@ impl GgrsEntitySnapshotPlugin {
     }
 }
 
-impl Plugin for GgrsEntitySnapshotPlugin {
+impl Plugin for EntitySnapshotPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<GgrsComponentSnapshots<Entity>>()
             .init_resource::<RollbackEntityMap>()

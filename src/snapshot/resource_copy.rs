@@ -23,17 +23,17 @@ use std::marker::PhantomData;
 /// #[derive(Resource, Clone, Copy)]
 /// struct MyMarker;
 ///
-/// app.add_plugins(GgrsResourceSnapshotCopyPlugin::<MyMarker>::default());
+/// app.add_plugins(ResourceSnapshotCopyPlugin::<MyMarker>::default());
 /// # }
 /// ```
-pub struct GgrsResourceSnapshotCopyPlugin<R>
+pub struct ResourceSnapshotCopyPlugin<R>
 where
     R: Resource + Copy,
 {
     _phantom: PhantomData<R>,
 }
 
-impl<R> Default for GgrsResourceSnapshotCopyPlugin<R>
+impl<R> Default for ResourceSnapshotCopyPlugin<R>
 where
     R: Resource + Copy,
 {
@@ -44,7 +44,7 @@ where
     }
 }
 
-impl<R> GgrsResourceSnapshotCopyPlugin<R>
+impl<R> ResourceSnapshotCopyPlugin<R>
 where
     R: Resource + Copy,
 {
@@ -83,7 +83,7 @@ where
     }
 }
 
-impl<R> Plugin for GgrsResourceSnapshotCopyPlugin<R>
+impl<R> Plugin for ResourceSnapshotCopyPlugin<R>
 where
     R: Resource + Copy,
 {

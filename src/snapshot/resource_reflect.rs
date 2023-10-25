@@ -24,17 +24,17 @@ use std::marker::PhantomData;
 /// #[derive(Resource, Reflect, Default)]
 /// struct ThemeColor(Color);
 ///
-/// app.add_plugins(GgrsResourceSnapshotReflectPlugin::<ThemeColor>::default());
+/// app.add_plugins(ResourceSnapshotReflectPlugin::<ThemeColor>::default());
 /// # }
 /// ```
-pub struct GgrsResourceSnapshotReflectPlugin<R>
+pub struct ResourceSnapshotReflectPlugin<R>
 where
     R: Resource + Reflect + FromWorld,
 {
     _phantom: PhantomData<R>,
 }
 
-impl<R> Default for GgrsResourceSnapshotReflectPlugin<R>
+impl<R> Default for ResourceSnapshotReflectPlugin<R>
 where
     R: Resource + Reflect + FromWorld,
 {
@@ -45,7 +45,7 @@ where
     }
 }
 
-impl<R> GgrsResourceSnapshotReflectPlugin<R>
+impl<R> ResourceSnapshotReflectPlugin<R>
 where
     R: Resource + Reflect + FromWorld,
 {
@@ -94,7 +94,7 @@ where
     }
 }
 
-impl<R> Plugin for GgrsResourceSnapshotReflectPlugin<R>
+impl<R> Plugin for ResourceSnapshotReflectPlugin<R>
 where
     R: Resource + Reflect + FromWorld,
 {

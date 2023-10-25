@@ -34,12 +34,12 @@ pub use set::*;
 
 pub mod prelude {
     pub use super::{
-        Checksum, GgrsChecksumPlugin, GgrsComponentChecksumHashPlugin,
-        GgrsComponentMapEntitiesPlugin, GgrsComponentSnapshotClonePlugin,
-        GgrsComponentSnapshotCopyPlugin, GgrsComponentSnapshotReflectPlugin,
-        GgrsEntitySnapshotPlugin, GgrsResourceChecksumHashPlugin, GgrsResourceMapEntitiesPlugin,
-        GgrsResourceSnapshotClonePlugin, GgrsResourceSnapshotCopyPlugin,
-        GgrsResourceSnapshotReflectPlugin, GgrsSnapshotSetPlugin, LoadWorldSet, SaveWorldSet,
+        Checksum, ChecksumPlugin, ComponentChecksumHashPlugin,
+        ComponentMapEntitiesPlugin, ComponentSnapshotClonePlugin,
+        ComponentSnapshotCopyPlugin, ComponentSnapshotReflectPlugin,
+        EntitySnapshotPlugin, ResourceChecksumHashPlugin, ResourceMapEntitiesPlugin,
+        ResourceSnapshotClonePlugin, ResourceSnapshotCopyPlugin,
+        ResourceSnapshotReflectPlugin, SnapshotSetPlugin, LoadWorldSet, SaveWorldSet,
     };
 }
 

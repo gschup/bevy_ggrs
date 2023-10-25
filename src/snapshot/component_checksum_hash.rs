@@ -30,17 +30,17 @@ use crate::{ChecksumFlag, ChecksumPart, Rollback, RollbackOrdered, SaveWorld, Sa
 /// app.rollback_component_with_clone::<Health>();
 ///
 /// // This will update the checksum every frame to include Health on rollback entities
-/// app.add_plugins(GgrsComponentChecksumHashPlugin::<Health>::default());
+/// app.add_plugins(ComponentChecksumHashPlugin::<Health>::default());
 /// # }
 /// ```
-pub struct GgrsComponentChecksumHashPlugin<C>
+pub struct ComponentChecksumHashPlugin<C>
 where
     C: Component + Hash,
 {
     _phantom: PhantomData<C>,
 }
 
-impl<C> Default for GgrsComponentChecksumHashPlugin<C>
+impl<C> Default for ComponentChecksumHashPlugin<C>
 where
     C: Component + Hash,
 {
@@ -51,7 +51,7 @@ where
     }
 }
 
-impl<C> GgrsComponentChecksumHashPlugin<C>
+impl<C> ComponentChecksumHashPlugin<C>
 where
     C: Component + Hash,
 {
@@ -97,7 +97,7 @@ where
     }
 }
 
-impl<C> Plugin for GgrsComponentChecksumHashPlugin<C>
+impl<C> Plugin for ComponentChecksumHashPlugin<C>
 where
     C: Component + Hash,
 {

@@ -35,17 +35,17 @@ use crate::{LoadWorld, LoadWorldSet, RollbackEntityMap};
 /// app.rollback_component_with_clone::<BestFriend>();
 ///
 /// // This will apply MapEntities on each rollback
-/// app.add_plugins(GgrsComponentMapEntitiesPlugin::<BestFriend>::default());
+/// app.add_plugins(ComponentMapEntitiesPlugin::<BestFriend>::default());
 /// # }
 /// ```
-pub struct GgrsComponentMapEntitiesPlugin<C>
+pub struct ComponentMapEntitiesPlugin<C>
 where
     C: Component + MapEntities,
 {
     _phantom: PhantomData<C>,
 }
 
-impl<C> Default for GgrsComponentMapEntitiesPlugin<C>
+impl<C> Default for ComponentMapEntitiesPlugin<C>
 where
     C: Component + MapEntities,
 {
@@ -56,7 +56,7 @@ where
     }
 }
 
-impl<C> GgrsComponentMapEntitiesPlugin<C>
+impl<C> ComponentMapEntitiesPlugin<C>
 where
     C: Component + MapEntities,
 {
@@ -119,7 +119,7 @@ fn apply_map<C: Component + MapEntities>(world: &mut World, entity_mapper: &mut 
     }
 }
 
-impl<C> Plugin for GgrsComponentMapEntitiesPlugin<C>
+impl<C> Plugin for ComponentMapEntitiesPlugin<C>
 where
     C: Component + MapEntities,
 {

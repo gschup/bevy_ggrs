@@ -23,17 +23,17 @@ use std::marker::PhantomData;
 /// struct BossHealth(u32);
 ///
 /// // This will ensure the BossHealth resource is rolled back
-/// app.add_plugins(GgrsResourceSnapshotClonePlugin::<BossHealth>::default());
+/// app.add_plugins(ResourceSnapshotClonePlugin::<BossHealth>::default());
 /// # }
 /// ```
-pub struct GgrsResourceSnapshotClonePlugin<R>
+pub struct ResourceSnapshotClonePlugin<R>
 where
     R: Resource + Clone,
 {
     _phantom: PhantomData<R>,
 }
 
-impl<R> Default for GgrsResourceSnapshotClonePlugin<R>
+impl<R> Default for ResourceSnapshotClonePlugin<R>
 where
     R: Resource + Clone,
 {
@@ -44,7 +44,7 @@ where
     }
 }
 
-impl<R> GgrsResourceSnapshotClonePlugin<R>
+impl<R> ResourceSnapshotClonePlugin<R>
 where
     R: Resource + Clone,
 {
@@ -83,7 +83,7 @@ where
     }
 }
 
-impl<R> Plugin for GgrsResourceSnapshotClonePlugin<R>
+impl<R> Plugin for ResourceSnapshotClonePlugin<R>
 where
     R: Resource + Clone,
 {

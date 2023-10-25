@@ -70,12 +70,12 @@ pub struct Checksum(pub u128);
 /// app.checksum_component_with_hash::<Health>();
 ///
 /// // This will take the Health checksum (and any others) and create a total checksum for the frame
-/// app.add_plugins(GgrsChecksumPlugin);
+/// app.add_plugins(ChecksumPlugin);
 /// # }
 /// ```
-pub struct GgrsChecksumPlugin;
+pub struct ChecksumPlugin;
 
-impl GgrsChecksumPlugin {
+impl ChecksumPlugin {
     /// A [`System`] responsible for updating [`Checksum`] based on [`ChecksumParts`](`ChecksumPart`).
     pub fn update(mut checksum: ResMut<Checksum>, parts: Query<&ChecksumPart>) {
         // TODO: Add explicit ordering to `ChecksumPart`'s to make checksum more robust to transposition
@@ -89,7 +89,7 @@ impl GgrsChecksumPlugin {
     }
 }
 
-impl Plugin for GgrsChecksumPlugin {
+impl Plugin for ChecksumPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Checksum>().add_systems(
             SaveWorld,

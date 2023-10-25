@@ -24,17 +24,17 @@ use std::marker::PhantomData;
 /// #[derive(Component, Clone, Copy)]
 /// struct MyMarker;
 ///
-/// app.add_plugins(GgrsComponentSnapshotCopyPlugin::<MyMarker>::default());
+/// app.add_plugins(ComponentSnapshotCopyPlugin::<MyMarker>::default());
 /// # }
 /// ```
-pub struct GgrsComponentSnapshotCopyPlugin<C>
+pub struct ComponentSnapshotCopyPlugin<C>
 where
     C: Component + Copy,
 {
     _phantom: PhantomData<C>,
 }
 
-impl<C> Default for GgrsComponentSnapshotCopyPlugin<C>
+impl<C> Default for ComponentSnapshotCopyPlugin<C>
 where
     C: Component + Copy,
 {
@@ -45,7 +45,7 @@ where
     }
 }
 
-impl<C> GgrsComponentSnapshotCopyPlugin<C>
+impl<C> ComponentSnapshotCopyPlugin<C>
 where
     C: Component + Copy,
 {
@@ -100,7 +100,7 @@ where
     }
 }
 
-impl<C> Plugin for GgrsComponentSnapshotCopyPlugin<C>
+impl<C> Plugin for ComponentSnapshotCopyPlugin<C>
 where
     C: Component + Copy,
 {

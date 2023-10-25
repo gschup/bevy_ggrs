@@ -25,17 +25,17 @@ use std::marker::PhantomData;
 /// #[derive(Component, Reflect, Default)]
 /// struct FavoriteColor(Color);
 ///
-/// app.add_plugins(GgrsComponentSnapshotReflectPlugin::<FavoriteColor>::default());
+/// app.add_plugins(ComponentSnapshotReflectPlugin::<FavoriteColor>::default());
 /// # }
 /// ```
-pub struct GgrsComponentSnapshotReflectPlugin<C>
+pub struct ComponentSnapshotReflectPlugin<C>
 where
     C: Component + Reflect + FromWorld,
 {
     _phantom: PhantomData<C>,
 }
 
-impl<C> Default for GgrsComponentSnapshotReflectPlugin<C>
+impl<C> Default for ComponentSnapshotReflectPlugin<C>
 where
     C: Component + Reflect + FromWorld,
 {
@@ -46,7 +46,7 @@ where
     }
 }
 
-impl<C> GgrsComponentSnapshotReflectPlugin<C>
+impl<C> ComponentSnapshotReflectPlugin<C>
 where
     C: Component + Reflect + FromWorld,
 {
@@ -109,7 +109,7 @@ where
     }
 }
 
-impl<C> Plugin for GgrsComponentSnapshotReflectPlugin<C>
+impl<C> Plugin for ComponentSnapshotReflectPlugin<C>
 where
     C: Component + Reflect + FromWorld,
 {

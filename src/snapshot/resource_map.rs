@@ -35,17 +35,17 @@ use crate::{LoadWorld, LoadWorldSet, RollbackEntityMap};
 /// app.rollback_resource_with_clone::<Player>();
 ///
 /// // This will apply MapEntities on each rollback
-/// app.add_plugins(GgrsResourceMapEntitiesPlugin::<Player>::default());
+/// app.add_plugins(ResourceMapEntitiesPlugin::<Player>::default());
 /// # }
 /// ```
-pub struct GgrsResourceMapEntitiesPlugin<R>
+pub struct ResourceMapEntitiesPlugin<R>
 where
     R: Resource + MapEntities,
 {
     _phantom: PhantomData<R>,
 }
 
-impl<R> Default for GgrsResourceMapEntitiesPlugin<R>
+impl<R> Default for ResourceMapEntitiesPlugin<R>
 where
     R: Resource + MapEntities,
 {
@@ -56,7 +56,7 @@ where
     }
 }
 
-impl<R> GgrsResourceMapEntitiesPlugin<R>
+impl<R> ResourceMapEntitiesPlugin<R>
 where
     R: Resource + MapEntities,
 {
@@ -115,7 +115,7 @@ fn apply_map<R: Resource + MapEntities>(world: &mut World, entity_mapper: &mut E
     }
 }
 
-impl<R> Plugin for GgrsResourceMapEntitiesPlugin<R>
+impl<R> Plugin for ResourceMapEntitiesPlugin<R>
 where
     R: Resource + MapEntities,
 {

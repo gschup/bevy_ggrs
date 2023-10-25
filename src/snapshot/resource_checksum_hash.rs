@@ -27,17 +27,17 @@ use crate::{ChecksumFlag, ChecksumPart, Rollback, SaveWorld, SaveWorldSet};
 /// app.rollback_resource_with_clone::<BossHealth>();
 ///
 /// // This will update the checksum every frame to include BossHealth
-/// app.add_plugins(GgrsResourceChecksumHashPlugin::<BossHealth>::default());
+/// app.add_plugins(ResourceChecksumHashPlugin::<BossHealth>::default());
 /// # }
 /// ```
-pub struct GgrsResourceChecksumHashPlugin<R>
+pub struct ResourceChecksumHashPlugin<R>
 where
     R: Resource + Hash,
 {
     _phantom: PhantomData<R>,
 }
 
-impl<R> Default for GgrsResourceChecksumHashPlugin<R>
+impl<R> Default for ResourceChecksumHashPlugin<R>
 where
     R: Resource + Hash,
 {
@@ -48,7 +48,7 @@ where
     }
 }
 
-impl<R> GgrsResourceChecksumHashPlugin<R>
+impl<R> ResourceChecksumHashPlugin<R>
 where
     R: Resource + Hash,
 {
@@ -74,7 +74,7 @@ where
     }
 }
 
-impl<R> Plugin for GgrsResourceChecksumHashPlugin<R>
+impl<R> Plugin for ResourceChecksumHashPlugin<R>
 where
     R: Resource + Hash,
 {

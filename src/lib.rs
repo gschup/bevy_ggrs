@@ -192,13 +192,13 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
             .add_schedule(ReadInputs, Schedule::new())
             .add_systems(PreUpdate, schedule_systems::run_ggrs_schedules::<C>)
             .add_plugins((
-                GgrsSnapshotSetPlugin,
-                GgrsChecksumPlugin,
-                GgrsEntitySnapshotPlugin,
-                GgrsComponentSnapshotReflectPlugin::<Parent>::default(),
-                GgrsComponentMapEntitiesPlugin::<Parent>::default(),
-                GgrsComponentSnapshotReflectPlugin::<Children>::default(),
-                GgrsComponentMapEntitiesPlugin::<Children>::default(),
+                SnapshotSetPlugin,
+                ChecksumPlugin,
+                EntitySnapshotPlugin,
+                ComponentSnapshotReflectPlugin::<Parent>::default(),
+                ComponentMapEntitiesPlugin::<Parent>::default(),
+                ComponentSnapshotReflectPlugin::<Children>::default(),
+                ComponentMapEntitiesPlugin::<Children>::default(),
             ));
     }
 }
@@ -234,7 +234,7 @@ pub trait GgrsApp {
     ///
     /// NOTE: Unlike previous versions of `bevy_ggrs`, this will no longer automatically
     /// apply entity mapping through the [`MapEntities`](`bevy::ecs::entity::MapEntities`) trait.
-    /// If you require this behavior, see [`GgrsComponentMapEntitiesPlugin`].
+    /// If you require this behavior, see [`ComponentMapEntitiesPlugin`].
     fn rollback_component_with_reflect<Type>(&mut self) -> &mut Self
     where
         Type: Component + Reflect + FromWorld;
@@ -244,7 +244,7 @@ pub trait GgrsApp {
     ///
     /// NOTE: Unlike previous versions of `bevy_ggrs`, this will no longer automatically
     /// apply entity mapping through the [`MapEntities`](`bevy::ecs::entity::MapEntities`) trait.
-    /// If you require this behavior, see [`GgrsComponentMapEntitiesPlugin`].
+    /// If you require this behavior, see [`ComponentMapEntitiesPlugin`].
     fn rollback_resource_with_reflect<Type>(&mut self) -> &mut Self
     where
         Type: Resource + Reflect + FromWorld;
@@ -285,69 +285,69 @@ impl GgrsApp for App {
     where
         Type: Component + Reflect + FromWorld,
     {
-        self.add_plugins(GgrsComponentSnapshotReflectPlugin::<Type>::default())
+        self.add_plugins(ComponentSnapshotReflectPlugin::<Type>::default())
     }
 
     fn rollback_resource_with_reflect<Type>(&mut self) -> &mut Self
     where
         Type: Resource + Reflect + FromWorld,
     {
-        self.add_plugins(GgrsResourceSnapshotReflectPlugin::<Type>::default())
+        self.add_plugins(ResourceSnapshotReflectPlugin::<Type>::default())
     }
 
     fn rollback_component_with_copy<Type>(&mut self) -> &mut Self
     where
         Type: Component + Copy,
     {
-        self.add_plugins(GgrsComponentSnapshotCopyPlugin::<Type>::default())
+        self.add_plugins(ComponentSnapshotCopyPlugin::<Type>::default())
     }
 
     fn rollback_resource_with_copy<Type>(&mut self) -> &mut Self
     where
         Type: Resource + Copy,
     {
-        self.add_plugins(GgrsResourceSnapshotCopyPlugin::<Type>::default())
+        self.add_plugins(ResourceSnapshotCopyPlugin::<Type>::default())
     }
 
     fn rollback_component_with_clone<Type>(&mut self) -> &mut Self
     where
         Type: Component + Clone,
     {
-        self.add_plugins(GgrsComponentSnapshotClonePlugin::<Type>::default())
+        self.add_plugins(ComponentSnapshotClonePlugin::<Type>::default())
     }
 
     fn rollback_resource_with_clone<Type>(&mut self) -> &mut Self
     where
         Type: Resource + Clone,
     {
-        self.add_plugins(GgrsResourceSnapshotClonePlugin::<Type>::default())
+        self.add_plugins(ResourceSnapshotClonePlugin::<Type>::default())
     }
 
     fn checksum_component_with_hash<Type>(&mut self) -> &mut Self
     where
         Type: Component + Hash,
     {
-        self.add_plugins(GgrsComponentChecksumHashPlugin::<Type>::default())
+        self.add_plugins(ComponentChecksumHashPlugin::<Type>::default())
     }
 
     fn update_component_with_map_entities<Type>(&mut self) -> &mut Self
     where
         Type: Component + MapEntities,
     {
-        self.add_plugins(GgrsComponentMapEntitiesPlugin::<Type>::default())
+        self.add_plugins(ComponentMapEntitiesPlugin::<Type>::default())
     }
 
     fn checksum_resource_with_hash<Type>(&mut self) -> &mut Self
     where
         Type: Resource + Hash,
     {
-        self.add_plugins(GgrsResourceChecksumHashPlugin::<Type>::default())
+        self.add_plugins(ResourceChecksumHashPlugin::<Type>::default())
     }
 
     fn update_resource_with_map_entities<Type>(&mut self) -> &mut Self
     where
         Type: Resource + MapEntities,
     {
-        self.add_plugins(GgrsResourceMapEntitiesPlugin::<Type>::default())
+        self.add_plugins(ResourceMapEntitiesPlugin::<Type>::default())
     }
 }

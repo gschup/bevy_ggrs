@@ -21,17 +21,17 @@ use std::marker::PhantomData;
 /// # fn start(session: Session<GgrsConfig<MyInputType>>) {
 /// # let mut app = App::new();
 /// // The Transform component is a good candidate for Clone-based rollback
-/// app.add_plugins(GgrsComponentSnapshotClonePlugin::<Transform>::default());
+/// app.add_plugins(ComponentSnapshotClonePlugin::<Transform>::default());
 /// # }
 /// ```
-pub struct GgrsComponentSnapshotClonePlugin<C>
+pub struct ComponentSnapshotClonePlugin<C>
 where
     C: Component + Clone,
 {
     _phantom: PhantomData<C>,
 }
 
-impl<C> Default for GgrsComponentSnapshotClonePlugin<C>
+impl<C> Default for ComponentSnapshotClonePlugin<C>
 where
     C: Component + Clone,
 {
@@ -42,7 +42,7 @@ where
     }
 }
 
-impl<C> GgrsComponentSnapshotClonePlugin<C>
+impl<C> ComponentSnapshotClonePlugin<C>
 where
     C: Component + Clone,
 {
@@ -97,7 +97,7 @@ where
     }
 }
 
-impl<C> Plugin for GgrsComponentSnapshotClonePlugin<C>
+impl<C> Plugin for ComponentSnapshotClonePlugin<C>
 where
     C: Component + Clone,
 {

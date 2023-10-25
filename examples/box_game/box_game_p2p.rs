@@ -14,9 +14,9 @@ const FPS: usize = 60;
 struct Opt {
     #[clap(short, long)]
     local_port: u16,
-    #[clap(short, long)]
+    #[clap(short, long, num_args = 1..)]
     players: Vec<String>,
-    #[clap(short, long)]
+    #[clap(short, long, num_args = 1..)]
     spectators: Vec<SocketAddr>,
 }
 

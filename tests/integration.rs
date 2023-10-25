@@ -121,8 +121,8 @@ fn start_session(
 ) -> Result<P2PSession<TestConfig>, Box<dyn std::error::Error>> {
     let mut session_builder = SessionBuilder::<TestConfig>::new()
         .with_num_players(2)
-        .with_max_prediction_window(12) // (optional) set max prediction window
-        .unwrap()
+        .with_max_prediction_window(12)
+        .expect("prediction window can't be 0") // (optional) set max prediction window
         .with_input_delay(2); // (optional) set input delay for the local player
     session_builder = session_builder.add_player(PlayerType::Local, local_player.handle)?;
     session_builder = session_builder.add_player(

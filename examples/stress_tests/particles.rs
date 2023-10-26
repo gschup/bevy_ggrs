@@ -3,7 +3,7 @@ use bevy_ggrs::{prelude::*, LocalInputs, LocalPlayers};
 use clap::Parser;
 use ggrs::UdpNonBlockingSocket;
 use rand::{Rng, SeedableRng};
-use std::net::SocketAddr;
+use std::{hash::Hasher, net::SocketAddr};
 
 #[derive(Parser, Resource)]
 struct Args {
@@ -64,6 +64,14 @@ fn read_local_inputs(
 #[derive(Default, Reflect, Component, Clone, Copy, Deref, DerefMut)]
 struct Velocity(Vec3);
 
+impl std::hash::Hash for Velocity {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.x.to_bits().hash(state);
+        self.0.y.to_bits().hash(state);
+        self.0.z.to_bits().hash(state);
+    }
+}
+
 #[derive(Default, Reflect, Component, Clone, Copy, Deref, DerefMut)]
 struct Ttl(usize);
 
@@ -117,6 +125,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .rollback_component_with_copy::<Velocity>()
         .rollback_component_with_copy::<Ttl>()
         .rollback_resource_with_clone::<ParticleRng>()
+        .checksum_component_with_hash::<Velocity>()
+        // todo: ideally we'd also be doing checksums for Transforms, but that's
+        // currently very clunky to do.
         .insert_resource(args)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {

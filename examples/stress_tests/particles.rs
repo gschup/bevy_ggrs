@@ -27,10 +27,8 @@ struct Args {
 
 type Config = GgrsConfig<u8>;
 
-const INPUT_UP: u8 = 1 << 0;
-const INPUT_DOWN: u8 = 1 << 1;
-const INPUT_LEFT: u8 = 1 << 2;
-const INPUT_RIGHT: u8 = 1 << 3;
+const INPUT_SPAWN: u8 = 1 << 4;
+const INPUT_NOOP: u8 = 1 << 5;
 
 fn read_local_inputs(
     mut commands: Commands,
@@ -42,17 +40,14 @@ fn read_local_inputs(
     for handle in &local_players.0 {
         let mut input: u8 = 0;
 
-        if keyboard_input.pressed(KeyCode::W) {
-            input |= INPUT_UP;
+        // space triggers particles
+        if keyboard_input.pressed(KeyCode::Space) {
+            input |= INPUT_SPAWN;
         }
-        if keyboard_input.pressed(KeyCode::A) {
-            input |= INPUT_LEFT;
-        }
-        if keyboard_input.pressed(KeyCode::S) {
-            input |= INPUT_DOWN;
-        }
-        if keyboard_input.pressed(KeyCode::D) {
-            input |= INPUT_RIGHT;
+
+        // n is a no-op key, press to simply trigger a rollback
+        if keyboard_input.pressed(KeyCode::N) {
+            input |= INPUT_NOOP;
         }
 
         local_inputs.insert(*handle, input);
@@ -145,7 +140,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .add_systems(
             GgrsSchedule,
             (
-                spawn_particles.run_if(any_input),
+                spawn_particles.run_if(spawn_pressed),
                 update_particles,
                 despawn_particles,
             ),
@@ -163,8 +158,8 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
 
-fn any_input(inputs: Res<PlayerInputs<Config>>) -> bool {
-    inputs.iter().any(|(i, _)| *i != 0)
+fn spawn_pressed(inputs: Res<PlayerInputs<Config>>) -> bool {
+    inputs.iter().any(|(i, _)| *i & INPUT_SPAWN != 0)
 }
 
 fn spawn_particles(mut commands: Commands, args: Res<Args>, mut rng: ResMut<ParticleRng>) {

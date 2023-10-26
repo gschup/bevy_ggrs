@@ -69,7 +69,7 @@ impl RollbackOrdered {
         // If this is the first item we can return early
         if self.sorted.len() == 1 {
             self.order.insert(rollback, 0);
-            return self
+            return self;
         }
 
         // Iterate from the back of sorted, swapping and updating order until stable

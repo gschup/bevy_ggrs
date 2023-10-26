@@ -65,11 +65,7 @@ impl Plugin for SnapshotSetPlugin {
         )
         .configure_sets(
             SaveWorld,
-            (
-                SaveWorldSet::Checksum,
-                SaveWorldSet::Snapshot,
-            )
-                .chain(),
+            (SaveWorldSet::Checksum, SaveWorldSet::Snapshot).chain(),
         )
         .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::EntityFlush))
         .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::DataFlush));

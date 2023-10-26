@@ -195,9 +195,9 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
                 SnapshotSetPlugin,
                 ChecksumPlugin,
                 EntitySnapshotPlugin,
-                ComponentSnapshotReflectPlugin::<Parent>::default(),
+                ComponentSnapshotPlugin::<ReflectStrategy<Parent>>::default(),
                 ComponentMapEntitiesPlugin::<Parent>::default(),
-                ComponentSnapshotReflectPlugin::<Children>::default(),
+                ComponentSnapshotPlugin::<ReflectStrategy<Children>>::default(),
                 ComponentMapEntitiesPlugin::<Children>::default(),
             ));
     }
@@ -285,42 +285,42 @@ impl GgrsApp for App {
     where
         Type: Component + Reflect + FromWorld,
     {
-        self.add_plugins(ComponentSnapshotReflectPlugin::<Type>::default())
+        self.add_plugins(ComponentSnapshotPlugin::<ReflectStrategy<Type>>::default())
     }
 
     fn rollback_resource_with_reflect<Type>(&mut self) -> &mut Self
     where
         Type: Resource + Reflect + FromWorld,
     {
-        self.add_plugins(ResourceSnapshotReflectPlugin::<Type>::default())
+        self.add_plugins(ResourceSnapshotPlugin::<ReflectStrategy<Type>>::default())
     }
 
     fn rollback_component_with_copy<Type>(&mut self) -> &mut Self
     where
         Type: Component + Copy,
     {
-        self.add_plugins(ComponentSnapshotCopyPlugin::<Type>::default())
+        self.add_plugins(ComponentSnapshotPlugin::<CopyStrategy<Type>>::default())
     }
 
     fn rollback_resource_with_copy<Type>(&mut self) -> &mut Self
     where
         Type: Resource + Copy,
     {
-        self.add_plugins(ResourceSnapshotCopyPlugin::<Type>::default())
+        self.add_plugins(ResourceSnapshotPlugin::<CopyStrategy<Type>>::default())
     }
 
     fn rollback_component_with_clone<Type>(&mut self) -> &mut Self
     where
         Type: Component + Clone,
     {
-        self.add_plugins(ComponentSnapshotClonePlugin::<Type>::default())
+        self.add_plugins(ComponentSnapshotPlugin::<CloneStrategy<Type>>::default())
     }
 
     fn rollback_resource_with_clone<Type>(&mut self) -> &mut Self
     where
         Type: Resource + Clone,
     {
-        self.add_plugins(ResourceSnapshotClonePlugin::<Type>::default())
+        self.add_plugins(ResourceSnapshotPlugin::<CloneStrategy<Type>>::default())
     }
 
     fn checksum_component_with_hash<Type>(&mut self) -> &mut Self

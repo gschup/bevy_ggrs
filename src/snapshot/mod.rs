@@ -4,43 +4,30 @@ use std::{collections::VecDeque, marker::PhantomData};
 
 mod checksum;
 mod component_checksum_hash;
-mod component_clone;
-mod component_copy;
 mod component_map;
-mod component_reflect;
+mod component_snapshot;
 mod entity;
 mod resource_checksum_hash;
-mod resource_clone;
-mod resource_copy;
 mod resource_map;
-mod resource_reflect;
+mod resource_snapshot;
 mod rollback_entity_map;
 mod set;
+mod strategy;
 
 pub use checksum::*;
 pub use component_checksum_hash::*;
-pub use component_clone::*;
-pub use component_copy::*;
 pub use component_map::*;
-pub use component_reflect::*;
+pub use component_snapshot::*;
 pub use entity::*;
 pub use resource_checksum_hash::*;
-pub use resource_clone::*;
-pub use resource_copy::*;
 pub use resource_map::*;
-pub use resource_reflect::*;
+pub use resource_snapshot::*;
 pub use rollback_entity_map::*;
 pub use set::*;
+pub use strategy::*;
 
 pub mod prelude {
-    pub use super::{
-        Checksum, ChecksumPlugin, ComponentChecksumHashPlugin,
-        ComponentMapEntitiesPlugin, ComponentSnapshotClonePlugin,
-        ComponentSnapshotCopyPlugin, ComponentSnapshotReflectPlugin,
-        EntitySnapshotPlugin, ResourceChecksumHashPlugin, ResourceMapEntitiesPlugin,
-        ResourceSnapshotClonePlugin, ResourceSnapshotCopyPlugin,
-        ResourceSnapshotReflectPlugin, SnapshotSetPlugin, LoadWorldSet, SaveWorldSet,
-    };
+    pub use super::{Checksum, LoadWorldSet, SaveWorldSet};
 }
 
 /// Typical [`Resource`] used to store snapshots for a [`Resource`] `R` as the type `As`.

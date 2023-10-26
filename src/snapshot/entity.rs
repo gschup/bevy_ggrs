@@ -80,7 +80,7 @@ impl EntitySnapshotPlugin {
             }
         }
 
-        trace!("Rolled Back {} entity(s)", snapshot.iter().count());
+        trace!("Rolled back {} entity(s)", snapshot.iter().count());
 
         *map = RollbackEntityMap::new(entity_map);
     }

@@ -90,7 +90,7 @@ where
         }
 
         trace!(
-            "Rolled Back {} {} component(s)",
+            "Rolled back {} {} component(s)",
             snapshot.iter().count(),
             bevy::utils::get_short_name(std::any::type_name::<C>())
         );

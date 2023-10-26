@@ -77,7 +77,7 @@ where
         }
 
         trace!(
-            "Rolled Back {}",
+            "Rolled back {}",
             bevy::utils::get_short_name(std::any::type_name::<R>())
         );
     }

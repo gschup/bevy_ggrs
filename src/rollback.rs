@@ -63,11 +63,24 @@ pub struct RollbackOrdered {
 impl RollbackOrdered {
     /// Register a new [`Rollback`] for explicit ordering.
     fn push(&mut self, rollback: Rollback) -> &mut Self {
+        // sorted is already sorted, and rollback should be inserted at the back most of the time
         self.sorted.push(rollback);
-        self.sorted.sort_unstable();
 
-        for (index, &rollback) in self.sorted.iter().enumerate() {
-            self.order.insert(rollback, index);
+        // If this is the first item we can return early
+        if self.sorted.len() == 1 {
+            self.order.insert(rollback, 0);
+            return self
+        }
+
+        // Iterate from the back of sorted, swapping and updating order until stable
+        for index in (1..self.sorted.len()).rev() {
+            if self.sorted[index] >= self.sorted[index - 1] {
+                self.order.insert(self.sorted[index], index);
+                break;
+            }
+
+            self.sorted.swap(index, index - 1);
+            self.order.insert(self.sorted[index], index);
         }
 
         self

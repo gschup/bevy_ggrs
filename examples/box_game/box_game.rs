@@ -39,7 +39,7 @@ pub struct Player {
 }
 
 // Components that should be saved/loaded need to implement the `Reflect` trait
-#[derive(Default, Reflect, Component)]
+#[derive(Default, Reflect, Component, Clone)]
 pub struct Velocity {
     pub x: f32,
     pub y: f32,
@@ -47,7 +47,7 @@ pub struct Velocity {
 }
 
 // You can also register resources.
-#[derive(Resource, Default, Reflect, Hash)]
+#[derive(Resource, Default, Reflect, Hash, Clone, Copy)]
 #[reflect(Hash)]
 pub struct FrameCount {
     pub frame: u32,

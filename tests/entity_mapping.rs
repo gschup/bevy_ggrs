@@ -92,9 +92,9 @@ fn entity_mapping() {
         .add_plugins(GgrsPlugin::<GgrsConfig>::default())
         .set_rollback_schedule_fps(60)
         .add_systems(ReadInputs, input_system)
-        .register_rollback_component::<ChildEntity>()
-        .register_rollback_component::<ParentEntity>()
-        .register_rollback_resource::<FrameCounter>()
+        .rollback_component_with_reflect::<ChildEntity>()
+        .rollback_component_with_reflect::<ParentEntity>()
+        .rollback_resource_with_reflect::<FrameCounter>()
         .add_systems(GgrsSchedule, (frame_counter, delete_child_system).chain());
 
     // Sleep helper that will make sure at least one frame should be executed by the GGRS fixed

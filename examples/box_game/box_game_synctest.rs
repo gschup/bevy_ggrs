@@ -41,12 +41,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .set_rollback_schedule_fps(FPS)
         // this system will be executed as part of input reading
         .add_systems(ReadInputs, read_local_inputs)
-        // register types of components AND resources you want to be rolled back
-        .register_rollback_component::<Transform>()
-        .register_rollback_component::<Velocity>()
-        .register_rollback_resource::<FrameCount>()
         .insert_resource(opt)
         .add_plugins(DefaultPlugins)
+        // Rollback behavior can be customized using a variety of extension methods and plugins:
+        // The FrameCount resource implements Copy, we can use that to have minimal overhead rollback
+        .rollback_resource_with_copy::<FrameCount>()
+        // Transform and Velocity components only implement Clone, so instead we'll use that to snapshot and rollback with
+        .rollback_component_with_clone::<Transform>()
+        .rollback_component_with_clone::<Velocity>()
         .add_systems(Startup, setup_system)
         // these systems will be executed as part of the advance frame update
         .add_systems(GgrsSchedule, (move_cube_system, increase_frame_system))

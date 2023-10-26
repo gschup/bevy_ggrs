@@ -1,22 +1,22 @@
 use bevy::{prelude::*, window::WindowResolution};
 use bevy_ggrs::prelude::*;
+use clap::Parser;
 use ggrs::UdpNonBlockingSocket;
 use std::net::SocketAddr;
-use structopt::StructOpt;
 
 mod box_game;
 use box_game::*;
 
 const FPS: usize = 60;
 
-// structopt will read command line parameters for u
-#[derive(StructOpt, Resource)]
+// clap will read command line arguments
+#[derive(Parser, Resource)]
 struct Opt {
-    #[structopt(short, long)]
+    #[clap(short, long)]
     local_port: u16,
-    #[structopt(short, long)]
+    #[clap(short, long, num_args = 1..)]
     players: Vec<String>,
-    #[structopt(short, long)]
+    #[clap(short, long, num_args = 1..)]
     spectators: Vec<SocketAddr>,
 }
 
@@ -25,7 +25,7 @@ struct NetworkStatsTimer(Timer);
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // read cmd line arguments
-    let opt = Opt::from_args();
+    let opt = Opt::parse();
     let num_players = opt.players.len();
     assert!(num_players > 0);
 

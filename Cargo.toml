@@ -24,7 +24,7 @@ log = "0.4"
 ggrs = { git = "https://github.com/gschup/ggrs", features=["sync-send"]}
 
 [dev-dependencies]
-structopt = "0.3"
+clap = { version = "4.4", features = ["derive"] }
 rand = "0.8.4"
 bevy = "0.11"
 serde = "1.0.130"

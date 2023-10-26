@@ -1,7 +1,7 @@
 use bevy::{math::vec3, prelude::*, utils::HashMap, window::WindowResolution};
 use bevy_ggrs::{prelude::*, LocalInputs, LocalPlayers};
 use clap::Parser;
-use ggrs::UdpNonBlockingSocket;
+use ggrs::{DesyncDetection, UdpNonBlockingSocket};
 use rand::{Rng, SeedableRng};
 use std::{hash::Hasher, net::SocketAddr};
 
@@ -85,11 +85,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let num_players = args.players.len();
     assert!(num_players > 0);
 
+    let desync_mode = match args.desync_detection_interval {
+        0 => DesyncDetection::Off,
+        interval => DesyncDetection::On { interval },
+    };
+
     let mut session_builder = SessionBuilder::<Config>::new()
         .with_num_players(num_players)
-        .with_desync_detection_mode(ggrs::DesyncDetection::On {
-            interval: args.desync_detection_interval,
-        })
+        .with_desync_detection_mode(desync_mode)
         .with_max_prediction_window(args.max_prediction)?
         .with_input_delay(args.input_delay);
 

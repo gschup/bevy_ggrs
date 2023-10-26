@@ -216,7 +216,12 @@ fn print_events_system(mut session: ResMut<Session<Config>>) {
                     GgrsEvent::Disconnected { .. } | GgrsEvent::NetworkInterrupted { .. } => {
                         warn!("GGRS event: {event:?}")
                     }
-                    GgrsEvent::DesyncDetected { .. } => error!("GGRS event: {event:?}"),
+                    GgrsEvent::DesyncDetected {
+                        local_checksum,
+                        remote_checksum,
+                        frame,
+                        ..
+                    } => panic!("Desync on frame {frame}. Local checksum: {local_checksum:X}, remote checksum: {remote_checksum:X}"),
                     _ => info!("GGRS event: {event:?}"),
                 }
             }

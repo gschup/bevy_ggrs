@@ -11,7 +11,7 @@ use bevy::{ecs::entity::EntityMap, prelude::*, utils::HashMap};
 /// # Examples
 /// ```rust
 /// # use bevy::prelude::*;
-/// # use bevy_ggrs::prelude::*;
+/// # use bevy_ggrs::{prelude::*, EntitySnapshotPlugin};
 /// #
 /// # const FPS: usize = 60;
 /// #

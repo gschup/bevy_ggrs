@@ -13,7 +13,7 @@ use crate::{ChecksumFlag, ChecksumPart, Rollback, RollbackOrdered, SaveWorld, Sa
 /// # Examples
 /// ```rust
 /// # use bevy::prelude::*;
-/// # use bevy_ggrs::prelude::*;
+/// # use bevy_ggrs::{prelude::*, ComponentChecksumHashPlugin};
 /// #
 /// # const FPS: usize = 60;
 /// #

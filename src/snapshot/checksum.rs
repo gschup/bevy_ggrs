@@ -50,7 +50,7 @@ pub struct Checksum(pub u128);
 /// # Examples
 /// ```rust
 /// # use bevy::prelude::*;
-/// # use bevy_ggrs::prelude::*;
+/// # use bevy_ggrs::{prelude::*, ChecksumPlugin};
 /// #
 /// # const FPS: usize = 60;
 /// #

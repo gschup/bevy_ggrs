@@ -10,7 +10,7 @@ use crate::{ChecksumFlag, ChecksumPart, Rollback, SaveWorld, SaveWorldSet};
 /// # Examples
 /// ```rust
 /// # use bevy::prelude::*;
-/// # use bevy_ggrs::prelude::*;
+/// # use bevy_ggrs::{prelude::*, ResourceChecksumHashPlugin};
 /// #
 /// # const FPS: usize = 60;
 /// #

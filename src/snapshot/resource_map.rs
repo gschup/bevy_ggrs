@@ -12,7 +12,7 @@ use crate::{LoadWorld, LoadWorldSet, RollbackEntityMap};
 /// # Examples
 /// ```rust
 /// # use bevy::{prelude::*, ecs::entity::{MapEntities, EntityMapper}};
-/// # use bevy_ggrs::prelude::*;
+/// # use bevy_ggrs::{prelude::*, ResourceMapEntitiesPlugin};
 /// #
 /// # const FPS: usize = 60;
 /// #

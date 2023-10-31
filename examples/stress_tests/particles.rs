@@ -5,7 +5,17 @@ use ggrs::{DesyncDetection, UdpNonBlockingSocket};
 use rand::{Rng, SeedableRng};
 use std::{hash::Hasher, net::SocketAddr};
 
-/// cargo watch -cx "run --release --example particles -- --local-port 7000 --players localhost 127.0.0.1:7001 --input-delay 0 --desync-detection-interval 1 --rate 1"
+/// Stress test for bevy_ggrs
+///
+/// ## Basic usage:
+///
+/// Player 1:
+///
+/// cargo run --release --example particles -- --local-port 7000 --players localhost 127.0.0.1:7001
+///
+/// Player 2:
+///
+/// cargo run --release --example particles -- --local-port 7001 --players 127.0.0.1:7001 localhost
 #[derive(Parser, Resource)]
 struct Args {
     /// The udp port to bind to for this peer.

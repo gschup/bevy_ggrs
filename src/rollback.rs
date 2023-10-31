@@ -8,7 +8,7 @@ use bevy::{
 ///
 /// You must use the `AddRollbackCommand` when spawning an entity to add this component. Alternatively,
 /// you can use the `add_rollback()` extension method provided by `AddRollbackCommandExtension`.
-#[derive(Component, Hash, PartialEq, Eq, Clone, Copy, Debug, PartialOrd, Ord)]
+#[derive(Component, Hash, PartialEq, Eq, Clone, Copy, Debug)]
 pub struct Rollback(Entity);
 
 impl Rollback {
@@ -54,7 +54,7 @@ impl<'w, 's, 'a> AddRollbackCommandExtension for EntityCommands<'w, 's, 'a> {
 }
 
 /// A [`Resource`] which provides methods for stable ordering of [`Rollback`] flags.
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Clone)]
 pub struct RollbackOrdered {
     order: HashMap<Rollback, usize>,
     sorted: Vec<Rollback>,
@@ -63,25 +63,8 @@ pub struct RollbackOrdered {
 impl RollbackOrdered {
     /// Register a new [`Rollback`] for explicit ordering.
     fn push(&mut self, rollback: Rollback) -> &mut Self {
-        // sorted is already sorted, and rollback should be inserted at the back most of the time
         self.sorted.push(rollback);
-
-        // If this is the first item we can return early
-        if self.sorted.len() == 1 {
-            self.order.insert(rollback, 0);
-            return self;
-        }
-
-        // Iterate from the back of sorted, swapping and updating order until stable
-        for index in (1..self.sorted.len()).rev() {
-            if self.sorted[index] >= self.sorted[index - 1] {
-                self.order.insert(self.sorted[index], index);
-                break;
-            }
-
-            self.sorted.swap(index, index - 1);
-            self.order.insert(self.sorted[index], index);
-        }
+        self.order.insert(rollback, self.sorted.len() - 1);
 
         self
     }
@@ -97,5 +80,15 @@ impl RollbackOrdered {
             .get(&rollback)
             .copied()
             .expect("Rollback requested was not created using AddRollbackCommand!")
+    }
+
+    /// Get the number of registered [`Rollback`] entities.
+    pub fn len(&self) -> usize {
+        self.order.len()
+    }
+
+    /// Returns `true` if there are no registered [`Rollback`] entities, false otherwise.
+    pub fn is_empty(&self) -> bool {
+        self.order.is_empty()
     }
 }

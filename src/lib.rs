@@ -195,6 +195,8 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
                 SnapshotSetPlugin,
                 ChecksumPlugin,
                 EntitySnapshotPlugin,
+                EntityChecksumPlugin,
+                ResourceSnapshotPlugin::<CloneStrategy<RollbackOrdered>>::default(),
                 ComponentSnapshotPlugin::<ReflectStrategy<Parent>>::default(),
                 ComponentMapEntitiesPlugin::<Parent>::default(),
                 ComponentSnapshotPlugin::<ReflectStrategy<Children>>::default(),

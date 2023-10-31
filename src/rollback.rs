@@ -54,7 +54,7 @@ impl<'w, 's, 'a> AddRollbackCommandExtension for EntityCommands<'w, 's, 'a> {
 }
 
 /// A [`Resource`] which provides methods for stable ordering of [`Rollback`] flags.
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Clone)]
 pub struct RollbackOrdered {
     order: HashMap<Rollback, usize>,
     sorted: Vec<Rollback>,
@@ -97,5 +97,15 @@ impl RollbackOrdered {
             .get(&rollback)
             .copied()
             .expect("Rollback requested was not created using AddRollbackCommand!")
+    }
+
+    /// Get the number of registered [`Rollback`] entities.
+    pub fn len(&self) -> usize {
+        self.order.len()
+    }
+
+    /// Returns `true` if there are no registered [`Rollback`] entities, false otherwise.
+    pub fn is_empty(&self) -> bool {
+        self.order.is_empty()
     }
 }

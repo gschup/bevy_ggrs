@@ -17,6 +17,8 @@ struct Args {
     input_delay: usize,
     #[clap(short, long, default_value = "10")]
     desync_detection_interval: u32,
+    #[clap(long)]
+    continue_after_desync: bool,
     #[clap(short = 'n', long, default_value = "100")]
     rate: u32,
     #[clap(short, long, default_value = "60")]
@@ -203,7 +205,7 @@ fn despawn_particles(mut commands: Commands, mut particles: Query<(Entity, &mut 
     }
 }
 
-fn print_events_system(mut session: ResMut<Session<Config>>) {
+fn print_events_system(mut session: ResMut<Session<Config>>, args: Res<Args>) {
     match session.as_mut() {
         Session::P2P(s) => {
             for event in s.events() {
@@ -216,7 +218,13 @@ fn print_events_system(mut session: ResMut<Session<Config>>) {
                         remote_checksum,
                         frame,
                         ..
-                    } => panic!("Desync on frame {frame}. Local checksum: {local_checksum:X}, remote checksum: {remote_checksum:X}"),
+                    } => {
+                        if args.continue_after_desync {
+                            error!("Desync on frame {frame}. Local checksum: {local_checksum:X}, remote checksum: {remote_checksum:X}");
+                        } else {
+                            panic!("Desync on frame {frame}. Local checksum: {local_checksum:X}, remote checksum: {remote_checksum:X}");
+                        }
+                    }
                     _ => info!("GGRS event: {event:?}"),
                 }
             }

@@ -100,6 +100,10 @@ struct Velocity(Vec3);
 
 impl std::hash::Hash for Velocity {
     fn hash<H: Hasher>(&self, state: &mut H) {
+        // We should have no NaNs and infinite values in our simulation
+        // as they're not deterministic.
+        assert!(self.0.is_finite());
+
         self.0.x.to_bits().hash(state);
         self.0.y.to_bits().hash(state);
         self.0.z.to_bits().hash(state);

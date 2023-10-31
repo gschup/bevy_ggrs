@@ -7,24 +7,50 @@ use std::{hash::Hasher, net::SocketAddr};
 
 #[derive(Parser, Resource)]
 struct Args {
+    /// The udp port to bind to for this peer.
     #[clap(short, long)]
     local_port: u16,
+
+    /// Address and port for the players. Order is significant. Put yourself as
+    /// "localhost".
+    ///
+    /// e.g. `--players localhost 127.0.0.1:7001`
     #[clap(short, long, num_args = 1..)]
     players: Vec<String>,
+
+    /// Address and port for any spectators.
     #[clap(short, long, num_args = 1..)]
     spectators: Vec<SocketAddr>,
+
+    /// How long inputs should be kept before they are deployed. A low value,
+    /// such as 0 will result in low latency, but plenty of rollbacks.
     #[clap(short, long, default_value = "2")]
     input_delay: usize,
+
+    /// How often the clients should exchange and compare checkums of state
     #[clap(short, long, default_value = "10")]
     desync_detection_interval: u32,
+
+    /// Whether to continue after a detected desync, the default is to panic.
     #[clap(long)]
     continue_after_desync: bool,
+
+    /// How many particles to spawn per frame.
     #[clap(short = 'n', long, default_value = "100")]
     rate: u32,
+
+    /// Simulation frame rate.
     #[clap(short, long, default_value = "60")]
     fps: usize,
+
+    /// How far ahead we should simulate when we don't get any input from a player.
     #[clap(long, default_value = "8")]
     max_prediction: usize,
+
+    /// Whether to use reflect-based rollback. This is much slower than the
+    /// default clone/copy-based rollback.
+    #[clap(long)]
+    reflect: bool,
 }
 
 type Config = GgrsConfig<u8>;
@@ -110,22 +136,44 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let socket = UdpNonBlockingSocket::bind_to_port(args.local_port)?;
     let session = session_builder.start_p2p_session(socket)?;
 
-    App::new()
-        .add_plugins(GgrsPlugin::<Config>::default())
+    let mut app = App::new();
+
+    app.add_plugins(GgrsPlugin::<Config>::default())
         .set_rollback_schedule_fps(args.fps)
-        .add_systems(ReadInputs, read_local_inputs)
+        .add_systems(ReadInputs, read_local_inputs);
+
+    if args.reflect {
         // SpriteBundle types
-        .rollback_component_with_clone::<Sprite>()
-        .rollback_component_with_clone::<Transform>()
-        .rollback_component_with_clone::<GlobalTransform>()
-        .rollback_component_with_clone::<Handle<Image>>()
-        .rollback_component_with_clone::<Visibility>()
-        .rollback_component_with_clone::<ComputedVisibility>()
-        // Also add our own types
-        .rollback_component_with_copy::<Velocity>()
-        .rollback_component_with_copy::<Ttl>()
-        .rollback_resource_with_clone::<ParticleRng>()
-        .checksum_component_with_hash::<Velocity>()
+        app.rollback_component_with_reflect::<Sprite>()
+            .rollback_component_with_reflect::<Transform>()
+            .rollback_component_with_reflect::<GlobalTransform>()
+            .rollback_component_with_reflect::<Handle<Image>>()
+            .rollback_component_with_reflect::<Visibility>()
+            .rollback_component_with_reflect::<ComputedVisibility>()
+            // Also add our own types
+            .rollback_component_with_reflect::<Velocity>()
+            .rollback_component_with_reflect::<Ttl>()
+            // Xoshiro256PlusPlus doesn't implement Reflect, so have to clone
+            // this is a tiny resource though, so cost of reflection would be
+            // negligible anyway.
+            .rollback_resource_with_clone::<ParticleRng>();
+    } else {
+        // clone/copy-based rollback
+
+        // SpriteBundle types
+        app.rollback_component_with_clone::<Sprite>()
+            .rollback_component_with_clone::<Transform>()
+            .rollback_component_with_clone::<GlobalTransform>()
+            .rollback_component_with_clone::<Handle<Image>>()
+            .rollback_component_with_clone::<Visibility>()
+            .rollback_component_with_clone::<ComputedVisibility>()
+            // Also add our own types
+            .rollback_component_with_copy::<Velocity>()
+            .rollback_component_with_copy::<Ttl>()
+            .rollback_resource_with_clone::<ParticleRng>();
+    }
+
+    app.checksum_component_with_hash::<Velocity>()
         // todo: ideally we'd also be doing checksums for Transforms, but that's
         // currently very clunky to do.
         .insert_resource(args)

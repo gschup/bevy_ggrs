@@ -69,7 +69,7 @@ pub enum Session<T: Config> {
 pub struct PlayerInputs<T: Config>(Vec<(T::Input, InputStatus)>);
 
 #[derive(Resource, Copy, Clone, Debug)]
-struct FixedTimestepData {
+pub struct FixedTimestepData {
     /// fixed FPS our logic is running with
     pub fps: usize,
     /// accumulated time. once enough time has been accumulated, an update is executed

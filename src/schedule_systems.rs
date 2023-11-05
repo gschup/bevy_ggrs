@@ -1,7 +1,7 @@
 use crate::{
-    Checksum, ConfirmedFrameCount, FixedTimestepData, GgrsSchedule, LoadWorld, LocalInputs,
-    LocalPlayers, MaxPredictionWindow, PlayerInputs, ReadInputs, RollbackFrameCount, SaveWorld,
-    Session,
+    AdvanceWorld, Checksum, ConfirmedFrameCount, FixedTimestepData, LoadWorld, LocalInputs,
+    LocalPlayers, MaxPredictionWindow, PlayerInputs, ReadInputs, RollbackFrameCount,
+    RollbackFrameRate, SaveWorld, Session,
 };
 use bevy::{prelude::*, utils::Duration};
 use ggrs::{
@@ -9,6 +9,8 @@ use ggrs::{
 };
 
 pub(crate) fn run_ggrs_schedules<T: Config>(world: &mut World) {
+    let framerate: usize = **world.get_resource_or_insert_with::<RollbackFrameRate>(default);
+
     let mut time_data = world
         .remove_resource::<FixedTimestepData>()
         .expect("failed to extract GGRS FixedTimeStepData");
@@ -18,7 +20,7 @@ pub(crate) fn run_ggrs_schedules<T: Config>(world: &mut World) {
         .expect("Time resource not found, did you remove it?")
         .delta();
 
-    let mut fps_delta = 1. / time_data.fps as f64;
+    let mut fps_delta = 1. / framerate as f64;
     if time_data.run_slow {
         fps_delta *= 1.1;
     }
@@ -149,22 +151,16 @@ pub(crate) fn handle_requests<T: Config>(requests: Vec<GGRSRequest<T>>, world: &
     // Extracting schedules before processing requests to avoid repeated remove/insert operations
     let mut schedules = world.resource_mut::<Schedules>();
 
-    let Some((extracted_load_world_label, mut load_world_schedule)) =
-        schedules.remove_entry(&LoadWorld)
-    else {
+    let Some((_, mut load_world_schedule)) = schedules.remove_entry(LoadWorld) else {
         panic!("Could not extract LoadWorld Schedule!");
     };
 
-    let Some((extracted_save_world_label, mut save_world_schedule)) =
-        schedules.remove_entry(&SaveWorld)
-    else {
+    let Some((_, mut save_world_schedule)) = schedules.remove_entry(SaveWorld) else {
         panic!("Could not extract SaveWorld Schedule!");
     };
 
-    let Some((extracted_advance_world_label, mut advance_world_schedule)) =
-        schedules.remove_entry(&GgrsSchedule)
-    else {
-        panic!("Could not extract GgrsSchedule Schedule!");
+    let Some((_, mut advance_world_schedule)) = schedules.remove_entry(AdvanceWorld) else {
+        panic!("Could not extract AdvanceWorld Schedule!");
     };
 
     // Run Schedules as Required
@@ -254,17 +250,17 @@ pub(crate) fn handle_requests<T: Config>(requests: Vec<GGRSRequest<T>>, world: &
     // Replace Schedules when Done
     let mut schedules = world.resource_mut::<Schedules>();
 
-    let old = schedules.insert(extracted_load_world_label, load_world_schedule);
+    let old = schedules.insert(load_world_schedule);
     if old.is_some() {
         panic!("LoadWorld Schedule was Duplicated!");
     }
 
-    let old = schedules.insert(extracted_save_world_label, save_world_schedule);
+    let old = schedules.insert(save_world_schedule);
     if old.is_some() {
         panic!("SaveWorld Schedule was Duplicated!");
     }
 
-    let old = schedules.insert(extracted_advance_world_label, advance_world_schedule);
+    let old = schedules.insert(advance_world_schedule);
     if old.is_some() {
         panic!("GgrsSchedule Schedule was Duplicated!");
     }

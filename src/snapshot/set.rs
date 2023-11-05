@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{LoadWorld, SaveWorld};
+use crate::{AdvanceWorld, GgrsSchedule, LoadWorld, SaveWorld};
 
 /// Set for ordering systems during the [`LoadWorld`] schedule.
 /// The most common option is [`LoadWorldSet::Data`], which is where [`Component`]
@@ -46,6 +46,13 @@ pub enum SaveWorldSet {
     Snapshot,
 }
 
+#[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
+pub enum AdvanceWorldSet {
+    First,
+    Main,
+    Last,
+}
+
 /// Sets up the [`LoadWorldSet`] and [`SaveWorldSet`] sets, allowing for explicit ordering of
 /// rollback systems across plugins.
 pub struct SnapshotSetPlugin;
@@ -67,7 +74,32 @@ impl Plugin for SnapshotSetPlugin {
             SaveWorld,
             (SaveWorldSet::Checksum, SaveWorldSet::Snapshot).chain(),
         )
+        .configure_sets(
+            AdvanceWorld,
+            (
+                AdvanceWorldSet::First,
+                AdvanceWorldSet::Main,
+                AdvanceWorldSet::Last,
+            )
+                .chain(),
+        )
         .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::EntityFlush))
-        .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::DataFlush));
+        .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::DataFlush))
+        .add_systems(
+            AdvanceWorld,
+            apply_deferred
+                .after(AdvanceWorldSet::First)
+                .before(AdvanceWorldSet::Main),
+        )
+        .add_systems(
+            AdvanceWorld,
+            apply_deferred
+                .after(AdvanceWorldSet::Main)
+                .before(AdvanceWorldSet::Last),
+        )
+        .add_systems(
+            AdvanceWorld,
+            (|world: &mut World| world.run_schedule(GgrsSchedule)).in_set(AdvanceWorldSet::Main),
+        );
     }
 }

@@ -22,7 +22,7 @@ struct ParentEntity;
 struct FrameCounter(u16);
 
 fn input_system(mut commands: Commands, mut delete_events: EventReader<DeleteChildEntityEvent>) {
-    let should_delete = u8::from(delete_events.iter().count() > 0);
+    let should_delete = u8::from(delete_events.read().count() > 0);
 
     let mut local_inputs = HashMap::new();
     local_inputs.insert(0, should_delete);

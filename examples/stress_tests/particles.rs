@@ -164,7 +164,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .rollback_component_with_reflect::<GlobalTransform>()
             .rollback_component_with_reflect::<Handle<Image>>()
             .rollback_component_with_reflect::<Visibility>()
-            .rollback_component_with_reflect::<ComputedVisibility>()
+            .rollback_component_with_reflect::<InheritedVisibility>()
+            .rollback_component_with_reflect::<ViewVisibility>()
             // Also add our own types
             .rollback_component_with_reflect::<Velocity>()
             .rollback_component_with_reflect::<Ttl>()
@@ -181,7 +182,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .rollback_component_with_clone::<GlobalTransform>()
             .rollback_component_with_clone::<Handle<Image>>()
             .rollback_component_with_clone::<Visibility>()
-            .rollback_component_with_clone::<ComputedVisibility>()
+            .rollback_component_with_clone::<InheritedVisibility>()
+            .rollback_component_with_clone::<ViewVisibility>()
             // Also add our own types
             .rollback_component_with_copy::<Velocity>()
             .rollback_component_with_copy::<Ttl>()
@@ -249,8 +251,8 @@ fn spawn_particles(mut commands: Commands, args: Res<Args>, mut rng: ResMut<Part
     }
 }
 
-fn update_particles(mut particles: Query<(&mut Transform, &mut Velocity)>, args: Res<Args>) {
-    let time_step = 1.0 / args.fps as f32; // todo: replace with bevy_ggrs resource?
+fn update_particles(mut particles: Query<(&mut Transform, &mut Velocity)>, time: Res<Time>) {
+    let time_step = time.delta_seconds();
     let gravity = Vec3::NEG_Y * 200.0;
 
     for (mut transform, mut velocity) in &mut particles {

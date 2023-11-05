@@ -22,7 +22,7 @@ bevy_GGRS has a demo app you can try in the browser! It uses [matchbox](https://
 
 |bevy|bevy_ggrs|ggrs|
 |---|---|---|
-|0.11|main|main|
+|0.12|main|main|
 |0.11|0.13|0.9.4|
 |0.10|0.12|0.9.4|
 |0.9|0.11|0.9.3|

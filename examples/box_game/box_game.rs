@@ -17,9 +17,9 @@ const INPUT_DOWN: u8 = 1 << 1;
 const INPUT_LEFT: u8 = 1 << 2;
 const INPUT_RIGHT: u8 = 1 << 3;
 
-const MOVEMENT_SPEED: f32 = 0.005;
-const MAX_SPEED: f32 = 0.05;
-const FRICTION: f32 = 0.9;
+const ACCELERATION: f32 = 18.0;
+const MAX_SPEED: f32 = 3.0;
+const FRICTION: f32 = 0.0018;
 const PLANE_SIZE: f32 = 5.0;
 const CUBE_SIZE: f32 = 0.2;
 
@@ -161,31 +161,35 @@ pub fn increase_frame_system(mut frame_count: ResMut<FrameCount>) {
 pub fn move_cube_system(
     mut query: Query<(&mut Transform, &mut Velocity, &Player), With<Rollback>>,
     inputs: Res<PlayerInputs<BoxConfig>>,
+    // Thanks to RollbackTimePlugin, this is rollback safe
+    time: Res<Time>,
 ) {
+    let dt = time.delta().as_secs_f32();
+
     for (mut t, mut v, p) in query.iter_mut() {
         let input = inputs[p.handle].0.inp;
         // set velocity through key presses
         if input & INPUT_UP != 0 && input & INPUT_DOWN == 0 {
-            v.z -= MOVEMENT_SPEED;
+            v.z -= ACCELERATION * dt;
         }
         if input & INPUT_UP == 0 && input & INPUT_DOWN != 0 {
-            v.z += MOVEMENT_SPEED;
+            v.z += ACCELERATION * dt;
         }
         if input & INPUT_LEFT != 0 && input & INPUT_RIGHT == 0 {
-            v.x -= MOVEMENT_SPEED;
+            v.x -= ACCELERATION * dt;
         }
         if input & INPUT_LEFT == 0 && input & INPUT_RIGHT != 0 {
-            v.x += MOVEMENT_SPEED;
+            v.x += ACCELERATION * dt;
         }
 
         // slow down
         if input & INPUT_UP == 0 && input & INPUT_DOWN == 0 {
-            v.z *= FRICTION;
+            v.z *= FRICTION.powf(dt);
         }
         if input & INPUT_LEFT == 0 && input & INPUT_RIGHT == 0 {
-            v.x *= FRICTION;
+            v.x *= FRICTION.powf(dt);
         }
-        v.y *= FRICTION;
+        v.y *= FRICTION.powf(dt);
 
         // constrain velocity
         let mag = (v.x * v.x + v.y * v.y + v.z * v.z).sqrt();
@@ -197,9 +201,9 @@ pub fn move_cube_system(
         }
 
         // apply velocity
-        t.translation.x += v.x;
-        t.translation.y += v.y;
-        t.translation.z += v.z;
+        t.translation.x += v.x * dt;
+        t.translation.y += v.y * dt;
+        t.translation.z += v.z * dt;
 
         // constrain cube to plane
         t.translation.x = t.translation.x.max(-1. * (PLANE_SIZE - CUBE_SIZE) * 0.5);

@@ -164,7 +164,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .rollback_component_with_reflect::<GlobalTransform>()
             .rollback_component_with_reflect::<Handle<Image>>()
             .rollback_component_with_reflect::<Visibility>()
-            .rollback_component_with_reflect::<ComputedVisibility>()
+            .rollback_component_with_reflect::<InheritedVisibility>()
+            .rollback_component_with_reflect::<ViewVisibility>()
             // Also add our own types
             .rollback_component_with_reflect::<Velocity>()
             .rollback_component_with_reflect::<Ttl>()
@@ -181,7 +182,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .rollback_component_with_clone::<GlobalTransform>()
             .rollback_component_with_clone::<Handle<Image>>()
             .rollback_component_with_clone::<Visibility>()
-            .rollback_component_with_clone::<ComputedVisibility>()
+            .rollback_component_with_clone::<InheritedVisibility>()
+            .rollback_component_with_clone::<ViewVisibility>()
             // Also add our own types
             .rollback_component_with_copy::<Velocity>()
             .rollback_component_with_copy::<Ttl>()

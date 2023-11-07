@@ -251,8 +251,8 @@ fn spawn_particles(mut commands: Commands, args: Res<Args>, mut rng: ResMut<Part
     }
 }
 
-fn update_particles(mut particles: Query<(&mut Transform, &mut Velocity)>, args: Res<Args>) {
-    let time_step = 1.0 / args.fps as f32; // todo: replace with bevy_ggrs resource?
+fn update_particles(mut particles: Query<(&mut Transform, &mut Velocity)>, time: Res<Time>) {
+    let time_step = time.delta_seconds();
     let gravity = Vec3::NEG_Y * 200.0;
 
     for (mut transform, mut velocity) in &mut particles {

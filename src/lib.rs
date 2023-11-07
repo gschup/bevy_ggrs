@@ -4,7 +4,7 @@
 use bevy::{
     ecs::{
         entity::MapEntities,
-        schedule::{LogLevel, ScheduleBuildSettings, ScheduleLabel},
+        schedule::{ExecutorKind, LogLevel, ScheduleBuildSettings, ScheduleLabel},
     },
     prelude::*,
     utils::{Duration, HashMap},
@@ -16,10 +16,12 @@ pub use ggrs;
 
 pub use rollback::*;
 pub use snapshot::*;
+pub use time::*;
 
 pub(crate) mod rollback;
 pub(crate) mod schedule_systems;
 pub(crate) mod snapshot;
+pub(crate) mod time;
 
 pub mod prelude {
     pub use crate::{
@@ -70,8 +72,6 @@ pub struct PlayerInputs<T: Config>(Vec<(T::Input, InputStatus)>);
 
 #[derive(Resource, Copy, Clone, Debug)]
 struct FixedTimestepData {
-    /// fixed FPS our logic is running with
-    pub fps: usize,
     /// accumulated time. once enough time has been accumulated, an update is executed
     accumulator: Duration,
     /// boolean to see if we should run slow to let remote clients catch up
@@ -81,7 +81,6 @@ struct FixedTimestepData {
 impl Default for FixedTimestepData {
     fn default() -> Self {
         Self {
-            fps: DEFAULT_FPS,
             accumulator: Duration::ZERO,
             run_slow: false,
         }
@@ -132,7 +131,29 @@ pub struct LoadWorld;
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct SaveWorld;
 
+/// Label for the schedule which advances the current world to the next frame.
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct AdvanceWorld;
+
 /// GGRS plugin for bevy.
+///
+/// # Rollback
+///
+/// This will provide rollback management for the following items in the Bevy ECS:
+/// - [Entities](`Entity`)
+/// - [Parent] and [Children] components
+/// - [Time]
+///
+/// To add more data to the rollback management, see the methods provided by [GgrsApp].
+///
+/// # Rollback
+///
+/// This will provide rollback management for the following items in the Bevy ECS:
+/// - [Entities](`Entity`)
+/// - [Parent] and [Children] components
+/// - [Time]
+///
+/// To add more data to the rollback management, see the methods provided by [GgrsApp].
 ///
 /// # Examples
 /// ```rust
@@ -182,19 +203,27 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
             .init_resource::<RollbackOrdered>()
             .init_resource::<LocalPlayers>()
             .init_resource::<FixedTimestepData>()
+            .init_schedule(ReadInputs)
+            .init_schedule(LoadWorld)
+            .init_schedule(SaveWorld)
+            .edit_schedule(AdvanceWorld, |schedule| {
+                // AdvanceWorld is mostly a facilitator for GgrsSchedule, so SingleThreaded avoids overhead
+                // This can be overridden if desired.
+                schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+            })
             .edit_schedule(GgrsSchedule, |schedule| {
                 schedule.set_build_settings(ScheduleBuildSettings {
                     ambiguity_detection: LogLevel::Error,
                     ..default()
                 });
             })
-            .add_schedule(Schedule::new(ReadInputs))
             .add_systems(PreUpdate, schedule_systems::run_ggrs_schedules::<C>)
             .add_plugins((
                 SnapshotSetPlugin,
                 ChecksumPlugin,
                 EntitySnapshotPlugin,
                 EntityChecksumPlugin,
+                GgrsTimePlugin,
                 ResourceSnapshotPlugin::<CloneStrategy<RollbackOrdered>>::default(),
                 ComponentSnapshotPlugin::<ReflectStrategy<Parent>>::default(),
                 ComponentMapEntitiesPlugin::<Parent>::default(),
@@ -276,8 +305,7 @@ pub trait GgrsApp {
 
 impl GgrsApp for App {
     fn set_rollback_schedule_fps(&mut self, fps: usize) -> &mut Self {
-        self.world
-            .insert_resource(FixedTimestepData { fps, ..default() });
+        self.world.insert_resource(RollbackFrameRate(fps));
 
         self
     }

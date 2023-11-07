@@ -1,7 +1,7 @@
 use crate::{
-    Checksum, ConfirmedFrameCount, FixedTimestepData, GgrsSchedule, LoadWorld, LocalInputs,
-    LocalPlayers, MaxPredictionWindow, PlayerInputs, ReadInputs, RollbackFrameCount, SaveWorld,
-    Session,
+    AdvanceWorld, Checksum, ConfirmedFrameCount, FixedTimestepData, LoadWorld, LocalInputs,
+    LocalPlayers, MaxPredictionWindow, PlayerInputs, ReadInputs, RollbackFrameCount,
+    RollbackFrameRate, SaveWorld, Session,
 };
 use bevy::{prelude::*, utils::Duration};
 use ggrs::{
@@ -9,6 +9,8 @@ use ggrs::{
 };
 
 pub(crate) fn run_ggrs_schedules<T: Config>(world: &mut World) {
+    let framerate: usize = **world.get_resource_or_insert_with::<RollbackFrameRate>(default);
+
     let mut time_data = world
         .remove_resource::<FixedTimestepData>()
         .expect("failed to extract GGRS FixedTimeStepData");
@@ -18,7 +20,7 @@ pub(crate) fn run_ggrs_schedules<T: Config>(world: &mut World) {
         .expect("Time resource not found, did you remove it?")
         .delta();
 
-    let mut fps_delta = 1. / time_data.fps as f64;
+    let mut fps_delta = 1. / framerate as f64;
     if time_data.run_slow {
         fps_delta *= 1.1;
     }
@@ -157,8 +159,8 @@ pub(crate) fn handle_requests<T: Config>(requests: Vec<GGRSRequest<T>>, world: &
         panic!("Could not extract SaveWorld Schedule!");
     };
 
-    let Some((_, mut advance_world_schedule)) = schedules.remove_entry(GgrsSchedule) else {
-        panic!("Could not extract GgrsSchedule Schedule!");
+    let Some((_, mut advance_world_schedule)) = schedules.remove_entry(AdvanceWorld) else {
+        panic!("Could not extract AdvanceWorld Schedule!");
     };
 
     // Run Schedules as Required

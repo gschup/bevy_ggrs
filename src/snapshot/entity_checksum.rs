@@ -24,10 +24,7 @@ impl EntityChecksumPlugin {
 
         let result = ChecksumPart(hasher.finish() as u128);
 
-        trace!(
-            "Rollback Entities have checksum {:X}",
-            result.0
-        );
+        trace!("Rollback Entities have checksum {:X}", result.0);
 
         if let Ok(mut checksum) = checksum.get_single_mut() {
             *checksum = result;

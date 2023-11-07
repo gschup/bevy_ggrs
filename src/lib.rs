@@ -229,6 +229,20 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
 /// Extension trait to add the GGRS plugin idiomatically to Bevy Apps
 pub trait GgrsApp {
     /// Registers a component type for saving and loading from the world. This
+    /// uses [Serde](`serde`) and [Postcard](`postcard`).
+    #[cfg(feature = "serde")]
+    fn rollback_component_with_postcard<Type>(&mut self) -> &mut Self
+    where
+        Type: Component + serde::Serialize + serde::de::DeserializeOwned;
+
+    /// Registers a resource type for saving and loading from the world. This
+    /// uses [Serde](`serde`) and [Postcard](`postcard`).
+    #[cfg(feature = "serde")]
+    fn rollback_resource_with_postcard<Type>(&mut self) -> &mut Self
+    where
+        Type: Resource + serde::Serialize + serde::de::DeserializeOwned;
+
+    /// Registers a component type for saving and loading from the world. This
     /// uses [`Copy`] based snapshots for rollback.
     fn rollback_component_with_copy<Type>(&mut self) -> &mut Self
     where
@@ -395,5 +409,21 @@ impl GgrsApp for App {
         Type: Resource,
     {
         self.add_plugins(ResourceChecksumPlugin::<Type>(hasher))
+    }
+    
+    #[cfg(feature = "serde")]
+    fn rollback_component_with_postcard<Type>(&mut self) -> &mut Self
+    where
+        Type: Component + serde::Serialize + serde::de::DeserializeOwned,
+    {
+        self.add_plugins(ComponentSnapshotPlugin::<PostcardStrategy<Type>>::default())
+    }
+
+    #[cfg(feature = "serde")]
+    fn rollback_resource_with_postcard<Type>(&mut self) -> &mut Self
+    where
+        Type: Resource + serde::Serialize + serde::de::DeserializeOwned,
+    {
+        self.add_plugins(ResourceSnapshotPlugin::<PostcardStrategy<Type>>::default())
     }
 }

@@ -92,3 +92,35 @@ impl<T: Reflect + FromWorld> Strategy for ReflectStrategy<T> {
         target
     }
 }
+
+#[cfg(feature = "serde")]
+mod serde_strategy {
+    use std::marker::PhantomData;
+
+    use postcard::{from_bytes, to_allocvec};
+    use serde::{de::DeserializeOwned, Serialize};
+
+    use crate::Strategy;
+
+    /// A [`Strategy`] based on [`Reflect`] and [`FromWorld`]
+    pub struct PostcardStrategy<T: Serialize + DeserializeOwned>(PhantomData<T>);
+
+    impl<T: Serialize + DeserializeOwned> Strategy for PostcardStrategy<T> {
+        type Target = T;
+
+        type Stored = Vec<u8>;
+
+        #[inline(always)]
+        fn store(target: &Self::Target) -> Self::Stored {
+            to_allocvec(target).unwrap()
+        }
+
+        #[inline(always)]
+        fn load(stored: &Self::Stored) -> Self::Target {
+            from_bytes(stored).unwrap()
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+pub use serde_strategy::*;

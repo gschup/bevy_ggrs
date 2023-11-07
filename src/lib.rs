@@ -176,20 +176,19 @@ impl<C: Config> Default for GgrsPlugin<C> {
 
 impl<C: Config> Plugin for GgrsPlugin<C> {
     fn build(&self, app: &mut App) {
-        let mut schedule = Schedule::default();
-        schedule.set_build_settings(ScheduleBuildSettings {
-            ambiguity_detection: LogLevel::Error,
-            ..default()
-        });
-
         app.init_resource::<RollbackFrameCount>()
             .init_resource::<ConfirmedFrameCount>()
             .init_resource::<MaxPredictionWindow>()
             .init_resource::<RollbackOrdered>()
             .init_resource::<LocalPlayers>()
             .init_resource::<FixedTimestepData>()
-            .add_schedule(GgrsSchedule, schedule)
-            .add_schedule(ReadInputs, Schedule::new())
+            .edit_schedule(GgrsSchedule, |schedule| {
+                schedule.set_build_settings(ScheduleBuildSettings {
+                    ambiguity_detection: LogLevel::Error,
+                    ..default()
+                });
+            })
+            .add_schedule(Schedule::new(ReadInputs))
             .add_systems(PreUpdate, schedule_systems::run_ggrs_schedules::<C>)
             .add_plugins((
                 SnapshotSetPlugin,

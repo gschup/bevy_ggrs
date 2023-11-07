@@ -74,7 +74,7 @@ where
 {
     let mut applied_entity_map = map.generate_map();
 
-    applied_entity_map.world_scope(world, apply_map::<R>);
+    EntityMapper::world_scope(&mut applied_entity_map, world, apply_map::<R>);
 
     trace!(
         "Mapped {}",
@@ -87,8 +87,8 @@ where
     // then this workaround may no longer be required.
     if applied_entity_map.len() > map.len() {
         // Reverse dead-mappings, no-op correct mappings
-        for original in applied_entity_map.keys().collect::<Vec<_>>() {
-            let mapped = applied_entity_map.remove(original).unwrap();
+        for original in applied_entity_map.keys().copied().collect::<Vec<_>>() {
+            let mapped = applied_entity_map.remove(&original).unwrap();
 
             if map.get(original).is_some() {
                 // Rollback entity was correctly mapped; no-op
@@ -100,7 +100,7 @@ where
         }
 
         // Map entities a second time, fixing dead entities
-        applied_entity_map.world_scope(world, apply_map::<R>);
+        EntityMapper::world_scope(&mut applied_entity_map, world, apply_map::<R>);
 
         trace!(
             "Re-Mapped {}",

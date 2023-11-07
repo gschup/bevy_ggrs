@@ -1,4 +1,6 @@
 //! bevy_ggrs is a bevy plugin for the P2P rollback networking library GGRS.
+//!
+//! See [`GgrsPlugin`] for getting started.
 #![forbid(unsafe_code)] // let us try
 
 use bevy::{
@@ -26,7 +28,7 @@ pub(crate) mod time;
 pub mod prelude {
     pub use crate::{
         snapshot::prelude::*, AddRollbackCommandExtension, GgrsApp, GgrsConfig, GgrsPlugin,
-        GgrsSchedule, PlayerInputs, ReadInputs, Rollback, Session,
+        GgrsSchedule, GgrsTime, PlayerInputs, ReadInputs, Rollback, Session,
     };
     pub use ggrs::{GGRSEvent as GgrsEvent, PlayerType, SessionBuilder};
 }
@@ -136,15 +138,6 @@ pub struct SaveWorld;
 pub struct AdvanceWorld;
 
 /// GGRS plugin for bevy.
-///
-/// # Rollback
-///
-/// This will provide rollback management for the following items in the Bevy ECS:
-/// - [Entities](`Entity`)
-/// - [Parent] and [Children] components
-/// - [Time]
-///
-/// To add more data to the rollback management, see the methods provided by [GgrsApp].
 ///
 /// # Rollback
 ///

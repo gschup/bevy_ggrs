@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .insert_resource(Session::Spectator(sess))
         // register a resource that will be rolled back
         .insert_resource(FrameCount { frame: 0 })
-        //print some network stats - not part of the rollback schedule as it does not need to be rolled back
+        // print some network stats - not part of the rollback schedule as it does not need to be rolled back
         .insert_resource(NetworkStatsTimer(Timer::from_seconds(
             2.0,
             TimerMode::Repeating,

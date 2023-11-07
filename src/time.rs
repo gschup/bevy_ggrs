@@ -18,15 +18,15 @@ impl Default for RollbackFrameRate {
 }
 
 #[derive(Default, Clone, Copy, Debug)]
-pub struct GGRSTime;
+pub struct GgrsTime;
 
-/// This plugins provides [`Time<GGRSTime>`], which is rolled-back automatically, and will also
+/// This plugins provides [`Time<GgrsTime>`], which is rolled-back automatically, and will also
 /// automatically replace [`Time<()>`] when accessed inside [`GgrsSchedule`](`crate::GgrsSchedule`).
-pub struct GGRSTimePlugin;
+pub struct GgrsTimePlugin;
 
-impl GGRSTimePlugin {
+impl GgrsTimePlugin {
     pub fn update(
-        mut time: ResMut<Time<GGRSTime>>,
+        mut time: ResMut<Time<GgrsTime>>,
         framerate: Res<RollbackFrameRate>,
         frame: Res<RollbackFrameCount>,
     ) {
@@ -42,7 +42,7 @@ impl GGRSTimePlugin {
 
     pub fn replace_default_with_ggrs(
         mut default_time: ResMut<Time<()>>,
-        ggrs_time: Res<Time<GGRSTime>>,
+        ggrs_time: Res<Time<GgrsTime>>,
     ) {
         *default_time = ggrs_time.as_generic();
     }
@@ -55,10 +55,10 @@ impl GGRSTimePlugin {
     }
 }
 
-impl Plugin for GGRSTimePlugin {
+impl Plugin for GgrsTimePlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(Time::new_with(GGRSTime::default()))
-            .add_plugins(ResourceSnapshotPlugin::<CloneStrategy<Time<GGRSTime>>>::default())
+        app.insert_resource(Time::new_with(GgrsTime::default()))
+            .add_plugins(ResourceSnapshotPlugin::<CloneStrategy<Time<GgrsTime>>>::default())
             .add_systems(
                 AdvanceWorld,
                 (Self::update, Self::replace_default_with_ggrs)

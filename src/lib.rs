@@ -223,7 +223,7 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
                 ChecksumPlugin,
                 EntitySnapshotPlugin,
                 EntityChecksumPlugin,
-                GGRSTimePlugin,
+                GgrsTimePlugin,
                 ResourceSnapshotPlugin::<CloneStrategy<RollbackOrdered>>::default(),
                 ComponentSnapshotPlugin::<ReflectStrategy<Parent>>::default(),
                 ComponentMapEntitiesPlugin::<Parent>::default(),

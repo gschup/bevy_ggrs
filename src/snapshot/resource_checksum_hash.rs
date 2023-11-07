@@ -1,4 +1,4 @@
-use std::{hash::Hash, marker::PhantomData};
+use std::hash::{BuildHasher, Hash, Hasher};
 
 use bevy::prelude::*;
 
@@ -30,11 +30,12 @@ use crate::{ChecksumFlag, ChecksumPart, Rollback, SaveWorld, SaveWorldSet};
 /// app.add_plugins(ResourceChecksumHashPlugin::<BossHealth>::default());
 /// # }
 /// ```
-pub struct ResourceChecksumHashPlugin<R>
-where
-    R: Resource + Hash,
-{
-    _phantom: PhantomData<R>,
+pub struct ResourceChecksumHashPlugin<R: Resource>(pub for<'a> fn(&'a R) -> u64);
+
+fn default_hasher<R: Resource + Hash>(resource: &R) -> u64 {
+    let mut hasher = bevy::utils::FixedState.build_hasher();
+    resource.hash(&mut hasher);
+    hasher.finish()
 }
 
 impl<R> Default for ResourceChecksumHashPlugin<R>
@@ -42,43 +43,37 @@ where
     R: Resource + Hash,
 {
     fn default() -> Self {
-        Self {
-            _phantom: default(),
-        }
-    }
-}
-
-impl<R> ResourceChecksumHashPlugin<R>
-where
-    R: Resource + Hash,
-{
-    /// A [`System`] responsible for managing a [`ChecksumPart`] for the [`Resource`] type `R`.
-    pub fn update(
-        mut commands: Commands,
-        resource: Res<R>,
-        mut checksum: Query<&mut ChecksumPart, (Without<Rollback>, With<ChecksumFlag<R>>)>,
-    ) {
-        let result = ChecksumPart::from_value(resource.as_ref());
-
-        trace!(
-            "Resource {} has checksum {:X}",
-            bevy::utils::get_short_name(std::any::type_name::<R>()),
-            result.0
-        );
-
-        if let Ok(mut checksum) = checksum.get_single_mut() {
-            *checksum = result;
-        } else {
-            commands.spawn((result, ChecksumFlag::<R>::default()));
-        }
+        Self(default_hasher::<R>)
     }
 }
 
 impl<R> Plugin for ResourceChecksumHashPlugin<R>
 where
-    R: Resource + Hash,
+    R: Resource,
 {
     fn build(&self, app: &mut App) {
-        app.add_systems(SaveWorld, Self::update.in_set(SaveWorldSet::Checksum));
+        let custom_hasher = self.0;
+
+        let update = move |mut commands: Commands,
+                           resource: Res<R>,
+                           mut checksum: Query<
+            &mut ChecksumPart,
+            (Without<Rollback>, With<ChecksumFlag<R>>),
+        >| {
+            let result = ChecksumPart(custom_hasher(resource.as_ref()) as u128);
+
+            trace!(
+                "Resource {} has checksum {:X}",
+                bevy::utils::get_short_name(std::any::type_name::<R>()),
+                result.0
+            );
+
+            if let Ok(mut checksum) = checksum.get_single_mut() {
+                *checksum = result;
+            } else {
+                commands.spawn((result, ChecksumFlag::<R>::default()));
+            }
+        };
+        app.add_systems(SaveWorld, update.in_set(SaveWorldSet::Checksum));
     }
 }

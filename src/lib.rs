@@ -338,7 +338,7 @@ impl GgrsApp for App {
     where
         Type: Component + Hash,
     {
-        self.add_plugins(ComponentChecksumHashPlugin::<Type>::default())
+        self.add_plugins(ComponentChecksumPlugin::<Type>::default())
     }
 
     fn update_component_with_map_entities<Type>(&mut self) -> &mut Self
@@ -352,7 +352,7 @@ impl GgrsApp for App {
     where
         Type: Resource + Hash,
     {
-        self.add_plugins(ResourceChecksumHashPlugin::<Type>::default())
+        self.add_plugins(ResourceChecksumPlugin::<Type>::default())
     }
 
     fn update_resource_with_map_entities<Type>(&mut self) -> &mut Self
@@ -366,13 +366,13 @@ impl GgrsApp for App {
     where
         Type: Component,
     {
-        self.add_plugins(ComponentChecksumHashPlugin::<Type>(hasher))
+        self.add_plugins(ComponentChecksumPlugin::<Type>(hasher))
     }
 
     fn checksum_resource<Type>(&mut self, hasher: for<'a> fn(&'a Type) -> u64) -> &mut Self
     where
         Type: Resource,
     {
-        self.add_plugins(ResourceChecksumHashPlugin::<Type>(hasher))
+        self.add_plugins(ResourceChecksumPlugin::<Type>(hasher))
     }
 }

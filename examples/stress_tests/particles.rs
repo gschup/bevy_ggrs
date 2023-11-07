@@ -105,7 +105,10 @@ impl std::hash::Hash for Velocity {
     fn hash<H: Hasher>(&self, state: &mut H) {
         // We should have no NaNs or infinite values in our simulation
         // as they're not deterministic.
-        assert!(self.0.is_finite());
+        assert!(
+            self.0.is_finite(),
+            "Hashing is not stable for NaN f32 values."
+        );
 
         self.0.x.to_bits().hash(state);
         self.0.y.to_bits().hash(state);
@@ -202,6 +205,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // In this demo we only translate particles, so only that value
             // needs to be tracked.
+            assert!(
+                transform.translation.is_finite(),
+                "Hashing is not stable for NaN f32 values."
+            );
+
             transform.translation.x.to_bits().hash(&mut hasher);
             transform.translation.y.to_bits().hash(&mut hasher);
             transform.translation.z.to_bits().hash(&mut hasher);

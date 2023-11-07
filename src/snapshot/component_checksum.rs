@@ -10,7 +10,7 @@ use crate::{ChecksumFlag, ChecksumPart, Rollback, RollbackOrdered, SaveWorld, Sa
 /// # Examples
 /// ```rust
 /// # use bevy::prelude::*;
-/// # use bevy_ggrs::{prelude::*, ComponentChecksumHashPlugin};
+/// # use bevy_ggrs::{prelude::*, ComponentChecksumPlugin};
 /// #
 /// # const FPS: usize = 60;
 /// #
@@ -27,10 +27,10 @@ use crate::{ChecksumFlag, ChecksumPart, Rollback, RollbackOrdered, SaveWorld, Sa
 /// app.rollback_component_with_clone::<Health>();
 ///
 /// // This will update the checksum every frame to include Health on rollback entities
-/// app.add_plugins(ComponentChecksumHashPlugin::<Health>::default());
+/// app.add_plugins(ComponentChecksumPlugin::<Health>::default());
 /// # }
 /// ```
-pub struct ComponentChecksumHashPlugin<C: Component>(pub for<'a> fn(&'a C) -> u64);
+pub struct ComponentChecksumPlugin<C: Component>(pub for<'a> fn(&'a C) -> u64);
 
 fn default_hasher<C: Component + Hash>(component: &C) -> u64 {
     let mut hasher = bevy::utils::FixedState.build_hasher();
@@ -38,7 +38,7 @@ fn default_hasher<C: Component + Hash>(component: &C) -> u64 {
     hasher.finish()
 }
 
-impl<C> Default for ComponentChecksumHashPlugin<C>
+impl<C> Default for ComponentChecksumPlugin<C>
 where
     C: Component + Hash,
 {
@@ -47,7 +47,7 @@ where
     }
 }
 
-impl<C> Plugin for ComponentChecksumHashPlugin<C>
+impl<C> Plugin for ComponentChecksumPlugin<C>
 where
     C: Component,
 {

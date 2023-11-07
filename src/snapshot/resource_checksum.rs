@@ -10,7 +10,7 @@ use crate::{ChecksumFlag, ChecksumPart, Rollback, SaveWorld, SaveWorldSet};
 /// # Examples
 /// ```rust
 /// # use bevy::prelude::*;
-/// # use bevy_ggrs::{prelude::*, ResourceChecksumHashPlugin};
+/// # use bevy_ggrs::{prelude::*, ResourceChecksumPlugin};
 /// #
 /// # const FPS: usize = 60;
 /// #
@@ -27,10 +27,10 @@ use crate::{ChecksumFlag, ChecksumPart, Rollback, SaveWorld, SaveWorldSet};
 /// app.rollback_resource_with_clone::<BossHealth>();
 ///
 /// // This will update the checksum every frame to include BossHealth
-/// app.add_plugins(ResourceChecksumHashPlugin::<BossHealth>::default());
+/// app.add_plugins(ResourceChecksumPlugin::<BossHealth>::default());
 /// # }
 /// ```
-pub struct ResourceChecksumHashPlugin<R: Resource>(pub for<'a> fn(&'a R) -> u64);
+pub struct ResourceChecksumPlugin<R: Resource>(pub for<'a> fn(&'a R) -> u64);
 
 fn default_hasher<R: Resource + Hash>(resource: &R) -> u64 {
     let mut hasher = bevy::utils::FixedState.build_hasher();
@@ -38,7 +38,7 @@ fn default_hasher<R: Resource + Hash>(resource: &R) -> u64 {
     hasher.finish()
 }
 
-impl<R> Default for ResourceChecksumHashPlugin<R>
+impl<R> Default for ResourceChecksumPlugin<R>
 where
     R: Resource + Hash,
 {
@@ -47,7 +47,7 @@ where
     }
 }
 
-impl<R> Plugin for ResourceChecksumHashPlugin<R>
+impl<R> Plugin for ResourceChecksumPlugin<R>
 where
     R: Resource,
 {

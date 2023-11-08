@@ -30,7 +30,7 @@ pub struct Health(u32);
 
 impl Default for Health {
     fn default() -> Self {
-        Self(10)
+        Self(3)
     }
 }
 
@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut session = SessionBuilder::<GgrsConfig>::new()
         .with_num_players(1)
         // each frame, roll back and resimulate 5 frames back in time, and compare checksums
-        .with_check_distance(5);
+        .with_check_distance(2);
     session = session.add_player(PlayerType::Local, 0)?;
     let session = session.start_synctest_session()?;
 

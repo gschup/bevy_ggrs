@@ -62,17 +62,17 @@ impl EntitySnapshotPlugin {
             rollback_mapping.entry(rollback).or_insert((None, None)).0 = Some(current_entity);
         }
 
-        for (current_entity, old_entity) in rollback_mapping.values() {
+        for (rollback, (current_entity, old_entity)) in rollback_mapping {
             match (current_entity, old_entity) {
                 (Some(current_entity), Some(old_entity)) => {
-                    entity_map.insert(*current_entity, *old_entity);
+                    entity_map.insert(current_entity, old_entity);
                 }
                 (Some(current_entity), None) => {
-                    commands.entity(*current_entity).despawn();
+                    commands.entity(current_entity).despawn();
                 }
                 (None, Some(old_entity)) => {
-                    let current_entity = commands.spawn_empty().id();
-                    entity_map.insert(*old_entity, current_entity);
+                    let current_entity = commands.spawn(rollback).id();
+                    entity_map.insert(old_entity, current_entity);
                 }
                 (None, None) => unreachable!(
                     "Rollback keys could only be added if they had an old or current Entity"

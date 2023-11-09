@@ -38,7 +38,11 @@ pub struct Player {
     pub handle: usize,
 }
 
-// Components that should be saved/loaded need to implement the `Reflect` trait
+// Components that should be saved/loaded need to support snapshotting. The built-in options are:
+// - Clone (Recommended)
+// - Copy
+// - Reflect
+// See `bevy_ggrs::Strategy` for custom alternatives
 #[derive(Default, Reflect, Component, Clone)]
 pub struct Velocity {
     pub x: f32,
@@ -53,6 +57,7 @@ pub struct FrameCount {
     pub frame: u32,
 }
 
+/// Collects player inputs during [`ReadInputs`](`bevy_ggrs::ReadInputs`) and creates a [`LocalInputs`] resource.
 pub fn read_local_inputs(
     mut commands: Commands,
     keyboard_input: Res<Input<KeyCode>>,
@@ -94,7 +99,7 @@ pub fn setup_system(
         Session::Spectator(s) => s.num_players(),
     };
 
-    // plane
+    // A ground plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane {
             size: PLANE_SIZE,
@@ -104,9 +109,6 @@ pub fn setup_system(
         ..default()
     });
 
-    // player cube - just spawn whatever entity you want, then add a `Rollback` component with a unique id (for example through the `RollbackIdProvider` resource).
-    // Every entity that you want to be saved/loaded needs a `Rollback` component with a unique rollback id.
-    // When loading entities from the past, this extra id is necessary to connect entities over different game states
     let r = PLANE_SIZE / 4.;
 
     for handle in 0..num_players {
@@ -120,17 +122,23 @@ pub fn setup_system(
         transform.translation.z = z;
         let color = PLAYER_COLORS[handle % PLAYER_COLORS.len()];
 
+        // Entities which will be rolled back can be created just like any other...
         commands
             .spawn((
+                // ...add visual information...
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: CUBE_SIZE })),
                     material: materials.add(color.into()),
                     transform,
                     ..default()
                 },
+                // ...flags...
                 Player { handle },
+                // ...and components which will be rolled-back...
                 Velocity::default(),
             ))
+            // ...just ensure you call `add_rollback()`
+            // This ensures a stable ID is available for the rollback system to refer to
             .add_rollback();
     }
 
@@ -160,6 +168,7 @@ pub fn increase_frame_system(mut frame_count: ResMut<FrameCount>) {
 #[allow(dead_code)]
 pub fn move_cube_system(
     mut query: Query<(&mut Transform, &mut Velocity, &Player), With<Rollback>>,
+    //                                                              ^------^ Added by `add_rollback` earlier
     inputs: Res<PlayerInputs<BoxConfig>>,
     // Thanks to RollbackTimePlugin, this is rollback safe
     time: Res<Time>,

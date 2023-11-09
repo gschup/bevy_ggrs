@@ -44,9 +44,10 @@ pub type GgrsComponentSnapshots<C, As = C> = GgrsSnapshots<C, GgrsComponentSnaps
 #[derive(Resource)]
 pub struct GgrsSnapshots<For, As = For> {
     /// Queue of snapshots, newest at the front, oldest at the back.
+    /// Separate from `frames`` to avoid padding.
     snapshots: VecDeque<As>,
-    /// Queue of snapshots, newest at the front, oldest at the back.\
-    /// Separate from snapshots to avoid padding.
+    /// Queue of frames, newest at the front, oldest at the back.
+    /// Separate from `snapshots`` to avoid padding.
     frames: VecDeque<i32>,
     /// Maximum amount of snapshots to store at any one time
     depth: usize,
@@ -65,6 +66,7 @@ impl<For, As> Default for GgrsSnapshots<For, As> {
 }
 
 impl<For, As> GgrsSnapshots<For, As> {
+    /// Updates the capacity of this storage to the provided depth.
     pub fn set_depth(&mut self, depth: usize) -> &mut Self {
         self.depth = depth;
 
@@ -82,10 +84,13 @@ impl<For, As> GgrsSnapshots<For, As> {
         self
     }
 
+    /// Get the current capacity of this snapshot storage.
     pub const fn depth(&self) -> usize {
         self.depth
     }
 
+    /// Push a new snapshot for the provided frame. If the frame is earlier than any
+    /// currently stored snapshots, those snapshots will be discarded.
     pub fn push(&mut self, frame: i32, snapshot: As) -> &mut Self {
         debug_assert_eq!(
             self.snapshots.len(),
@@ -122,6 +127,8 @@ impl<For, As> GgrsSnapshots<For, As> {
         self
     }
 
+    /// Confirms a snapshot as being stable across clients. Snapshots from before this
+    /// point are discarded as no longer required.
     pub fn confirm(&mut self, confirmed_frame: i32) -> &mut Self {
         debug_assert_eq!(
             self.snapshots.len(),
@@ -141,6 +148,7 @@ impl<For, As> GgrsSnapshots<For, As> {
         self
     }
 
+    /// Rolls back to the provided frame, discarding snapshots taken after the rollback point.
     pub fn rollback(&mut self, frame: i32) -> &mut Self {
         loop {
             let Some(&current) = self.frames.front() else {
@@ -159,10 +167,12 @@ impl<For, As> GgrsSnapshots<For, As> {
         self
     }
 
+    /// Get the current snapshot. Use `rollback(frame)` to first select a frame to rollback to.
     pub fn get(&self) -> &As {
         self.snapshots.front().unwrap()
     }
 
+    /// Get a particular snapshot if it exists.
     pub fn peek(&self, frame: i32) -> Option<&As> {
         let (index, _) = self
             .frames
@@ -172,6 +182,7 @@ impl<For, As> GgrsSnapshots<For, As> {
         self.snapshots.get(index)
     }
 
+    /// A system which automatically confirms the [`ConfirmedFrameCount`], discarding older snapshots.
     pub fn discard_old_snapshots(
         mut snapshots: ResMut<Self>,
         confirmed_frame: Option<Res<ConfirmedFrameCount>>,
@@ -187,6 +198,7 @@ impl<For, As> GgrsSnapshots<For, As> {
     }
 }
 
+/// A storage type suitable for per-[`Entity`] snapshots, such as [`Component`] types.
 pub struct GgrsComponentSnapshot<For, As = For> {
     snapshot: HashMap<Rollback, As>,
     _phantom: PhantomData<For>,
@@ -202,6 +214,7 @@ impl<For, As> Default for GgrsComponentSnapshot<For, As> {
 }
 
 impl<For, As> GgrsComponentSnapshot<For, As> {
+    /// Create a new snapshot from a list of [`Rollback`] flags and stored [`Component`] types.
     pub fn new(components: impl IntoIterator<Item = (Rollback, As)>) -> Self {
         Self {
             snapshot: components.into_iter().collect(),
@@ -209,15 +222,18 @@ impl<For, As> GgrsComponentSnapshot<For, As> {
         }
     }
 
+    /// Insert a single snapshot for the provided [`Rollback`].
     pub fn insert(&mut self, entity: Rollback, snapshot: As) -> &mut Self {
         self.snapshot.insert(entity, snapshot);
         self
     }
 
+    /// Get a single snapshot for the provided [`Rollback`].
     pub fn get(&self, entity: &Rollback) -> Option<&As> {
         self.snapshot.get(entity)
     }
 
+    /// Iterate over all stored snapshots.
     pub fn iter(&self) -> impl Iterator<Item = (&Rollback, &As)> + '_ {
         self.snapshot.iter()
     }

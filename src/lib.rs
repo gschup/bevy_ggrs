@@ -424,7 +424,6 @@ impl GgrsApp for App {
     {
         self.add_plugins(ResourceChecksumPlugin::<Type>(hasher))
     }
-
     #[cfg(feature = "ron")]
     fn rollback_component_with_ron<Type>(&mut self) -> &mut Self
     where

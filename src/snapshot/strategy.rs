@@ -93,34 +93,64 @@ impl<T: Reflect + FromWorld> Strategy for ReflectStrategy<T> {
     }
 }
 
-#[cfg(feature = "serde")]
-mod serde_strategy {
+#[cfg(feature = "ron")]
+mod ron_strategy {
     use std::marker::PhantomData;
 
-    use postcard::{from_bytes, to_allocvec};
     use serde::{de::DeserializeOwned, Serialize};
 
     use crate::Strategy;
 
-    /// A [`Strategy`] based on [`Reflect`] and [`FromWorld`]
-    pub struct PostcardStrategy<T: Serialize + DeserializeOwned>(PhantomData<T>);
+    /// A [`Strategy`] based on [`serde`] and [`ron`]
+    pub struct RonStrategy<T: Serialize + DeserializeOwned>(PhantomData<T>);
 
-    impl<T: Serialize + DeserializeOwned> Strategy for PostcardStrategy<T> {
+    impl<T: Serialize + DeserializeOwned> Strategy for RonStrategy<T> {
+        type Target = T;
+
+        type Stored = String;
+
+        #[inline(always)]
+        fn store(target: &Self::Target) -> Self::Stored {
+            ron::to_string(target).unwrap()
+        }
+
+        #[inline(always)]
+        fn load(stored: &Self::Stored) -> Self::Target {
+            ron::from_str(stored).unwrap()
+        }
+    }
+}
+
+#[cfg(feature = "ron")]
+pub use ron_strategy::*;
+
+#[cfg(feature = "bincode")]
+mod bincode_strategy {
+    use std::marker::PhantomData;
+
+    use serde::{de::DeserializeOwned, Serialize};
+
+    use crate::Strategy;
+
+    /// A [`Strategy`] based on [`serde`] and [`bincode`]
+    pub struct BincodeStrategy<T: Serialize + DeserializeOwned>(PhantomData<T>);
+
+    impl<T: Serialize + DeserializeOwned> Strategy for BincodeStrategy<T> {
         type Target = T;
 
         type Stored = Vec<u8>;
 
         #[inline(always)]
         fn store(target: &Self::Target) -> Self::Stored {
-            to_allocvec(target).unwrap()
+            bincode::serialize(target).unwrap()
         }
 
         #[inline(always)]
         fn load(stored: &Self::Stored) -> Self::Target {
-            from_bytes(stored).unwrap()
+            bincode::deserialize(stored).unwrap()
         }
     }
 }
 
-#[cfg(feature = "serde")]
-pub use serde_strategy::*;
+#[cfg(feature = "bincode")]
+pub use bincode_strategy::*;

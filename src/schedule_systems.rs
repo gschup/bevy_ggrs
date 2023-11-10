@@ -5,7 +5,7 @@ use crate::{
 };
 use bevy::{prelude::*, utils::Duration};
 use ggrs::{
-    Config, GGRSError, GGRSRequest, P2PSession, SessionState, SpectatorSession, SyncTestSession,
+    Config, GgrsError, GgrsRequest, P2PSession, SessionState, SpectatorSession, SyncTestSession,
 };
 
 pub(crate) fn run_ggrs_schedules<T: Config>(world: &mut World) {
@@ -104,7 +104,7 @@ pub(crate) fn run_spectator<T: Config>(world: &mut World, mut sess: SpectatorSes
 
     match requests {
         Some(Ok(requests)) => handle_requests(requests, world),
-        Some(Err(GGRSError::PredictionThreshold)) => {
+        Some(Err(GgrsError::PredictionThreshold)) => {
             info!("P2PSpectatorSession: Waiting for input from host.")
         }
         Some(Err(e)) => warn!("{e}"),
@@ -137,7 +137,7 @@ pub(crate) fn run_p2p<C: Config>(world: &mut World, mut sess: P2PSession<C>) {
 
     match requests {
         Some(Ok(requests)) => handle_requests(requests, world),
-        Some(Err(GGRSError::PredictionThreshold)) => {
+        Some(Err(GgrsError::PredictionThreshold)) => {
             info!("Skipping a frame: PredictionThreshold.")
         }
         Some(Err(e)) => warn!("{e}"),
@@ -145,7 +145,7 @@ pub(crate) fn run_p2p<C: Config>(world: &mut World, mut sess: P2PSession<C>) {
     }
 }
 
-pub(crate) fn handle_requests<T: Config>(requests: Vec<GGRSRequest<T>>, world: &mut World) {
+pub(crate) fn handle_requests<T: Config>(requests: Vec<GgrsRequest<T>>, world: &mut World) {
     let _span = bevy::utils::tracing::info_span!("ggrs", name = "HandleRequests").entered();
 
     // Extracting schedules before processing requests to avoid repeated remove/insert operations
@@ -198,7 +198,7 @@ pub(crate) fn handle_requests<T: Config>(requests: Vec<GGRSRequest<T>>, world: &
         }
 
         match request {
-            GGRSRequest::SaveGameState { cell, frame } => {
+            GgrsRequest::SaveGameState { cell, frame } => {
                 let _span =
                     bevy::utils::tracing::info_span!("schedule", name = "SaveWorld").entered();
                 debug!("saving snapshot for frame {frame}");
@@ -213,7 +213,7 @@ pub(crate) fn handle_requests<T: Config>(requests: Vec<GGRSRequest<T>>, world: &
                 // we don't really use the buffer provided by GGRS
                 cell.save(frame, None, checksum);
             }
-            GGRSRequest::LoadGameState { frame, .. } => {
+            GgrsRequest::LoadGameState { frame, .. } => {
                 let _span =
                     bevy::utils::tracing::info_span!("schedule", name = "LoadWorld").entered();
                 // we don't really use the buffer provided by GGRS
@@ -226,7 +226,7 @@ pub(crate) fn handle_requests<T: Config>(requests: Vec<GGRSRequest<T>>, world: &
 
                 load_world_schedule.run(world);
             }
-            GGRSRequest::AdvanceFrame { inputs } => {
+            GgrsRequest::AdvanceFrame { inputs } => {
                 let _span =
                     bevy::utils::tracing::info_span!("schedule", name = "AdvanceWorld").entered();
                 let mut frame_count = world

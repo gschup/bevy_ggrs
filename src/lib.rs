@@ -30,7 +30,7 @@ pub mod prelude {
         snapshot::prelude::*, AddRollbackCommandExtension, GgrsApp, GgrsConfig, GgrsPlugin,
         GgrsSchedule, GgrsTime, PlayerInputs, ReadInputs, Rollback, Session,
     };
-    pub use ggrs::{GGRSEvent as GgrsEvent, PlayerType, SessionBuilder};
+    pub use ggrs::{GgrsEvent, PlayerType, SessionBuilder};
 }
 
 /// A sensible default [GGRS Config](`ggrs::Config`) type suitable for most applications.

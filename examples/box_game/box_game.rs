@@ -29,9 +29,7 @@ pub type BoxConfig = GgrsConfig<BoxInput>;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Pod, Zeroable)]
-pub struct BoxInput {
-    pub inp: u8,
-}
+pub struct BoxInput(u8);
 
 #[derive(Default, Component)]
 pub struct Player {
@@ -77,7 +75,7 @@ pub fn read_local_inputs(
             input |= INPUT_RIGHT;
         }
 
-        local_inputs.insert(*handle, BoxInput { inp: input });
+        local_inputs.insert(*handle, BoxInput(input));
     }
 
     commands.insert_resource(LocalInputs::<BoxConfig>(local_inputs));
@@ -173,7 +171,7 @@ pub fn move_cube_system(
     let dt = time.delta().as_secs_f32();
 
     for (mut t, mut v, p) in query.iter_mut() {
-        let input = inputs[p.handle].0.inp;
+        let input = inputs[p.handle].0 .0;
         // set velocity through key presses
         if input & INPUT_UP != 0 && input & INPUT_DOWN == 0 {
             v.z -= ACCELERATION * dt;

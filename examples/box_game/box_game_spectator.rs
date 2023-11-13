@@ -44,9 +44,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Rollback behavior can be customized using a variety of extension methods and plugins:
         // The FrameCount resource implements Copy, we can use that to have minimal overhead rollback
         .rollback_resource_with_copy::<FrameCount>()
-        // Transform and Velocity components only implement Clone, so instead we'll use that to snapshot and rollback with
+        // Same with the Velocity Component
+        .rollback_component_with_copy::<Velocity>()
+        // Transform only implement Clone, so instead we'll use that to snapshot and rollback with
         .rollback_component_with_clone::<Transform>()
-        .rollback_component_with_clone::<Velocity>()
         .insert_resource(opt)
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup_system)

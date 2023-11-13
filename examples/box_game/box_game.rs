@@ -29,9 +29,7 @@ pub type BoxConfig = GgrsConfig<BoxInput>;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Pod, Zeroable)]
-pub struct BoxInput {
-    pub inp: u8,
-}
+pub struct BoxInput(u8);
 
 #[derive(Default, Component)]
 pub struct Player {
@@ -43,12 +41,8 @@ pub struct Player {
 // - Copy
 // - Reflect
 // See `bevy_ggrs::Strategy` for custom alternatives
-#[derive(Default, Reflect, Component, Clone)]
-pub struct Velocity {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
-}
+#[derive(Default, Reflect, Component, Clone, Copy, Deref, DerefMut)]
+pub struct Velocity(pub Vec3);
 
 // You can also register resources.
 #[derive(Resource, Default, Reflect, Hash, Clone, Copy)]
@@ -81,7 +75,7 @@ pub fn read_local_inputs(
             input |= INPUT_RIGHT;
         }
 
-        local_inputs.insert(*handle, BoxInput { inp: input });
+        local_inputs.insert(*handle, BoxInput(input));
     }
 
     commands.insert_resource(LocalInputs::<BoxConfig>(local_inputs));
@@ -110,6 +104,7 @@ pub fn setup_system(
     });
 
     let r = PLANE_SIZE / 4.;
+    let mesh = meshes.add(Mesh::from(shape::Cube { size: CUBE_SIZE }));
 
     for handle in 0..num_players {
         let rot = handle as f32 / num_players as f32 * 2. * std::f32::consts::PI;
@@ -127,7 +122,7 @@ pub fn setup_system(
             .spawn((
                 // ...add visual information...
                 PbrBundle {
-                    mesh: meshes.add(Mesh::from(shape::Cube { size: CUBE_SIZE })),
+                    mesh: mesh.clone(),
                     material: materials.add(color.into()),
                     transform,
                     ..default()
@@ -176,7 +171,7 @@ pub fn move_cube_system(
     let dt = time.delta().as_secs_f32();
 
     for (mut t, mut v, p) in query.iter_mut() {
-        let input = inputs[p.handle].0.inp;
+        let input = inputs[p.handle].0 .0;
         // set velocity through key presses
         if input & INPUT_UP != 0 && input & INPUT_DOWN == 0 {
             v.z -= ACCELERATION * dt;
@@ -201,23 +196,14 @@ pub fn move_cube_system(
         v.y *= FRICTION.powf(dt);
 
         // constrain velocity
-        let mag = (v.x * v.x + v.y * v.y + v.z * v.z).sqrt();
-        if mag > MAX_SPEED {
-            let factor = MAX_SPEED / mag;
-            v.x *= factor;
-            v.y *= factor;
-            v.z *= factor;
-        }
+        **v = v.clamp_length_max(MAX_SPEED);
 
         // apply velocity
-        t.translation.x += v.x * dt;
-        t.translation.y += v.y * dt;
-        t.translation.z += v.z * dt;
+        t.translation += **v * dt;
 
         // constrain cube to plane
-        t.translation.x = t.translation.x.max(-1. * (PLANE_SIZE - CUBE_SIZE) * 0.5);
-        t.translation.x = t.translation.x.min((PLANE_SIZE - CUBE_SIZE) * 0.5);
-        t.translation.z = t.translation.z.max(-1. * (PLANE_SIZE - CUBE_SIZE) * 0.5);
-        t.translation.z = t.translation.z.min((PLANE_SIZE - CUBE_SIZE) * 0.5);
+        let half_width = (PLANE_SIZE - CUBE_SIZE) * 0.5;
+        t.translation.x = t.translation.x.clamp(-half_width, half_width);
+        t.translation.z = t.translation.z.clamp(-half_width, half_width);
     }
 }

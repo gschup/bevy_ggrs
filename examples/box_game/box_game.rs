@@ -202,9 +202,8 @@ pub fn move_cube_system(
         t.translation += **v * dt;
 
         // constrain cube to plane
-        t.translation.x = t.translation.x.max(-1. * (PLANE_SIZE - CUBE_SIZE) * 0.5);
-        t.translation.x = t.translation.x.min((PLANE_SIZE - CUBE_SIZE) * 0.5);
-        t.translation.z = t.translation.z.max(-1. * (PLANE_SIZE - CUBE_SIZE) * 0.5);
-        t.translation.z = t.translation.z.min((PLANE_SIZE - CUBE_SIZE) * 0.5);
+        let half_width = (PLANE_SIZE - CUBE_SIZE) * 0.5;
+        t.translation.x = t.translation.x.clamp(-half_width, half_width);
+        t.translation.z = t.translation.z.clamp(-half_width, half_width);
     }
 }

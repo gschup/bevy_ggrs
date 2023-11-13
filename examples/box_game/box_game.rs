@@ -43,12 +43,8 @@ pub struct Player {
 // - Copy
 // - Reflect
 // See `bevy_ggrs::Strategy` for custom alternatives
-#[derive(Default, Reflect, Component, Clone)]
-pub struct Velocity {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
-}
+#[derive(Default, Reflect, Component, Clone, Copy, Deref, DerefMut)]
+pub struct Velocity(pub Vec3);
 
 // You can also register resources.
 #[derive(Resource, Default, Reflect, Hash, Clone, Copy)]
@@ -201,18 +197,10 @@ pub fn move_cube_system(
         v.y *= FRICTION.powf(dt);
 
         // constrain velocity
-        let mag = (v.x * v.x + v.y * v.y + v.z * v.z).sqrt();
-        if mag > MAX_SPEED {
-            let factor = MAX_SPEED / mag;
-            v.x *= factor;
-            v.y *= factor;
-            v.z *= factor;
-        }
+        **v = v.clamp_length_max(MAX_SPEED);
 
         // apply velocity
-        t.translation.x += v.x * dt;
-        t.translation.y += v.y * dt;
-        t.translation.z += v.z * dt;
+        t.translation += **v * dt;
 
         // constrain cube to plane
         t.translation.x = t.translation.x.max(-1. * (PLANE_SIZE - CUBE_SIZE) * 0.5);

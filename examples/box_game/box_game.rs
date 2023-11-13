@@ -106,6 +106,7 @@ pub fn setup_system(
     });
 
     let r = PLANE_SIZE / 4.;
+    let mesh = meshes.add(Mesh::from(shape::Cube { size: CUBE_SIZE }));
 
     for handle in 0..num_players {
         let rot = handle as f32 / num_players as f32 * 2. * std::f32::consts::PI;
@@ -123,7 +124,7 @@ pub fn setup_system(
             .spawn((
                 // ...add visual information...
                 PbrBundle {
-                    mesh: meshes.add(Mesh::from(shape::Cube { size: CUBE_SIZE })),
+                    mesh: mesh.clone(),
                     material: materials.add(color.into()),
                     transform,
                     ..default()

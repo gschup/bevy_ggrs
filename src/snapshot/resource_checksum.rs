@@ -1,8 +1,8 @@
-use std::hash::{BuildHasher, Hash, Hasher};
+use std::hash::{Hash, Hasher};
 
 use bevy::prelude::*;
 
-use crate::{ChecksumFlag, ChecksumPart, Rollback, SaveWorld, SaveWorldSet};
+use crate::{checksum_hasher, ChecksumFlag, ChecksumPart, Rollback, SaveWorld, SaveWorldSet};
 
 /// Plugin which will track the [`Resource`] `R` and ensure a [`ChecksumPart`] is
 /// available and updated. This can be used to generate a [`Checksum`](`crate::Checksum`).
@@ -33,7 +33,7 @@ use crate::{ChecksumFlag, ChecksumPart, Rollback, SaveWorld, SaveWorldSet};
 pub struct ResourceChecksumPlugin<R: Resource>(pub for<'a> fn(&'a R) -> u64);
 
 fn default_hasher<R: Resource + Hash>(resource: &R) -> u64 {
-    let mut hasher = bevy::utils::FixedState.build_hasher();
+    let mut hasher = checksum_hasher();
     resource.hash(&mut hasher);
     hasher.finish()
 }

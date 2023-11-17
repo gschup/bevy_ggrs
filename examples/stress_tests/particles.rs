@@ -1,10 +1,10 @@
 use bevy::{math::vec3, prelude::*, utils::HashMap, window::WindowResolution};
-use bevy_ggrs::{prelude::*, LocalInputs, LocalPlayers};
+use bevy_ggrs::{checksum_hasher, prelude::*, LocalInputs, LocalPlayers};
 use clap::Parser;
 use ggrs::{DesyncDetection, UdpNonBlockingSocket};
 use rand::{Rng, SeedableRng};
 use std::{
-    hash::{BuildHasher, Hash, Hasher},
+    hash::{Hash, Hasher},
     net::SocketAddr,
 };
 
@@ -201,7 +201,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .checksum_component_with_hash::<Velocity>()
         // ...or you can provide a custom hashing process
         .checksum_component::<Transform>(|transform| {
-            let mut hasher = bevy::utils::FixedState.build_hasher();
+            let mut hasher = checksum_hasher();
 
             // In this demo we only translate particles, so only that value
             // needs to be tracked.

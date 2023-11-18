@@ -8,6 +8,7 @@ use bevy::{
         entity::MapEntities,
         schedule::{ExecutorKind, LogLevel, ScheduleBuildSettings, ScheduleLabel},
     },
+    input::InputSystem,
     prelude::*,
     utils::{Duration, HashMap},
 };
@@ -210,7 +211,10 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
                     ..default()
                 });
             })
-            .add_systems(PreUpdate, schedule_systems::run_ggrs_schedules::<C>)
+            .add_systems(
+                PreUpdate,
+                schedule_systems::run_ggrs_schedules::<C>.after(InputSystem),
+            )
             .add_plugins((
                 SnapshotSetPlugin,
                 ChecksumPlugin,

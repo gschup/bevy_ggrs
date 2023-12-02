@@ -229,7 +229,7 @@ pub(crate) fn handle_requests<T: Config>(requests: Vec<GgrsRequest<T>>, world: &
                 world
                     .get_resource_mut::<LastRollback>()
                     .expect("Unable to find GGRS LastRollback. Did you remove it?")
-                    .0 += frame;
+                    .0 = frame;
 
                 world
                     .get_resource_mut::<Rollbacks>()

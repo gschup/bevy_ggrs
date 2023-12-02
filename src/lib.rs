@@ -17,6 +17,7 @@ use std::{fmt::Debug, hash::Hash, marker::PhantomData, net::SocketAddr};
 
 pub use ggrs;
 
+pub use local::*;
 pub use rollback::*;
 pub use snapshot::*;
 pub use time::*;

@@ -92,7 +92,7 @@ impl Default for FixedTimestepData {
 
 /// Keeps track of the current frame the rollback simulation is in
 #[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct RollbackFrameCount(i32);
+pub struct RollbackFrameCount(pub i32);
 
 impl From<RollbackFrameCount> for i32 {
     fn from(value: RollbackFrameCount) -> i32 {

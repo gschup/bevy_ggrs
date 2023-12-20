@@ -1,6 +1,9 @@
 use crate::{ConfirmedFrameCount, Rollback, DEFAULT_FPS};
-use bevy::{prelude::*, utils::HashMap};
-use std::{collections::VecDeque, marker::PhantomData};
+use bevy::{
+    prelude::*,
+    utils::{AHasher, FixedState, HashMap},
+};
+use std::{collections::VecDeque, hash::BuildHasher, marker::PhantomData};
 
 mod checksum;
 mod component_checksum;
@@ -237,4 +240,9 @@ impl<For, As> GgrsComponentSnapshot<For, As> {
     pub fn iter(&self) -> impl Iterator<Item = (&Rollback, &As)> + '_ {
         self.snapshot.iter()
     }
+}
+
+/// Returns a hasher built using Bevy's [FixedState] appropriate for creating checksums
+pub fn checksum_hasher() -> AHasher {
+    FixedState.build_hasher()
 }

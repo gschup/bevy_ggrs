@@ -1,8 +1,10 @@
-use std::hash::{BuildHasher, Hash, Hasher};
+use std::hash::{Hash, Hasher};
 
 use bevy::prelude::*;
 
-use crate::{ChecksumFlag, ChecksumPart, Rollback, RollbackOrdered, SaveWorld, SaveWorldSet};
+use crate::{
+    checksum_hasher, ChecksumFlag, ChecksumPart, Rollback, RollbackOrdered, SaveWorld, SaveWorldSet,
+};
 
 pub struct EntityChecksumPlugin;
 
@@ -14,7 +16,7 @@ impl EntityChecksumPlugin {
         active_entities: Query<&Rollback, (With<Rollback>, Without<ChecksumFlag<Entity>>)>,
         mut checksum: Query<&mut ChecksumPart, (Without<Rollback>, With<ChecksumFlag<Entity>>)>,
     ) {
-        let mut hasher = bevy::utils::FixedState.build_hasher();
+        let mut hasher = checksum_hasher();
 
         // The quantity of active rollback entities must be synced.
         active_entities.iter().len().hash(&mut hasher);

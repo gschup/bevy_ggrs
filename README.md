@@ -11,11 +11,10 @@ It efficiently handles saving and loading of the gamestate by only snapshotting 
 
 For explanation on how to use it, check the 👉[examples](./examples/)!
 
-## Live Demonstration
+## Live Demonstration (currently offline)
 
 bevy_GGRS has a demo app you can try in the browser! It uses [matchbox](https://github.com/johanhelsing/matchbox) to facilitate communication between browsers. Try it out with a friend! Just click the link and match with another player! (You can also open the link in two separate windows to play against yourself)
 
-- [Demo](https://gschup.github.io/bevy_ggrs_demo/)
 - [Demo Repository](https://github.com/gschup/bevy_ggrs_demo)
 
 ## Compatible Versions

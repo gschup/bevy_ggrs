@@ -64,6 +64,11 @@ impl<T: Clone> Strategy for CloneStrategy<T> {
     fn load(stored: &Self::Stored) -> Self::Target {
         stored.clone()
     }
+
+    #[inline(always)]
+    fn update(target: &mut Self::Target, stored: &Self::Stored) {
+        target.clone_from(stored);
+    }
 }
 
 /// A [`Strategy`] based on [`Reflect`] and [`FromWorld`]

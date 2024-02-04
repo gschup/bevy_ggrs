@@ -16,7 +16,7 @@ struct Opt {
     local_port: u16,
     #[clap(short, long)]
     num_players: usize,
-    #[clap(short, long)]
+    #[clap(long)]
     host: SocketAddr,
 }
 

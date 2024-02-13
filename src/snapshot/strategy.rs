@@ -97,3 +97,65 @@ impl<T: Reflect + FromWorld> Strategy for ReflectStrategy<T> {
         target
     }
 }
+
+#[cfg(feature = "ron")]
+mod ron_strategy {
+    use std::marker::PhantomData;
+
+    use serde::{de::DeserializeOwned, Serialize};
+
+    use crate::Strategy;
+
+    /// A [`Strategy`] based on [`serde`] and [`ron`]
+    pub struct RonStrategy<T: Serialize + DeserializeOwned>(PhantomData<T>);
+
+    impl<T: Serialize + DeserializeOwned> Strategy for RonStrategy<T> {
+        type Target = T;
+
+        type Stored = String;
+
+        #[inline(always)]
+        fn store(target: &Self::Target) -> Self::Stored {
+            ron::to_string(target).unwrap()
+        }
+
+        #[inline(always)]
+        fn load(stored: &Self::Stored) -> Self::Target {
+            ron::from_str(stored).unwrap()
+        }
+    }
+}
+
+#[cfg(feature = "ron")]
+pub use ron_strategy::*;
+
+#[cfg(feature = "bincode")]
+mod bincode_strategy {
+    use std::marker::PhantomData;
+
+    use serde::{de::DeserializeOwned, Serialize};
+
+    use crate::Strategy;
+
+    /// A [`Strategy`] based on [`serde`] and [`bincode`]
+    pub struct BincodeStrategy<T: Serialize + DeserializeOwned>(PhantomData<T>);
+
+    impl<T: Serialize + DeserializeOwned> Strategy for BincodeStrategy<T> {
+        type Target = T;
+
+        type Stored = Vec<u8>;
+
+        #[inline(always)]
+        fn store(target: &Self::Target) -> Self::Stored {
+            bincode::serialize(target).unwrap()
+        }
+
+        #[inline(always)]
+        fn load(stored: &Self::Stored) -> Self::Target {
+            bincode::deserialize(stored).unwrap()
+        }
+    }
+}
+
+#[cfg(feature = "bincode")]
+pub use bincode_strategy::*;

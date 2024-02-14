@@ -19,10 +19,10 @@ impl EntityChecksumPlugin {
         let mut hasher = checksum_hasher();
 
         // The quantity of active rollback entities must be synced.
-        active_entities.iter().len().hash(&mut hasher);
+        (active_entities.iter().len() as u64).hash(&mut hasher);
 
         // The quantity of total spawned rollback entities must be synced.
-        rollback_ordered.len().hash(&mut hasher);
+        (rollback_ordered.len() as u64).hash(&mut hasher);
 
         let result = ChecksumPart(hasher.finish() as u128);
 

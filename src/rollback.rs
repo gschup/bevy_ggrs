@@ -56,7 +56,7 @@ impl<'w, 's, 'a> AddRollbackCommandExtension for EntityCommands<'w, 's, 'a> {
 /// A [`Resource`] which provides methods for stable ordering of [`Rollback`] flags.
 #[derive(Resource, Default, Clone)]
 pub struct RollbackOrdered {
-    order: HashMap<Rollback, usize>,
+    order: HashMap<Rollback, u64>,
     sorted: Vec<Rollback>,
 }
 
@@ -64,7 +64,7 @@ impl RollbackOrdered {
     /// Register a new [`Rollback`] for explicit ordering.
     fn push(&mut self, rollback: Rollback) -> &mut Self {
         self.sorted.push(rollback);
-        self.order.insert(rollback, self.sorted.len() - 1);
+        self.order.insert(rollback, self.sorted.len() as u64 - 1);
 
         self
     }
@@ -75,7 +75,7 @@ impl RollbackOrdered {
     }
 
     /// Returns a unique and order stable index for the provided [`Rollback`].
-    pub fn order(&self, rollback: Rollback) -> usize {
+    pub fn order(&self, rollback: Rollback) -> u64 {
         self.order
             .get(&rollback)
             .copied()

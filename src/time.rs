@@ -86,7 +86,7 @@ impl GgrsTimePlugin {
 
 impl Plugin for GgrsTimePlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(Time::new_with(GgrsTime::default()))
+        app.insert_resource(Time::new_with(GgrsTime))
             .add_plugins(ResourceSnapshotPlugin::<CloneStrategy<Time<GgrsTime>>>::default())
             .add_systems(
                 AdvanceWorld,

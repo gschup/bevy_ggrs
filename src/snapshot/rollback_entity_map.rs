@@ -1,14 +1,26 @@
-use bevy::{prelude::*, utils::HashMap};
+use bevy::{ecs::entity::EntityHashMap, prelude::*, utils::HashMap};
 
 /// A [`Resource`] which provides an [`EntityMap`], describing how [`Entities`](`Entity`)
 /// changed during a rollback.
 #[derive(Resource, Default)]
-pub struct RollbackEntityMap(HashMap<Entity, Entity>);
+pub struct RollbackEntityMap(EntityHashMap<Entity>);
+
+impl From<EntityHashMap<Entity>> for RollbackEntityMap {
+    fn from(value: EntityHashMap<Entity>) -> Self {
+        Self(value)
+    }
+}
+
+impl From<HashMap<Entity, Entity>> for RollbackEntityMap {
+    fn from(value: HashMap<Entity, Entity>) -> Self {
+        Self(value.into_iter().collect())
+    }
+}
 
 impl RollbackEntityMap {
     /// Create a new [`RollbackEntityMap`], which can generate [`EntityMaps`](`EntityMap`) as required.
     pub fn new(map: HashMap<Entity, Entity>) -> Self {
-        Self(map)
+        map.into()
     }
 
     /// Generate an owned [`EntityMap`], which can be used concurrently with other systems.
@@ -44,5 +56,12 @@ impl RollbackEntityMap {
     pub fn is_empty(&self) -> bool {
         let Self(map) = self;
         map.is_empty()
+    }
+}
+
+impl<'a> EntityMapper for &'a RollbackEntityMap {
+    /// Map the provided [`Entity`], or return it unmodified if it does not need to be mapped.
+    fn map_entity(&mut self, entity: Entity) -> Entity {
+        self.get(entity).unwrap_or(entity)
     }
 }

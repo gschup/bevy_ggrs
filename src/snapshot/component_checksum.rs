@@ -71,7 +71,7 @@ where
             let mut result = 0;
 
             for (&rollback, component) in components.iter() {
-                let mut hasher = hasher.clone();
+                let mut hasher = hasher;
 
                 // Hashing the rollback index ensures this hash is unique and stable
                 rollback_ordered.order(rollback).hash(&mut hasher);

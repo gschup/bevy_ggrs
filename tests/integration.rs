@@ -1,5 +1,8 @@
 use bevy::{
-    input::{keyboard::KeyboardInput, ButtonState, Input, InputPlugin},
+    input::{
+        keyboard::{Key, KeyboardInput},
+        ButtonInput, ButtonState, InputPlugin,
+    },
     prelude::*,
     time::TimeUpdateStrategy,
     utils::{Duration, HashMap},
@@ -55,7 +58,7 @@ fn it_syncs_rollback_components() -> Result<(), Box<dyn std::error::Error>> {
     let mut app2 = create_app::<TestConfig>(session2);
 
     for _ in 0..50 {
-        press_key(&mut app1, KeyCode::W);
+        press_key(&mut app1, KeyCode::KeyW);
         app1.update();
         app2.update();
     }
@@ -72,7 +75,7 @@ fn it_syncs_rollback_components() -> Result<(), Box<dyn std::error::Error>> {
 fn create_app<T: Config>(session: P2PSession<T>) -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
-        .add_plugins(InputPlugin::default())
+        .add_plugins(InputPlugin)
         .add_plugins(GgrsPlugin::<T>::default())
         .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
             1.0 / 60.0,
@@ -103,7 +106,7 @@ fn create_players() -> (TestPlayer, TestPlayer) {
     const REMOTE_PORT: u16 = 8082;
     let remote_addr1 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), PLAYER1_PORT);
     let remote_addr2 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), REMOTE_PORT);
-    return (
+    (
         TestPlayer {
             handle: 0,
             address: remote_addr1,
@@ -112,7 +115,7 @@ fn create_players() -> (TestPlayer, TestPlayer) {
             handle: 1,
             address: remote_addr2,
         },
-    );
+    )
 }
 
 fn start_session(
@@ -138,14 +141,14 @@ const INPUT_UP: u8 = 1 << 0;
 
 pub fn read_local_inputs(
     mut commands: Commands,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     local_players: Res<LocalPlayers>,
 ) {
     let mut local_inputs = HashMap::new();
 
     for handle in &local_players.0 {
         let mut input: u8 = 0;
-        if keyboard_input.pressed(KeyCode::W) {
+        if keyboard_input.pressed(KeyCode::KeyW) {
             input |= INPUT_UP;
         }
         local_inputs.insert(*handle, BoxInput { inp: input });
@@ -160,8 +163,8 @@ pub fn increase_frame_system(mut frame_count: ResMut<FrameCount>) {
 
 fn press_key(app: &mut App, key: KeyCode) {
     app.world.send_event(KeyboardInput {
-        scan_code: 0,
-        key_code: Option::from(key),
+        logical_key: Key::Character("w".into()),
+        key_code: key,
         state: ButtonState::Pressed,
         window: Entity::PLACEHOLDER,
     });

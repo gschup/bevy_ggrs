@@ -2,6 +2,7 @@
 //!
 //! See [`GgrsPlugin`] for getting started.
 #![forbid(unsafe_code)] // let us try
+#![allow(clippy::type_complexity)] // Suppress warnings around Query
 
 use bevy::{
     ecs::{

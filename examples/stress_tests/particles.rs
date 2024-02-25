@@ -74,7 +74,7 @@ const INPUT_NOOP: u8 = 1 << 5;
 
 fn read_local_inputs(
     mut commands: Commands,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     local_players: Res<LocalPlayers>,
 ) {
     let mut local_inputs = HashMap::new();
@@ -88,7 +88,7 @@ fn read_local_inputs(
         }
 
         // n is a no-op key, press to simply trigger a rollback
-        if keyboard_input.pressed(KeyCode::N) {
+        if keyboard_input.pressed(KeyCode::KeyN) {
             input |= INPUT_NOOP;
         }
 

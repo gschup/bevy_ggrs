@@ -44,9 +44,9 @@ pub trait AddRollbackCommandExtension: private::AddRollbackCommandExtensionSeal 
     fn add_rollback(&mut self) -> &mut Self;
 }
 
-impl<'w, 's, 'a> private::AddRollbackCommandExtensionSeal for EntityCommands<'w, 's, 'a> {}
+impl<'a> private::AddRollbackCommandExtensionSeal for EntityCommands<'a> {}
 
-impl<'w, 's, 'a> AddRollbackCommandExtension for EntityCommands<'w, 's, 'a> {
+impl<'a> AddRollbackCommandExtension for EntityCommands<'a> {
     fn add_rollback(&mut self) -> &mut Self {
         self.add(AddRollbackCommand);
         self

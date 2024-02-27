@@ -1,6 +1,6 @@
 [package]
 name = "bevy_ggrs"
-version = "0.14.0"
+version = "0.15.0"
 authors = ["Georg Schuppe <georg.schuppe@gmail.com>"]
 edition = "2021"
 description = "Bevy plugin for the GGRS P2P rollback networking library"
@@ -20,8 +20,8 @@ bevy = { version = "0.13", default-features = false }
 bytemuck = { version = "1.7", features = ["derive"] }
 instant = { version = "0.1", optional = true }
 log = "0.4"
-#ggrs = { version= "0.10.0", features=["sync-send"]}
-ggrs = { git = "https://github.com/gschup/ggrs", features = ["sync-send"] }
+ggrs = { version= "0.10.1", features=["sync-send"]}
+#ggrs = { git = "https://github.com/gschup/ggrs", features = ["sync-send"] }
 seahash = "4.1"
 
 [dev-dependencies]

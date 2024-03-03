@@ -1,7 +1,7 @@
 use crate::{
-    AdvanceWorld, Checksum, ConfirmedFrameCount, FixedTimestepData, LoadWorld, LocalInputs,
-    LocalPlayers, MaxPredictionWindow, PlayerInputs, ReadInputs, RollbackFrameCount,
-    RollbackFrameRate, SaveWorld, Session,
+    AdvanceWorld, Checksum, ConfirmedFrameCount, FixedTimestepData, LastRollback, LoadWorld,
+    LocalInputs, LocalPlayers, MaxPredictionWindow, PlayerInputs, ReadInputs, RollbackFrameCount,
+    RollbackFrameRate, Rollbacks, SaveWorld, Session,
 };
 use bevy::{prelude::*, utils::Duration};
 use ggrs::{
@@ -63,6 +63,8 @@ pub(crate) fn run_ggrs_schedules<T: Config>(world: &mut World) {
                 time_data.run_slow = false;
                 world.insert_resource(LocalPlayers::default());
                 world.insert_resource(RollbackFrameCount(0));
+                world.insert_resource(LastRollback(0));
+                world.insert_resource(Rollbacks(0));
                 world.insert_resource(ConfirmedFrameCount(-1));
                 world.insert_resource(MaxPredictionWindow(8));
             }
@@ -223,6 +225,16 @@ pub(crate) fn handle_requests<T: Config>(requests: Vec<GgrsRequest<T>>, world: &
                     .get_resource_mut::<RollbackFrameCount>()
                     .expect("Unable to find GGRS RollbackFrameCount. Did you remove it?")
                     .0 = frame;
+
+                world
+                    .get_resource_mut::<LastRollback>()
+                    .expect("Unable to find GGRS LastRollback. Did you remove it?")
+                    .0 = frame;
+
+                world
+                    .get_resource_mut::<Rollbacks>()
+                    .expect("Unable to find GGRS Rollbacks. Did you remove it?")
+                    .0 += 1;
 
                 load_world_schedule.run(world);
             }

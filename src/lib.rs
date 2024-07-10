@@ -313,7 +313,7 @@ pub trait GgrsApp {
 
 impl GgrsApp for App {
     fn set_rollback_schedule_fps(&mut self, fps: usize) -> &mut Self {
-        self.world.insert_resource(RollbackFrameRate(fps));
+        self.world_mut().insert_resource(RollbackFrameRate(fps));
 
         self
     }

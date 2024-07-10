@@ -104,8 +104,8 @@ fn entity_mapping() {
     // Re-usable queries
     let get_queries = |app: &mut App| {
         (
-            app.world.query::<(&ChildEntity, &Parent)>(),
-            app.world.query::<(&ParentEntity, &Children)>(),
+            app.world_mut().query::<(&ChildEntity, &Parent)>(),
+            app.world_mut().query::<(&ParentEntity, &Children)>(),
         )
     };
 
@@ -113,11 +113,11 @@ fn entity_mapping() {
     app.update();
     let (mut child_query, mut parent_query) = get_queries(&mut app);
     assert!(
-        child_query.get_single(&app.world).is_ok(),
+        child_query.get_single(app.world()).is_ok(),
         "Child doesn't exist"
     );
     assert!(
-        parent_query.get_single(&app.world).is_ok(),
+        parent_query.get_single(app.world()).is_ok(),
         "Parent doesn't exist"
     );
 
@@ -125,7 +125,7 @@ fn entity_mapping() {
     app.update();
 
     // Send the event to delete the child entity
-    app.world
+    app.world_mut()
         .resource_mut::<Events<DeleteChildEntityEvent>>()
         .send(DeleteChildEntityEvent);
 
@@ -138,11 +138,11 @@ fn entity_mapping() {
     // Make sure the child is delete and the parent still exists
     let (mut child_query, mut parent_query) = get_queries(&mut app);
     assert!(
-        child_query.get_single(&app.world).is_err(),
+        child_query.get_single(app.world()).is_err(),
         "Child exists after deletion"
     );
     assert!(
-        parent_query.get_single(&app.world).is_ok(),
+        parent_query.get_single(app.world()).is_ok(),
         "Parent doesn't exist"
     );
 }

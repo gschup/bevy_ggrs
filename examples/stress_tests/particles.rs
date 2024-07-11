@@ -1,4 +1,6 @@
-use bevy::{math::vec3, prelude::*, utils::HashMap, window::WindowResolution};
+use bevy::{
+    color::palettes::css::ORANGE, math::vec3, prelude::*, utils::HashMap, window::WindowResolution,
+};
 use bevy_ggrs::{checksum_hasher, prelude::*, LocalInputs, LocalPlayers};
 use clap::Parser;
 use ggrs::{DesyncDetection, UdpNonBlockingSocket};
@@ -260,7 +262,7 @@ fn spawn_particles(mut commands: Commands, args: Res<Args>, mut rng: ResMut<Part
             .spawn((
                 SpriteBundle {
                     sprite: Sprite {
-                        color: Color::ORANGE,
+                        color: ORANGE.into(),
                         custom_size: Some(Vec2::splat(5.0)),
                         ..default()
                     },

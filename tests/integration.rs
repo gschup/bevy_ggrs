@@ -35,8 +35,8 @@ fn it_runs_advance_frame_schedule_systems() -> Result<(), Box<dyn std::error::Er
         app2.update();
     }
 
-    let frame_count1 = app1.world.get_resource::<FrameCount>().unwrap();
-    let frame_count2 = app2.world.get_resource::<FrameCount>().unwrap();
+    let frame_count1 = app1.world().get_resource::<FrameCount>().unwrap();
+    let frame_count2 = app2.world().get_resource::<FrameCount>().unwrap();
 
     // We've run Bevy for 50 frames, bevy_ggrs, however needs a couple of frames
     // to sync before it starts to run the advance frame schedule, so the
@@ -63,8 +63,8 @@ fn it_syncs_rollback_components() -> Result<(), Box<dyn std::error::Error>> {
         app2.update();
     }
 
-    let mut app2_query = app2.world.query::<(&Transform, &PlayerComponent)>();
-    for (transform, player) in app2_query.iter(&app2.world) {
+    let mut app2_query = app2.world_mut().query::<(&Transform, &PlayerComponent)>();
+    for (transform, player) in app2_query.iter(app2.world()) {
         if player.handle == player1.handle {
             assert!(transform.translation.z < 0., "Remote player moves forward");
         }
@@ -162,7 +162,7 @@ pub fn increase_frame_system(mut frame_count: ResMut<FrameCount>) {
 }
 
 fn press_key(app: &mut App, key: KeyCode) {
-    app.world.send_event(KeyboardInput {
+    app.world_mut().send_event(KeyboardInput {
         logical_key: Key::Character("w".into()),
         key_code: key,
         state: ButtonState::Pressed,

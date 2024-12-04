@@ -59,7 +59,7 @@ impl RollbackEntityMap {
     }
 }
 
-impl<'a> EntityMapper for &'a RollbackEntityMap {
+impl EntityMapper for &RollbackEntityMap {
     /// Map the provided [`Entity`], or return it unmodified if it does not need to be mapped.
     fn map_entity(&mut self, entity: Entity) -> Entity {
         self.get(entity).unwrap_or(entity)

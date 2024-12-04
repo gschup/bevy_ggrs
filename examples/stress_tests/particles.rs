@@ -139,7 +139,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut session_builder = SessionBuilder::<Config>::new()
         .with_num_players(num_players)
         .with_desync_detection_mode(desync_mode)
-        .with_max_prediction_window(args.max_prediction)?
+        .with_max_prediction_window(args.max_prediction)
         .with_input_delay(args.input_delay);
 
     for (i, player_addr) in args.players.iter().enumerate() {
@@ -170,7 +170,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         app.rollback_component_with_reflect::<Sprite>()
             .rollback_component_with_reflect::<Transform>()
             .rollback_component_with_reflect::<GlobalTransform>()
-            .rollback_component_with_reflect::<Handle<Image>>()
             .rollback_component_with_reflect::<Visibility>()
             .rollback_component_with_reflect::<InheritedVisibility>()
             .rollback_component_with_reflect::<ViewVisibility>()
@@ -188,7 +187,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         app.rollback_component_with_clone::<Sprite>()
             .rollback_component_with_clone::<Transform>()
             .rollback_component_with_clone::<GlobalTransform>()
-            .rollback_component_with_clone::<Handle<Image>>()
             .rollback_component_with_clone::<Visibility>()
             .rollback_component_with_clone::<InheritedVisibility>()
             .rollback_component_with_clone::<ViewVisibility>()
@@ -246,7 +244,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 }
 
 fn spawn_pressed(inputs: Res<PlayerInputs<Config>>) -> bool {
@@ -260,14 +258,7 @@ fn spawn_particles(mut commands: Commands, args: Res<Args>, mut rng: ResMut<Part
     for _ in 0..args.rate {
         commands
             .spawn((
-                SpriteBundle {
-                    sprite: Sprite {
-                        color: ORANGE.into(),
-                        custom_size: Some(Vec2::splat(5.0)),
-                        ..default()
-                    },
-                    ..default()
-                },
+                Sprite::from_color(ORANGE, Vec2::splat(5.0)),
                 Velocity(vec3(rng.gen_range(-s..s), rng.gen_range(-s..s), 0.0)),
                 Ttl(ttl),
             ))
@@ -276,7 +267,7 @@ fn spawn_particles(mut commands: Commands, args: Res<Args>, mut rng: ResMut<Part
 }
 
 fn update_particles(mut particles: Query<(&mut Transform, &mut Velocity)>, time: Res<Time>) {
-    let time_step = time.delta_seconds();
+    let time_step = time.delta_secs();
     let gravity = Vec3::NEG_Y * 200.0;
 
     for (mut transform, mut velocity) in &mut particles {

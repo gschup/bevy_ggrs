@@ -37,8 +37,8 @@ impl Default for RollbackFrameRate {
 /// # app.add_systems(ReadInputs, read_local_inputs);
 /// # app.insert_resource(session);
 /// fn get_in_game_time(real_time: Res<Time<Real>>, game_time: Res<Time<GgrsTime>>) {
-///     info!("Real Time: {}", real_time.elapsed_seconds());
-///     info!("Game Time: {}", game_time.elapsed_seconds());
+///     info!("Real Time: {}", real_time.elapsed_secs());
+///     info!("Game Time: {}", game_time.elapsed_secs());
 /// }
 /// # app.add_systems(Update, get_in_game_time);
 /// # }

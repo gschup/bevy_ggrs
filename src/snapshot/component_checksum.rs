@@ -88,7 +88,7 @@ where
 
             trace!(
                 "Component {} has checksum {:X}",
-                std::any::type_name::<C>(),
+                disqualified::ShortName::of::<C>(),
                 result.0
             );
 

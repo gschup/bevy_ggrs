@@ -75,7 +75,7 @@ where
         }
     }
 
-    trace!("Mapped {}", std::any::type_name::<C>());
+    trace!("Mapped {}", disqualified::ShortName::of::<C>());
 }
 
 impl<C> Plugin for ComponentMapEntitiesPlugin<C>

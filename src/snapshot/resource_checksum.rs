@@ -64,7 +64,7 @@ where
 
             trace!(
                 "Resource {} has checksum {:X}",
-                std::any::type_name::<R>(),
+                disqualified::ShortName::of::<R>(),
                 result.0
             );
 

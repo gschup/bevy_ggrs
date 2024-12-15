@@ -20,7 +20,7 @@ use std::{
 ///
 /// Player 2:
 ///
-/// cargo run --release --example particles -- --local-port 7001 --players 127.0.0.1:7001 localhost
+/// cargo run --release --example particles -- --local-port 7001 --players 127.0.0.1:7000 localhost
 #[derive(Parser, Resource)]
 struct Args {
     /// The udp port to bind to for this peer.

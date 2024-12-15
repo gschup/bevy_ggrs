@@ -3,7 +3,7 @@ use bevy_ggrs::{
     AddRollbackCommandExtension, GgrsConfig, LocalInputs, LocalPlayers, PlayerInputs, Rollback,
     Session,
 };
-use bytemuck::{Pod, Zeroable};
+use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 
 const BLUE: Color = Color::srgb(0.8, 0.6, 0.2);
@@ -28,7 +28,7 @@ const CUBE_SIZE: f32 = 0.2;
 pub type BoxConfig = GgrsConfig<BoxInput>;
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Pod, Zeroable)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct BoxInput(u8);
 
 #[derive(Default, Component)]

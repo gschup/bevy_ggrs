@@ -24,6 +24,7 @@ log = "0.4"
 ggrs = { git = "https://github.com/gschup/ggrs", features = ["sync-send"] }
 seahash = "4.1"
 disqualified = "1.0.0"
+serde = { version = "1", default-features = false }
 
 [dev-dependencies]
 bevy = { version = "0.15", default-features = true }

@@ -12,8 +12,8 @@ use bevy_ggrs::{
     AddRollbackCommandExtension, GgrsConfig, GgrsPlugin, GgrsSchedule, LocalInputs, LocalPlayers,
     PlayerInputs, ReadInputs, Rollback, Session,
 };
-use bytemuck::{Pod, Zeroable};
 use ggrs::{Config, P2PSession, PlayerHandle, PlayerType, SessionBuilder, UdpNonBlockingSocket};
+use serde::{Deserialize, Serialize};
 use serial_test::serial;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
@@ -91,7 +91,7 @@ fn create_app<T: Config>(session: P2PSession<T>) -> App {
 type TestConfig = GgrsConfig<BoxInput>;
 
 #[repr(C)]
-#[derive(Copy, Clone, PartialEq, Eq, Pod, Zeroable)]
+#[derive(Copy, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct BoxInput {
     pub inp: u8,
 }

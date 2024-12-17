@@ -43,7 +43,7 @@ struct Args {
     #[clap(short, long, default_value = "2")]
     input_delay: usize,
 
-    /// How often the clients should exchange and compare checkums of state
+    /// How often the clients should exchange and compare checksums of state
     #[clap(short, long, default_value = "10")]
     desync_detection_interval: u32,
 

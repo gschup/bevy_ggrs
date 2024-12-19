@@ -19,10 +19,12 @@ use std::{fmt::Debug, hash::Hash, marker::PhantomData, net::SocketAddr};
 
 pub use ggrs;
 
+pub use local::*;
 pub use rollback::*;
 pub use snapshot::*;
 pub use time::*;
 
+mod local;
 pub(crate) mod rollback;
 pub(crate) mod schedule_systems;
 pub(crate) mod snapshot;
@@ -124,6 +126,18 @@ pub struct LocalInputs<C: Config>(pub HashMap<PlayerHandle, C::Input>);
 #[derive(Resource, Default)]
 pub struct LocalPlayers(pub Vec<PlayerHandle>);
 
+/// The number of times we have rolled back (mispredicted)
+#[derive(
+    Resource, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Deref, DerefMut,
+)]
+pub struct Rollbacks(usize);
+
+/// The number of times we have rolled back (mispredicted)
+#[derive(
+    Resource, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Deref, DerefMut,
+)]
+pub struct LastRollback(i32);
+
 /// Label for the schedule which reads the inputs for the current frame
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct ReadInputs;
@@ -194,6 +208,8 @@ impl<C: Config> Default for GgrsPlugin<C> {
 impl<C: Config> Plugin for GgrsPlugin<C> {
     fn build(&self, app: &mut App) {
         app.init_resource::<RollbackFrameCount>()
+            .init_resource::<Rollbacks>()
+            .init_resource::<LastRollback>()
             .init_resource::<ConfirmedFrameCount>()
             .init_resource::<MaxPredictionWindow>()
             .init_resource::<RollbackOrdered>()

@@ -14,6 +14,7 @@ use bevy::{
     utils::{Duration, HashMap},
 };
 use ggrs::{Config, InputStatus, P2PSession, PlayerHandle, SpectatorSession, SyncTestSession};
+use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, net::SocketAddr};
 
 pub use ggrs;
@@ -47,7 +48,7 @@ pub struct GgrsConfig<Input, Address = SocketAddr, State = u8> {
 impl<Input, Address, State> Config for GgrsConfig<Input, Address, State>
 where
     Self: 'static,
-    Input: Send + Sync + PartialEq + bytemuck::Pod,
+    Input: Send + Sync + PartialEq + Serialize + for<'a> Deserialize<'a> + Default + Copy,
     Address: Send + Sync + Debug + Hash + Eq + Clone,
     State: Send + Sync + Clone,
 {

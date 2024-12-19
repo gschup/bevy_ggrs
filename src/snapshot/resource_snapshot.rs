@@ -62,10 +62,7 @@ where
     ) {
         snapshots.push(frame.0, resource.map(|res| S::store(res.as_ref())));
 
-        trace!(
-            "Snapshot {}",
-            bevy::utils::get_short_name(std::any::type_name::<S::Target>())
-        );
+        trace!("Snapshot {}", disqualified::ShortName::of::<S::Target>());
     }
 
     pub fn load(
@@ -83,10 +80,7 @@ where
             (None, None) => {}
         }
 
-        trace!(
-            "Rolled back {}",
-            bevy::utils::get_short_name(std::any::type_name::<S::Target>())
-        );
+        trace!("Rolled back {}", disqualified::ShortName::of::<S::Target>());
     }
 }
 

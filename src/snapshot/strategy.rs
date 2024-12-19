@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use bevy::{
     prelude::{FromWorld, World},
-    reflect::Reflect,
+    reflect::{PartialReflect, Reflect},
 };
 
 /// Describes how to efficiently transform a [`Target`](`Strategy::Target`) into a
@@ -77,7 +77,7 @@ pub struct ReflectStrategy<T: Reflect + FromWorld>(PhantomData<T>);
 impl<T: Reflect + FromWorld> Strategy for ReflectStrategy<T> {
     type Target = T;
 
-    type Stored = Box<dyn Reflect>;
+    type Stored = Box<dyn PartialReflect>;
 
     #[inline(always)]
     fn store(target: &Self::Target) -> Self::Stored {

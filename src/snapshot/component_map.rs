@@ -75,10 +75,7 @@ where
         }
     }
 
-    trace!(
-        "Mapped {}",
-        bevy::utils::get_short_name(std::any::type_name::<C>())
-    );
+    trace!("Mapped {}", disqualified::ShortName::of::<C>());
 }
 
 impl<C> Plugin for ComponentMapEntitiesPlugin<C>

@@ -73,10 +73,7 @@ where
         resource.map_entities(&mut map.as_ref());
     }
 
-    trace!(
-        "Mapped {}",
-        bevy::utils::get_short_name(std::any::type_name::<R>())
-    );
+    trace!("Mapped {}", disqualified::ShortName::of::<R>());
 }
 
 impl<R> Plugin for ResourceMapEntitiesPlugin<R>

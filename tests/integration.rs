@@ -12,8 +12,8 @@ use bevy_ggrs::{
     AddRollbackCommandExtension, GgrsConfig, GgrsPlugin, GgrsSchedule, LocalInputs, LocalPlayers,
     PlayerInputs, ReadInputs, Rollback, Session,
 };
-use bytemuck::{Pod, Zeroable};
 use ggrs::{Config, P2PSession, PlayerHandle, PlayerType, SessionBuilder, UdpNonBlockingSocket};
+use serde::{Deserialize, Serialize};
 use serial_test::serial;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
@@ -91,7 +91,7 @@ fn create_app<T: Config>(session: P2PSession<T>) -> App {
 type TestConfig = GgrsConfig<BoxInput>;
 
 #[repr(C)]
-#[derive(Copy, Clone, PartialEq, Eq, Pod, Zeroable)]
+#[derive(Copy, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct BoxInput {
     pub inp: u8,
 }
@@ -125,7 +125,6 @@ fn start_session(
     let mut session_builder = SessionBuilder::<TestConfig>::new()
         .with_num_players(2)
         .with_max_prediction_window(12)
-        .expect("prediction window can't be 0") // (optional) set max prediction window
         .with_input_delay(2); // (optional) set input delay for the local player
     session_builder = session_builder.add_player(PlayerType::Local, local_player.handle)?;
     session_builder = session_builder.add_player(
@@ -167,6 +166,7 @@ fn press_key(app: &mut App, key: KeyCode) {
         key_code: key,
         state: ButtonState::Pressed,
         window: Entity::PLACEHOLDER,
+        repeat: false,
     });
 }
 

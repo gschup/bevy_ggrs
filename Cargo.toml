@@ -1,6 +1,6 @@
 [package]
 name = "bevy_ggrs"
-version = "0.16.0"
+version = "0.17.0"
 authors = ["Georg Schuppe <georg.schuppe@gmail.com>"]
 edition = "2021"
 description = "Bevy plugin for the GGRS P2P rollback networking library"
@@ -16,16 +16,17 @@ categories = ["network-programming", "game-development"]
 wasm-bindgen = ["instant/wasm-bindgen", "ggrs/wasm-bindgen"]
 
 [dependencies]
-bevy = { version = "0.14", default-features = false }
-bytemuck = { version = "1.7", features = ["derive"] }
+bevy = { version = "0.15", default-features = false }
 instant = { version = "0.1", optional = true }
 log = "0.4"
 #ggrs = { version= "0.10.2", features=["sync-send"]}
 ggrs = { git = "https://github.com/gschup/ggrs", features = ["sync-send"] }
 seahash = "4.1"
+disqualified = "1.0.0"
+serde = { version = "1", default-features = false }
 
 [dev-dependencies]
-bevy = { version = "0.14", default-features = true }
+bevy = { version = "0.15", default-features = true }
 clap = { version = "4.4", features = ["derive"] }
 rand = "0.8.4"
 rand_xoshiro = "0.6"

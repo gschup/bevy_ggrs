@@ -66,7 +66,7 @@ where
         trace!(
             "Snapshot {} {} component(s)",
             snapshot.iter().count(),
-            bevy::utils::get_short_name(std::any::type_name::<S::Target>())
+            disqualified::ShortName::of::<S::Target>()
         );
 
         snapshots.push(frame.0, snapshot);
@@ -98,7 +98,7 @@ where
         trace!(
             "Rolled back {} {} component(s)",
             snapshot.iter().count(),
-            bevy::utils::get_short_name(std::any::type_name::<S::Target>())
+            disqualified::ShortName::of::<S::Target>()
         );
     }
 }

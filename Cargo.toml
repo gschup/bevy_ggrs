@@ -50,3 +50,7 @@ path = "examples/box_game/box_game_synctest.rs"
 [[example]]
 name = "particles"
 path = "examples/stress_tests/particles.rs"
+
+[[example]]
+name = "respawn_entity"
+path = "examples/manual_tests/respawn_entity.rs"

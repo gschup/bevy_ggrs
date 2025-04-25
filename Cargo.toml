@@ -16,7 +16,7 @@ categories = ["network-programming", "game-development"]
 wasm-bindgen = ["instant/wasm-bindgen", "ggrs/wasm-bindgen"]
 
 [dependencies]
-bevy = { version = "0.15", default-features = false }
+bevy = { version = "0.16", default-features = false, features = ["bevy_log"] }
 instant = { version = "0.1", optional = true }
 log = "0.4"
 #ggrs = { version= "0.11.0", features=["sync-send"]}
@@ -26,7 +26,7 @@ disqualified = "1.0.0"
 serde = { version = "1", default-features = false }
 
 [dev-dependencies]
-bevy = { version = "0.15", default-features = true }
+bevy = { version = "0.16", default-features = true }
 clap = { version = "4.4", features = ["derive"] }
 rand = "0.8.4"
 rand_xoshiro = "0.6"

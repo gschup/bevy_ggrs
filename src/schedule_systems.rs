@@ -3,7 +3,8 @@ use crate::{
     LocalPlayers, MaxPredictionWindow, PlayerInputs, ReadInputs, RollbackFrameCount,
     RollbackFrameRate, SaveWorld, Session,
 };
-use bevy::{prelude::*, utils::Duration};
+use bevy::prelude::*;
+use core::time::Duration;
 use ggrs::{
     Config, GgrsError, GgrsRequest, P2PSession, SessionState, SpectatorSession, SyncTestSession,
 };
@@ -146,7 +147,7 @@ pub(crate) fn run_p2p<C: Config>(world: &mut World, mut sess: P2PSession<C>) {
 }
 
 pub(crate) fn handle_requests<T: Config>(requests: Vec<GgrsRequest<T>>, world: &mut World) {
-    let _span = bevy::utils::tracing::info_span!("ggrs", name = "HandleRequests").entered();
+    let _span = bevy::log::tracing::info_span!("ggrs", name = "HandleRequests").entered();
 
     // Extracting schedules before processing requests to avoid repeated remove/insert operations
     let mut schedules = world.resource_mut::<Schedules>();
@@ -200,7 +201,7 @@ pub(crate) fn handle_requests<T: Config>(requests: Vec<GgrsRequest<T>>, world: &
         match request {
             GgrsRequest::SaveGameState { cell, frame } => {
                 let _span =
-                    bevy::utils::tracing::info_span!("schedule", name = "SaveWorld").entered();
+                    bevy::log::tracing::info_span!("schedule", name = "SaveWorld").entered();
                 debug!("saving snapshot for frame {frame}");
 
                 save_world_schedule.run(world);
@@ -215,7 +216,7 @@ pub(crate) fn handle_requests<T: Config>(requests: Vec<GgrsRequest<T>>, world: &
             }
             GgrsRequest::LoadGameState { frame, .. } => {
                 let _span =
-                    bevy::utils::tracing::info_span!("schedule", name = "LoadWorld").entered();
+                    bevy::log::tracing::info_span!("schedule", name = "LoadWorld").entered();
                 // we don't really use the buffer provided by GGRS
                 debug!("restoring snapshot for frame {frame}");
 
@@ -228,7 +229,7 @@ pub(crate) fn handle_requests<T: Config>(requests: Vec<GgrsRequest<T>>, world: &
             }
             GgrsRequest::AdvanceFrame { inputs } => {
                 let _span =
-                    bevy::utils::tracing::info_span!("schedule", name = "AdvanceWorld").entered();
+                    bevy::log::tracing::info_span!("schedule", name = "AdvanceWorld").entered();
                 let mut frame_count = world
                     .get_resource_mut::<RollbackFrameCount>()
                     .expect("Unable to find GGRS RollbackFrameCount. Did you remove it?");

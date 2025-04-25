@@ -2,7 +2,7 @@ use crate::{
     GgrsComponentSnapshot, GgrsComponentSnapshots, LoadWorld, LoadWorldSet, Rollback,
     RollbackFrameCount, SaveWorld, SaveWorldSet, Strategy,
 };
-use bevy::prelude::*;
+use bevy::{ecs::component::Mutable, prelude::*};
 use std::marker::PhantomData;
 
 /// A [`Plugin`] which manages snapshots for a [`Component`] using a provided [`Strategy`].
@@ -36,7 +36,7 @@ where
 impl<S> Default for ComponentSnapshotPlugin<S>
 where
     S: Strategy,
-    S::Target: Component,
+    S::Target: Component<Mutability = Mutable>,
     S::Stored: Send + Sync + 'static,
 {
     fn default() -> Self {
@@ -49,7 +49,7 @@ where
 impl<S> ComponentSnapshotPlugin<S>
 where
     S: Strategy,
-    S::Target: Component,
+    S::Target: Component<Mutability = Mutable>,
     S::Stored: Send + Sync + 'static,
 {
     pub fn save(
@@ -106,7 +106,7 @@ where
 impl<S> Plugin for ComponentSnapshotPlugin<S>
 where
     S: Send + Sync + 'static + Strategy,
-    S::Target: Component,
+    S::Target: Component<Mutability = Mutable>,
     S::Stored: Send + Sync + 'static,
 {
     fn build(&self, app: &mut App) {

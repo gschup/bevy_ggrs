@@ -6,13 +6,10 @@
 
 use bevy::{
     ecs::{
-        entity::MapEntities,
-        schedule::{ExecutorKind, LogLevel, ScheduleBuildSettings, ScheduleLabel},
-    },
-    input::InputSystem,
-    prelude::*,
-    utils::{Duration, HashMap},
+        component::Mutable, entity::MapEntities, schedule::{ExecutorKind, LogLevel, ScheduleBuildSettings, ScheduleLabel}
+    }, input::InputSystem, platform::collections::HashMap, prelude::*
 };
+use core::time::Duration;
 use ggrs::{Config, InputStatus, P2PSession, PlayerHandle, SpectatorSession, SyncTestSession};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, net::SocketAddr};
@@ -224,10 +221,10 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
                 EntityChecksumPlugin,
                 GgrsTimePlugin,
                 ResourceSnapshotPlugin::<CloneStrategy<RollbackOrdered>>::default(),
-                ComponentSnapshotPlugin::<ReflectStrategy<Parent>>::default(),
-                ComponentMapEntitiesPlugin::<Parent>::default(),
+                // TODO: find an alternative way to preserve hierarchy
+                // ComponentSnapshotPlugin::<ReflectStrategy<ChildOf>>::default(),
+                // ComponentMapEntitiesPlugin::<ChildOf>::default(),
                 ComponentSnapshotPlugin::<ReflectStrategy<Children>>::default(),
-                ComponentMapEntitiesPlugin::<Children>::default(),
             ));
     }
 }
@@ -238,7 +235,7 @@ pub trait GgrsApp {
     /// uses [`Copy`] based snapshots for rollback.
     fn rollback_component_with_copy<Type>(&mut self) -> &mut Self
     where
-        Type: Component + Copy;
+        Type: Component<Mutability = Mutable> + Copy;
 
     /// Registers a resource type for saving and loading from the world. This
     /// uses [`Copy`] based snapshots for rollback.
@@ -250,7 +247,7 @@ pub trait GgrsApp {
     /// uses [`Clone`] based snapshots for rollback.
     fn rollback_component_with_clone<Type>(&mut self) -> &mut Self
     where
-        Type: Component + Clone;
+        Type: Component<Mutability = Mutable> + Clone;
 
     /// Registers a resource type for saving and loading from the world. This
     /// uses [`Clone`] based snapshots for rollback.
@@ -266,7 +263,7 @@ pub trait GgrsApp {
     /// If you require this behavior, see [`ComponentMapEntitiesPlugin`].
     fn rollback_component_with_reflect<Type>(&mut self) -> &mut Self
     where
-        Type: Component + Reflect + FromWorld;
+        Type: Component<Mutability = Mutable> + Reflect + FromWorld;
 
     /// Registers a resource type for saving and loading from the world. This
     /// uses [`reflection`](`Reflect`) based snapshots for rollback.
@@ -289,7 +286,7 @@ pub trait GgrsApp {
     /// Updates a component after rollback using [`MapEntities`].
     fn update_component_with_map_entities<Type>(&mut self) -> &mut Self
     where
-        Type: Component + MapEntities;
+        Type: Component<Mutability = Mutable> + MapEntities;
 
     /// Adds a resource type to the checksum generation pipeline using [`Hash`].
     fn checksum_resource_with_hash<Type>(&mut self) -> &mut Self
@@ -321,7 +318,7 @@ impl GgrsApp for App {
 
     fn rollback_component_with_reflect<Type>(&mut self) -> &mut Self
     where
-        Type: Component + Reflect + FromWorld,
+        Type: Component<Mutability = Mutable> + Reflect + FromWorld,
     {
         self.add_plugins(ComponentSnapshotPlugin::<ReflectStrategy<Type>>::default())
     }
@@ -335,7 +332,7 @@ impl GgrsApp for App {
 
     fn rollback_component_with_copy<Type>(&mut self) -> &mut Self
     where
-        Type: Component + Copy,
+        Type: Component<Mutability = Mutable> + Copy,
     {
         self.add_plugins(ComponentSnapshotPlugin::<CopyStrategy<Type>>::default())
     }
@@ -349,7 +346,7 @@ impl GgrsApp for App {
 
     fn rollback_component_with_clone<Type>(&mut self) -> &mut Self
     where
-        Type: Component + Clone,
+        Type: Component<Mutability = Mutable> + Clone,
     {
         self.add_plugins(ComponentSnapshotPlugin::<CloneStrategy<Type>>::default())
     }
@@ -370,7 +367,7 @@ impl GgrsApp for App {
 
     fn update_component_with_map_entities<Type>(&mut self) -> &mut Self
     where
-        Type: Component + MapEntities,
+        Type: Component<Mutability = Mutable> + MapEntities,
     {
         self.add_plugins(ComponentMapEntitiesPlugin::<Type>::default())
     }

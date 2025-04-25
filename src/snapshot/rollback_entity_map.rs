@@ -1,4 +1,4 @@
-use bevy::{ecs::entity::EntityHashMap, prelude::*, utils::HashMap};
+use bevy::{ecs::entity::EntityHashMap, platform::collections::HashMap, prelude::*};
 
 /// A [`Resource`] which provides an [`EntityMap`], describing how [`Entities`](`Entity`)
 /// changed during a rollback.
@@ -60,8 +60,11 @@ impl RollbackEntityMap {
 }
 
 impl EntityMapper for &RollbackEntityMap {
-    /// Map the provided [`Entity`], or return it unmodified if it does not need to be mapped.
-    fn map_entity(&mut self, entity: Entity) -> Entity {
-        self.get(entity).unwrap_or(entity)
+    fn get_mapped(&mut self, source: Entity) -> Entity {
+        // TODO: is this correct?
+        self.get(source).unwrap_or(Entity::PLACEHOLDER)
+    }
+
+    fn set_mapped(&mut self, _source: Entity, _target: Entity) {
     }
 }

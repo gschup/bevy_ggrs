@@ -1,7 +1,5 @@
-use bevy::utils::HashMap;
 use bevy::{
-    ecs::system::{EntityCommand, EntityCommands},
-    prelude::*,
+    ecs::system::{EntityCommand, EntityCommands}, platform::collections::HashMap, prelude::*
 };
 
 /// This component flags an entity as being included in the rollback save/load schedule with GGRS.
@@ -22,14 +20,16 @@ impl Rollback {
 pub struct AddRollbackCommand;
 
 impl EntityCommand for AddRollbackCommand {
-    fn apply(self, id: Entity, world: &mut World) {
-        let rollback = Rollback::new(id);
+    fn apply(self, mut entity: EntityWorldMut) {
+        let rollback = Rollback::new(entity.id());
 
-        world.entity_mut(id).insert(rollback);
+        entity.insert(rollback);
 
-        world
-            .get_resource_or_insert_with::<RollbackOrdered>(default)
-            .push(rollback);
+        entity.world_scope(|world: &mut World| {
+            world
+                .get_resource_or_insert_with::<RollbackOrdered>(default)
+                .push(rollback);
+        })
     }
 }
 

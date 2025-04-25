@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use bevy::{ecs::entity::MapEntities, prelude::*};
+use bevy::{ecs::{component::Mutable, entity::MapEntities}, prelude::*};
 
 use crate::{LoadWorld, LoadWorldSet, RollbackEntityMap};
 
@@ -37,14 +37,14 @@ use crate::{LoadWorld, LoadWorldSet, RollbackEntityMap};
 /// ```
 pub struct ComponentMapEntitiesPlugin<C>
 where
-    C: Component + MapEntities,
+    C: Component<Mutability = Mutable> + MapEntities,
 {
     _phantom: PhantomData<C>,
 }
 
 impl<C> Default for ComponentMapEntitiesPlugin<C>
 where
-    C: Component + MapEntities,
+    C: Component<Mutability = Mutable> + MapEntities,
 {
     fn default() -> Self {
         Self {
@@ -55,7 +55,7 @@ where
 
 impl<C> ComponentMapEntitiesPlugin<C>
 where
-    C: Component + MapEntities,
+    C: Component<Mutability = Mutable> + MapEntities,
 {
     /// Exclusive system which will apply a [`RollbackEntityMap`] to the [`Component`] `C`, provided it implements [`MapEntities`].
     pub fn update(world: &mut World) {
@@ -67,7 +67,7 @@ where
 
 fn apply_rollback_map_to_component_inner<C>(world: &mut World, map: Mut<RollbackEntityMap>)
 where
-    C: Component + MapEntities,
+    C: Component<Mutability = Mutable> + MapEntities,
 {
     for (original, _new) in map.iter() {
         if let Some(mut component) = world.get_mut::<C>(original) {
@@ -80,7 +80,7 @@ where
 
 impl<C> Plugin for ComponentMapEntitiesPlugin<C>
 where
-    C: Component + MapEntities,
+    C: Component<Mutability = Mutable> + MapEntities,
 {
     fn build(&self, app: &mut App) {
         app.add_systems(LoadWorld, Self::update.in_set(LoadWorldSet::Mapping));

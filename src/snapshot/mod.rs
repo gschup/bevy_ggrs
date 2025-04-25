@@ -1,5 +1,5 @@
 use crate::{ConfirmedFrameCount, Rollback, DEFAULT_FPS};
-use bevy::{prelude::*, utils::HashMap};
+use bevy::{platform::collections::HashMap, prelude::*};
 use seahash::SeaHasher;
 use std::{collections::VecDeque, marker::PhantomData};
 

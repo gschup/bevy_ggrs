@@ -1,5 +1,5 @@
 use bevy::{
-    color::palettes::css::ORANGE, math::vec3, prelude::*, utils::HashMap, window::WindowResolution,
+    color::palettes::css::ORANGE, math::vec3, prelude::*, window::WindowResolution,
 };
 use bevy_ggrs::{checksum_hasher, prelude::*, LocalInputs, LocalPlayers};
 use clap::Parser;

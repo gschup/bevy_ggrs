@@ -81,7 +81,7 @@ impl<T: Reflect + FromWorld> Strategy for ReflectStrategy<T> {
 
     #[inline(always)]
     fn store(target: &Self::Target) -> Self::Stored {
-        target.as_reflect().clone_value()
+        target.as_reflect().to_dynamic()
     }
 
     #[inline(always)]

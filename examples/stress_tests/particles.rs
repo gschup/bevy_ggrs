@@ -1,5 +1,5 @@
 use bevy::{
-    color::palettes::css::ORANGE, math::vec3, prelude::*, window::WindowResolution,
+    color::palettes::css::ORANGE, math::vec3, platform::collections::HashMap, prelude::*, window::WindowResolution
 };
 use bevy_ggrs::{checksum_hasher, prelude::*, LocalInputs, LocalPlayers};
 use clap::Parser;
@@ -280,7 +280,7 @@ fn despawn_particles(mut commands: Commands, mut particles: Query<(Entity, &mut 
     for (entity, mut ttl) in &mut particles {
         **ttl -= 1;
         if **ttl == 0 {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
 }

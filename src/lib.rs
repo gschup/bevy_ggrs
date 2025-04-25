@@ -6,8 +6,13 @@
 
 use bevy::{
     ecs::{
-        component::Mutable, entity::MapEntities, schedule::{ExecutorKind, LogLevel, ScheduleBuildSettings, ScheduleLabel}
-    }, input::InputSystem, platform::collections::HashMap, prelude::*
+        component::Mutable,
+        entity::MapEntities,
+        schedule::{ExecutorKind, LogLevel, ScheduleBuildSettings, ScheduleLabel},
+    },
+    input::InputSystem,
+    platform::collections::HashMap,
+    prelude::*,
 };
 use core::time::Duration;
 use ggrs::{Config, InputStatus, P2PSession, PlayerHandle, SpectatorSession, SyncTestSession};

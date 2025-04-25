@@ -28,7 +28,7 @@ impl EntityChecksumPlugin {
 
         trace!("Rollback Entities have checksum {:X}", result.0);
 
-        if let Ok(mut checksum) = checksum.get_single_mut() {
+        if let Ok(mut checksum) = checksum.single_mut() {
             *checksum = result;
         } else {
             commands.spawn((result, ChecksumFlag::<Entity>::default()));

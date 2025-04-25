@@ -1,8 +1,6 @@
-use bevy::{
-    prelude::*,
-    utils::{Duration, HashMap},
-};
+use bevy::{platform::collections::HashMap, prelude::*};
 use bevy_ggrs::*;
+use core::time::Duration;
 use ggrs::*;
 
 pub struct GgrsConfig;
@@ -49,13 +47,13 @@ fn delete_child_system(
 
     println!("Parent's children: {:?}", parent.single());
 
-    if let Ok(child) = child.get_single() {
+    if let Ok(child) = child.single() {
         println!("Child exists: {child:?}");
     }
 
     if inputs[0].0 == 1 {
         println!("Despawning child");
-        let child_entity = parent.single()[0];
+        let child_entity = parent.single().unwrap()[0];
         commands.entity(child_entity).despawn();
     }
 }
@@ -104,7 +102,7 @@ fn entity_mapping() {
     // Re-usable queries
     let get_queries = |app: &mut App| {
         (
-            app.world_mut().query::<(&ChildEntity, &Parent)>(),
+            app.world_mut().query::<(&ChildEntity, &ChildOf)>(),
             app.world_mut().query::<(&ParentEntity, &Children)>(),
         )
     };
@@ -113,11 +111,11 @@ fn entity_mapping() {
     app.update();
     let (mut child_query, mut parent_query) = get_queries(&mut app);
     assert!(
-        child_query.get_single(app.world()).is_ok(),
+        child_query.single(app.world()).is_ok(),
         "Child doesn't exist"
     );
     assert!(
-        parent_query.get_single(app.world()).is_ok(),
+        parent_query.single(app.world()).is_ok(),
         "Parent doesn't exist"
     );
 
@@ -138,11 +136,11 @@ fn entity_mapping() {
     // Make sure the child is delete and the parent still exists
     let (mut child_query, mut parent_query) = get_queries(&mut app);
     assert!(
-        child_query.get_single(app.world()).is_err(),
+        child_query.single(app.world()).is_err(),
         "Child exists after deletion"
     );
     assert!(
-        parent_query.get_single(app.world()).is_ok(),
+        parent_query.single(app.world()).is_ok(),
         "Parent doesn't exist"
     );
 }

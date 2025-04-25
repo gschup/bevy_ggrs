@@ -3,15 +3,16 @@ use bevy::{
         keyboard::{Key, KeyboardInput},
         ButtonInput, ButtonState, InputPlugin,
     },
+    platform::collections::HashMap,
     prelude::*,
     time::TimeUpdateStrategy,
-    utils::{Duration, HashMap},
     MinimalPlugins,
 };
 use bevy_ggrs::{
     AddRollbackCommandExtension, GgrsConfig, GgrsPlugin, GgrsSchedule, LocalInputs, LocalPlayers,
     PlayerInputs, ReadInputs, Rollback, Session,
 };
+use core::time::Duration;
 use ggrs::{Config, P2PSession, PlayerHandle, PlayerType, SessionBuilder, UdpNonBlockingSocket};
 use serde::{Deserialize, Serialize};
 use serial_test::serial;
@@ -167,6 +168,7 @@ fn press_key(app: &mut App, key: KeyCode) {
         state: ButtonState::Pressed,
         window: Entity::PLACEHOLDER,
         repeat: false,
+        text: Some("w".into()),
     });
 }
 

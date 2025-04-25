@@ -92,7 +92,7 @@ where
                 result.0
             );
 
-            if let Ok(mut checksum) = checksum.get_single_mut() {
+            if let Ok(mut checksum) = checksum.single_mut() {
                 *checksum = result;
             } else {
                 commands.spawn((result, ChecksumFlag::<C>::default()));

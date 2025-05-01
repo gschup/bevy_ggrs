@@ -83,17 +83,17 @@ impl Plugin for SnapshotSetPlugin {
             )
                 .chain(),
         )
-        .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::EntityFlush))
-        .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::DataFlush))
+        .add_systems(LoadWorld, ApplyDeferred.in_set(LoadWorldSet::EntityFlush))
+        .add_systems(LoadWorld, ApplyDeferred.in_set(LoadWorldSet::DataFlush))
         .add_systems(
             AdvanceWorld,
-            apply_deferred
+            ApplyDeferred
                 .after(AdvanceWorldSet::First)
                 .before(AdvanceWorldSet::Main),
         )
         .add_systems(
             AdvanceWorld,
-            apply_deferred
+            ApplyDeferred
                 .after(AdvanceWorldSet::Main)
                 .before(AdvanceWorldSet::Last),
         )

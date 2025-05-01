@@ -9,6 +9,7 @@ use bevy::{
 /// You must use the [`AddRollbackCommand`] when spawning an entity to add this component. Alternatively,
 /// you can use the `add_rollback()` extension method provided by [`AddRollbackCommandExtension`].
 #[derive(Component, Hash, PartialEq, Eq, Clone, Copy, Debug)]
+#[component(immutable)]
 pub struct Rollback(Entity);
 
 impl Rollback {

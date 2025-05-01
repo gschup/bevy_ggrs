@@ -1,6 +1,9 @@
 use std::marker::PhantomData;
 
-use bevy::{ecs::{component::Mutable, entity::MapEntities}, prelude::*};
+use bevy::{
+    ecs::{component::Mutable, entity::MapEntities},
+    prelude::*,
+};
 
 use crate::{LoadWorld, LoadWorldSet, RollbackEntityMap};
 

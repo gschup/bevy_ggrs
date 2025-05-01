@@ -1,5 +1,7 @@
 use bevy::{
-    ecs::system::{EntityCommand, EntityCommands}, platform::collections::HashMap, prelude::*
+    ecs::system::{EntityCommand, EntityCommands},
+    platform::collections::HashMap,
+    prelude::*,
 };
 
 /// This component flags an entity as being included in the rollback save/load schedule with GGRS.

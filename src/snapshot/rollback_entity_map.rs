@@ -65,6 +65,5 @@ impl EntityMapper for &RollbackEntityMap {
         self.get(source).unwrap_or(Entity::PLACEHOLDER)
     }
 
-    fn set_mapped(&mut self, _source: Entity, _target: Entity) {
-    }
+    fn set_mapped(&mut self, _source: Entity, _target: Entity) {}
 }

@@ -309,6 +309,13 @@ mod tests {
 
         let cell = GameStateCell::default();
 
+        let get_player = |world: &mut World| {
+            world
+                .query_filtered::<Entity, With<Player>>()
+                .single(world)
+                .unwrap()
+        };
+
         let get_player_children = |world: &mut World| {
             let Ok(children) = world
                 .query_filtered::<&Children, With<Player>>()
@@ -318,6 +325,14 @@ mod tests {
             };
 
             children.into_iter().copied().collect::<Vec<Entity>>()
+        };
+
+        let get_child_parent = |world: &mut World| {
+            world
+                .query::<&ChildOf>()
+                .single(world)
+                .ok()
+                .map(|child_of| child_of.0)
         };
 
         let save = |world: &mut World, frame: Frame| {
@@ -356,6 +371,7 @@ mod tests {
         // advance to frame 1, spawns a child
         advance_frame(app.world_mut(), Input::SpawnChild);
         save(app.world_mut(), 1);
+        let initial_child_enitity = get_player_children(app.world_mut())[0];
         assert_eq!(get_player_children(app.world_mut()).len(), 1);
 
         // advance to frame 2, despawns the child
@@ -368,5 +384,11 @@ mod tests {
 
         // check that che child was restored
         assert_eq!(get_player_children(app.world_mut()).len(), 1);
+        let child_entity_after_rollback = get_player_children(app.world_mut())[0];
+        assert_ne!(initial_child_enitity, child_entity_after_rollback);
+        assert_eq!(
+            get_player(app.world_mut()),
+            get_child_parent(app.world_mut()).unwrap()
+        );
     }
 }

@@ -61,8 +61,7 @@ impl RollbackEntityMap {
 
 impl EntityMapper for &RollbackEntityMap {
     fn get_mapped(&mut self, source: Entity) -> Entity {
-        // TODO: is this correct?
-        self.get(source).unwrap_or(Entity::PLACEHOLDER)
+        self.get(source).unwrap_or(source)
     }
 
     fn set_mapped(&mut self, _source: Entity, _target: Entity) {}

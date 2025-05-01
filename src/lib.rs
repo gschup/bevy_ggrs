@@ -226,9 +226,6 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
                 EntityChecksumPlugin,
                 GgrsTimePlugin,
                 ResourceSnapshotPlugin::<CloneStrategy<RollbackOrdered>>::default(),
-                // TODO: find an alternative way to preserve hierarchy
-                // ComponentSnapshotPlugin::<ReflectStrategy<ChildOf>>::default(),
-                // ComponentMapEntitiesPlugin::<ChildOf>::default(),
                 ComponentSnapshotPlugin::<ReflectStrategy<Children>>::default(),
             ));
     }

@@ -66,10 +66,9 @@ fn frame_counter(mut counter: ResMut<FrameCounter>) {
 #[derive(Event)]
 struct DeleteChildEntityEvent;
 
-/// This test makes sure that we correctly map entities stored in resource and components during
-/// snapshot and restore.
+/// This test makes sure that the hiearchy of entities is correctly restored when rolling back.
 #[test]
-fn entity_mapping() {
+fn hierarchy() {
     let mut app = App::new();
 
     app.add_plugins(MinimalPlugins)
@@ -103,7 +102,7 @@ fn entity_mapping() {
     let get_queries = |app: &mut App| {
         (
             app.world_mut().query::<(&ChildEntity, &ChildOf)>(),
-            app.world_mut().query::<(&ParentEntity, &Children)>(),
+            app.world_mut().query::<&ParentEntity>(),
         )
     };
 

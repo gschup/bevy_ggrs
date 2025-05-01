@@ -226,7 +226,7 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
                 EntityChecksumPlugin,
                 GgrsTimePlugin,
                 ResourceSnapshotPlugin::<CloneStrategy<RollbackOrdered>>::default(),
-                ComponentSnapshotPlugin::<ReflectStrategy<Children>>::default(),
+                ChildOfSnapshotPlugin,
             ));
     }
 }

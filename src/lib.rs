@@ -6,7 +6,7 @@
 
 use bevy::{
     ecs::{
-        component::Mutable,
+        component::{Immutable, Mutable},
         entity::MapEntities,
         schedule::{ExecutorKind, LogLevel, ScheduleBuildSettings, ScheduleLabel},
     },
@@ -239,6 +239,12 @@ pub trait GgrsApp {
     where
         Type: Component<Mutability = Mutable> + Copy;
 
+    /// Registers an immutable component type for saving and loading from the world. This
+    /// uses [`Copy`] based snapshots for rollback.
+    fn rollback_immutable_component_with_copy<Type>(&mut self) -> &mut Self
+    where
+        Type: Component<Mutability = Immutable> + Copy;
+
     /// Registers a resource type for saving and loading from the world. This
     /// uses [`Copy`] based snapshots for rollback.
     fn rollback_resource_with_copy<Type>(&mut self) -> &mut Self
@@ -250,6 +256,12 @@ pub trait GgrsApp {
     fn rollback_component_with_clone<Type>(&mut self) -> &mut Self
     where
         Type: Component<Mutability = Mutable> + Clone;
+
+    /// Registers a component type for saving and loading from the world. This
+    /// uses [`Clone`] based snapshots for rollback.
+    fn rollback_immutable_component_with_clone<Type>(&mut self) -> &mut Self
+    where
+        Type: Component<Mutability = Immutable> + Clone;
 
     /// Registers a resource type for saving and loading from the world. This
     /// uses [`Clone`] based snapshots for rollback.
@@ -339,6 +351,13 @@ impl GgrsApp for App {
         self.add_plugins(ComponentSnapshotPlugin::<CopyStrategy<Type>>::default())
     }
 
+    fn rollback_immutable_component_with_copy<Type>(&mut self) -> &mut Self
+    where
+        Type: Component<Mutability = Immutable> + Copy,
+    {
+        self.add_plugins(ImmutableComponentSnapshotPlugin::<CopyStrategy<Type>>::default())
+    }
+
     fn rollback_resource_with_copy<Type>(&mut self) -> &mut Self
     where
         Type: Resource + Copy,
@@ -351,6 +370,13 @@ impl GgrsApp for App {
         Type: Component<Mutability = Mutable> + Clone,
     {
         self.add_plugins(ComponentSnapshotPlugin::<CloneStrategy<Type>>::default())
+    }
+
+    fn rollback_immutable_component_with_clone<Type>(&mut self) -> &mut Self
+    where
+        Type: Component<Mutability = Immutable> + Clone,
+    {
+        self.add_plugins(ImmutableComponentSnapshotPlugin::<CloneStrategy<Type>>::default())
     }
 
     fn rollback_resource_with_clone<Type>(&mut self) -> &mut Self

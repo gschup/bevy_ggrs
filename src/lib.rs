@@ -87,16 +87,6 @@ impl Default for FixedTimestepData {
     }
 }
 
-/// The most recently confirmed frame. Any information for frames stored before this point can be safely discarded.
-#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ConfirmedFrameCount(i32);
-
-impl From<ConfirmedFrameCount> for i32 {
-    fn from(value: ConfirmedFrameCount) -> i32 {
-        value.0
-    }
-}
-
 /// The maximum prediction window for this [`Session`], provided as a concrete [`Resource`].
 #[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MaxPredictionWindow(usize);
@@ -167,7 +157,6 @@ impl<C: Config> Default for GgrsPlugin<C> {
 impl<C: Config> Plugin for GgrsPlugin<C> {
     fn build(&self, app: &mut App) {
         app.add_plugins(SnapshotPlugin)
-            .init_resource::<ConfirmedFrameCount>()
             .init_resource::<MaxPredictionWindow>()
             .init_resource::<LocalPlayers>()
             .init_resource::<FixedTimestepData>()

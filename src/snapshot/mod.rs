@@ -1,4 +1,4 @@
-use crate::{ConfirmedFrameCount, DEFAULT_FPS};
+use crate::DEFAULT_FPS;
 use bevy::{ecs::schedule::ScheduleLabel, platform::collections::HashMap, prelude::*};
 use seahash::SeaHasher;
 use std::{collections::VecDeque, marker::PhantomData};
@@ -57,6 +57,16 @@ pub struct RollbackFrameCount(pub i32);
 
 impl From<RollbackFrameCount> for i32 {
     fn from(value: RollbackFrameCount) -> i32 {
+        value.0
+    }
+}
+
+/// The most recently confirmed frame. Any information for frames stored before this point can be safely discarded.
+#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ConfirmedFrameCount(pub(crate) i32);
+
+impl From<ConfirmedFrameCount> for i32 {
+    fn from(value: ConfirmedFrameCount) -> i32 {
         value.0
     }
 }
@@ -286,6 +296,7 @@ impl Plugin for SnapshotPlugin {
         app.add_plugins(SnapshotSetPlugin)
             .init_resource::<RollbackOrdered>()
             .init_resource::<RollbackFrameCount>()
+            .init_resource::<ConfirmedFrameCount>()
             .init_schedule(LoadWorld)
             .init_schedule(SaveWorld)
             .init_schedule(AdvanceWorld)

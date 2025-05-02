@@ -1,10 +1,9 @@
 use crate::{
-    GgrsComponentSnapshots, LoadWorld, LoadWorldSet, Rollback, RollbackFrameCount, SaveWorld,
-    SaveWorldSet,
+    GgrsComponentSnapshots, LoadWorld, LoadWorldSet, RollbackFrameCount, SaveWorld, SaveWorldSet,
 };
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 
-use super::{GgrsComponentSnapshot, RollbackEntityMap};
+use super::{GgrsComponentSnapshot, Rollback, RollbackEntityMap};
 
 /// Specialized snapshotting plugin for [`ChildOf`] components.
 ///
@@ -87,7 +86,10 @@ impl ChildOfSnapshotPlugin {
 
 #[cfg(test)]
 mod tests {
-    use crate::{prelude::*, AdvanceWorld, LoadWorld, RollbackFrameCount, SaveWorld};
+    use crate::{
+        snapshot::tests::{advance_frame, load_world, save_world},
+        AddRollbackCommandExtension, GgrsPlugin, GgrsSchedule,
+    };
     use bevy::prelude::*;
     use ggrs::*;
     use serde::{Deserialize, Serialize};
@@ -147,6 +149,14 @@ mod tests {
         app.add_systems(Startup, spawn_player);
         app.update();
 
+        let advance = |world: &mut World, input: Input| {
+            world.insert_resource(PlayerInputs::<TestConfig>(vec![(
+                input,
+                InputStatus::Predicted,
+            )]));
+            advance_frame(world);
+        };
+
         let get_player = |world: &mut World| {
             world
                 .query_filtered::<Entity, With<Player>>()
@@ -173,47 +183,23 @@ mod tests {
                 .map(|child_of| child_of.0)
         };
 
-        let save = |world: &mut World| {
-            world.run_schedule(SaveWorld);
-        };
-
-        let advance_frame = |world: &mut World, input: Input| {
-            let mut frame_count = world
-                .get_resource_mut::<RollbackFrameCount>()
-                .expect("Unable to find GGRS RollbackFrameCount. Did you remove it?");
-            frame_count.0 += 1;
-            world.insert_resource(PlayerInputs::<TestConfig>(vec![(
-                input,
-                InputStatus::Predicted,
-            )]));
-            world.run_schedule(AdvanceWorld);
-        };
-
-        let load = |world: &mut World, frame: Frame| {
-            world
-                .get_resource_mut::<RollbackFrameCount>()
-                .expect("Unable to find GGRS RollbackFrameCount. Did you remove it?")
-                .0 = frame;
-            world.run_schedule(LoadWorld);
-        };
-
-        save(app.world_mut());
+        save_world(app.world_mut());
 
         assert_eq!(get_player_children(app.world_mut()), vec![]);
 
         // advance to frame 1, spawns a child
-        advance_frame(app.world_mut(), Input::SpawnChild);
-        save(app.world_mut());
+        advance(app.world_mut(), Input::SpawnChild);
+        save_world(app.world_mut());
         let initial_child_enitity = get_player_children(app.world_mut())[0];
         assert_eq!(get_player_children(app.world_mut()).len(), 1);
 
         // advance to frame 2, despawns the child
-        advance_frame(app.world_mut(), Input::DespawnChildren);
-        save(app.world_mut());
+        advance(app.world_mut(), Input::DespawnChildren);
+        save_world(app.world_mut());
         assert_eq!(get_player_children(app.world_mut()).len(), 0);
 
         // roll back to frame 1
-        load(app.world_mut(), 1);
+        load_world(app.world_mut(), 1);
 
         // check that che child was restored
         assert_eq!(get_player_children(app.world_mut()).len(), 1);

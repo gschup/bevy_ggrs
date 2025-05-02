@@ -20,11 +20,9 @@ use std::{fmt::Debug, hash::Hash, marker::PhantomData, net::SocketAddr};
 
 pub use ggrs;
 
-pub use rollback::*;
 pub use snapshot::*;
 pub use time::*;
 
-pub(crate) mod rollback;
 pub(crate) mod schedule_systems;
 pub(crate) mod snapshot;
 pub(crate) mod time;
@@ -93,16 +91,6 @@ impl Default for FixedTimestepData {
     }
 }
 
-/// Keeps track of the current frame the rollback simulation is in
-#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct RollbackFrameCount(pub i32);
-
-impl From<RollbackFrameCount> for i32 {
-    fn from(value: RollbackFrameCount) -> i32 {
-        value.0
-    }
-}
-
 /// The most recently confirmed frame. Any information for frames stored before this point can be safely discarded.
 #[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ConfirmedFrameCount(i32);
@@ -128,18 +116,6 @@ pub struct LocalPlayers(pub Vec<PlayerHandle>);
 /// Label for the schedule which reads the inputs for the current frame
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct ReadInputs;
-
-/// Label for the schedule which loads and overwrites a snapshot of the world.
-#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
-pub struct LoadWorld;
-
-/// Label for the schedule which saves a snapshot of the current world.
-#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
-pub struct SaveWorld;
-
-/// Label for the schedule which advances the current world to the next frame.
-#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
-pub struct AdvanceWorld;
 
 /// GGRS plugin for bevy.
 ///

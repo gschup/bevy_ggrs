@@ -149,7 +149,7 @@ pub(crate) fn run_p2p<C: Config>(world: &mut World, mut sess: P2PSession<C>) {
 pub(crate) fn handle_requests<T: Config>(requests: Vec<GgrsRequest<T>>, world: &mut World) {
     let _span = bevy::log::tracing::info_span!("ggrs", name = "HandleRequests").entered();
 
-    // Extracting schedules before processing requests to avoid repeated remove/insert operations
+    // perf: Extracting schedules before processing requests to avoid repeated remove/insert operations
     let mut schedules = world.resource_mut::<Schedules>();
 
     let Some((_, mut load_world_schedule)) = schedules.remove_entry(LoadWorld) else {

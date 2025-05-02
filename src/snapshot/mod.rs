@@ -271,6 +271,12 @@ pub fn checksum_hasher() -> SeaHasher {
     SeaHasher::new()
 }
 
+/// This plugin sets up the [`LoadWorld`], [`SaveWorld`], and [`AdvanceWorld`]
+/// schedules and adds the required systems and resources for basic rollback
+/// functionality.
+///
+/// This is independent of the GGRS plugin and can be used with any Bevy app,
+/// including tests and benchmarks.
 pub(crate) struct SnapshotPlugin;
 
 impl Plugin for SnapshotPlugin {

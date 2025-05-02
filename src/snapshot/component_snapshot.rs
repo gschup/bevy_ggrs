@@ -2,10 +2,7 @@ use crate::{
     GgrsComponentSnapshot, GgrsComponentSnapshots, LoadWorld, LoadWorldSet, Rollback,
     RollbackFrameCount, SaveWorld, SaveWorldSet, Strategy,
 };
-use bevy::{
-    ecs::component::{Immutable, Mutable},
-    prelude::*,
-};
+use bevy::{ecs::component::ComponentMutability, prelude::*};
 use std::marker::PhantomData;
 
 /// A [`Plugin`] which manages snapshots for a [`Component`] using a provided [`Strategy`].
@@ -79,27 +76,41 @@ where
 impl<S> ComponentSnapshotPlugin<S>
 where
     S: Strategy,
-    S::Target: Component<Mutability = Mutable>,
+    S::Target: Component,
     S::Stored: Send + Sync + 'static,
 {
     pub fn load(
         mut commands: Commands,
         mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,
         frame: Res<RollbackFrameCount>,
-        mut query: Query<(Entity, &Rollback, Option<&mut S::Target>)>,
+        mut query: Query<EntityMut, With<Rollback>>,
     ) {
         let snapshot = snapshots.rollback(frame.0).get();
 
-        for (entity, rollback, component) in query.iter_mut() {
+        for mut entity in query.iter_mut() {
+            let (rollback, component) = entity.components::<(&Rollback, Option<&S::Target>)>();
+
             let snapshot = snapshot.get(rollback);
 
             match (component, snapshot) {
-                (Some(mut component), Some(snapshot)) => S::update(component.as_mut(), snapshot),
+                (Some(_), Some(snapshot)) => {
+                    if <S::Target as Component>::Mutability::MUTABLE {
+                        unsafe {
+                            // Error: get_mut_assume_mutable doesn't exist for EntityRef
+                            let mut component = entity
+                                .get_mut_assume_mutable::<S::Target>()
+                                .expect("Failed to get mutable component");
+                            S::update(component.as_mut(), snapshot);
+                        }
+                    } else {
+                        commands.entity(entity.id()).insert(S::load(snapshot));
+                    }
+                }
                 (Some(_), None) => {
-                    commands.entity(entity).remove::<S::Target>();
+                    commands.entity(entity.id()).remove::<S::Target>();
                 }
                 (None, Some(snapshot)) => {
-                    commands.entity(entity).insert(S::load(snapshot));
+                    commands.entity(entity.id()).insert(S::load(snapshot));
                 }
                 (None, None) => {}
             }
@@ -116,7 +127,7 @@ where
 impl<S> Plugin for ComponentSnapshotPlugin<S>
 where
     S: Send + Sync + 'static + Strategy,
-    S::Target: Component<Mutability = Mutable>,
+    S::Target: Component,
     S::Stored: Send + Sync + 'static,
 {
     fn build(&self, app: &mut App) {
@@ -129,102 +140,7 @@ where
                 )
                     .chain()
                     .in_set(SaveWorldSet::Snapshot),
-            )
-            .add_systems(LoadWorld, Self::load.in_set(LoadWorldSet::Data));
-    }
-}
-
-/// A [`Plugin`] which manages snapshots for a [`Component`] using a provided [`Strategy`] that works with immutable components.
-///
-/// # Examples
-/// ```rust
-/// # use bevy::prelude::*;
-/// # use bevy_ggrs::{prelude::*, ImmutableComponentSnapshotPlugin, CloneStrategy};
-/// #
-/// # fn start() {
-/// # let mut app = App::new();
-/// #[derive(Component, Clone)]
-/// #[component(immutable)]
-/// struct MyComponent(String);
-///
-/// app.add_plugins(ImmutableComponentSnapshotPlugin::<CloneStrategy<MyComponent>>::default());
-/// # }
-/// ```
-pub struct ImmutableComponentSnapshotPlugin<S>
-where
-    S: Strategy,
-    S::Target: Component,
-    S::Stored: Send + Sync + 'static,
-{
-    _phantom: PhantomData<S>,
-}
-
-impl<S> Default for ImmutableComponentSnapshotPlugin<S>
-where
-    S: Strategy,
-    S::Target: Component,
-    S::Stored: Send + Sync + 'static,
-{
-    fn default() -> Self {
-        Self {
-            _phantom: default(),
-        }
-    }
-}
-
-impl<S> Plugin for ImmutableComponentSnapshotPlugin<S>
-where
-    S: Send + Sync + 'static + Strategy,
-    S::Target: Component<Mutability = Immutable>,
-    S::Stored: Send + Sync + 'static,
-{
-    fn build(&self, app: &mut App) {
-        app.init_resource::<GgrsComponentSnapshots<S::Target, S::Stored>>()
-            .add_systems(
-                SaveWorld,
-                (
-                    GgrsComponentSnapshots::<S::Target, S::Stored>::discard_old_snapshots,
-                    ComponentSnapshotPlugin::<S>::save,
-                )
-                    .chain()
-                    .in_set(SaveWorldSet::Snapshot),
-            )
-            .add_systems(LoadWorld, Self::load.in_set(LoadWorldSet::Data));
-    }
-}
-
-impl<S> ImmutableComponentSnapshotPlugin<S>
-where
-    S: Strategy,
-    S::Target: Component<Mutability = Immutable>,
-    S::Stored: Send + Sync + 'static,
-{
-    pub fn load(
-        mut commands: Commands,
-        mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,
-        frame: Res<RollbackFrameCount>,
-        mut query: Query<(Entity, &Rollback, Has<S::Target>)>,
-    ) {
-        let snapshot = snapshots.rollback(frame.0).get();
-
-        for (entity, rollback, has_component) in query.iter_mut() {
-            let snapshot = snapshot.get(rollback);
-
-            match (has_component, snapshot) {
-                (true, None) => {
-                    commands.entity(entity).remove::<S::Target>();
-                }
-                (_, Some(snapshot)) => {
-                    commands.entity(entity).insert(S::load(snapshot));
-                }
-                (false, None) => {}
-            }
-        }
-
-        trace!(
-            "Rolled back {} {} component(s)",
-            snapshot.iter().count(),
-            disqualified::ShortName::of::<S::Target>()
-        );
+            );
+        app.add_systems(LoadWorld, Self::load.in_set(LoadWorldSet::Data));
     }
 }

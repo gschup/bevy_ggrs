@@ -1,12 +1,11 @@
 //! bevy_ggrs is a bevy plugin for the P2P rollback networking library GGRS.
 //!
 //! See [`GgrsPlugin`] for getting started.
-#![forbid(unsafe_code)] // let us try
 #![allow(clippy::type_complexity)] // Suppress warnings around Query
 
 use bevy::{
     ecs::{
-        component::{Immutable, Mutable},
+        component::Mutable,
         entity::MapEntities,
         schedule::{ExecutorKind, LogLevel, ScheduleBuildSettings, ScheduleLabel},
     },
@@ -237,13 +236,7 @@ pub trait GgrsApp {
     /// uses [`Copy`] based snapshots for rollback.
     fn rollback_component_with_copy<Type>(&mut self) -> &mut Self
     where
-        Type: Component<Mutability = Mutable> + Copy;
-
-    /// Registers an immutable component type for saving and loading from the world. This
-    /// uses [`Copy`] based snapshots for rollback.
-    fn rollback_immutable_component_with_copy<Type>(&mut self) -> &mut Self
-    where
-        Type: Component<Mutability = Immutable> + Copy;
+        Type: Component + Copy;
 
     /// Registers a resource type for saving and loading from the world. This
     /// uses [`Copy`] based snapshots for rollback.
@@ -255,13 +248,7 @@ pub trait GgrsApp {
     /// uses [`Clone`] based snapshots for rollback.
     fn rollback_component_with_clone<Type>(&mut self) -> &mut Self
     where
-        Type: Component<Mutability = Mutable> + Clone;
-
-    /// Registers a component type for saving and loading from the world. This
-    /// uses [`Clone`] based snapshots for rollback.
-    fn rollback_immutable_component_with_clone<Type>(&mut self) -> &mut Self
-    where
-        Type: Component<Mutability = Immutable> + Clone;
+        Type: Component + Clone;
 
     /// Registers a resource type for saving and loading from the world. This
     /// uses [`Clone`] based snapshots for rollback.
@@ -277,7 +264,7 @@ pub trait GgrsApp {
     /// If you require this behavior, see [`ComponentMapEntitiesPlugin`].
     fn rollback_component_with_reflect<Type>(&mut self) -> &mut Self
     where
-        Type: Component<Mutability = Mutable> + Reflect + FromWorld;
+        Type: Component + Reflect + FromWorld;
 
     /// Registers a resource type for saving and loading from the world. This
     /// uses [`reflection`](`Reflect`) based snapshots for rollback.
@@ -332,7 +319,7 @@ impl GgrsApp for App {
 
     fn rollback_component_with_reflect<Type>(&mut self) -> &mut Self
     where
-        Type: Component<Mutability = Mutable> + Reflect + FromWorld,
+        Type: Component + Reflect + FromWorld,
     {
         self.add_plugins(ComponentSnapshotPlugin::<ReflectStrategy<Type>>::default())
     }
@@ -346,16 +333,9 @@ impl GgrsApp for App {
 
     fn rollback_component_with_copy<Type>(&mut self) -> &mut Self
     where
-        Type: Component<Mutability = Mutable> + Copy,
+        Type: Component + Copy,
     {
         self.add_plugins(ComponentSnapshotPlugin::<CopyStrategy<Type>>::default())
-    }
-
-    fn rollback_immutable_component_with_copy<Type>(&mut self) -> &mut Self
-    where
-        Type: Component<Mutability = Immutable> + Copy,
-    {
-        self.add_plugins(ImmutableComponentSnapshotPlugin::<CopyStrategy<Type>>::default())
     }
 
     fn rollback_resource_with_copy<Type>(&mut self) -> &mut Self
@@ -367,16 +347,9 @@ impl GgrsApp for App {
 
     fn rollback_component_with_clone<Type>(&mut self) -> &mut Self
     where
-        Type: Component<Mutability = Mutable> + Clone,
+        Type: Component + Clone,
     {
         self.add_plugins(ComponentSnapshotPlugin::<CloneStrategy<Type>>::default())
-    }
-
-    fn rollback_immutable_component_with_clone<Type>(&mut self) -> &mut Self
-    where
-        Type: Component<Mutability = Immutable> + Clone,
-    {
-        self.add_plugins(ImmutableComponentSnapshotPlugin::<CloneStrategy<Type>>::default())
     }
 
     fn rollback_resource_with_clone<Type>(&mut self) -> &mut Self

@@ -88,7 +88,8 @@ impl ChildOfSnapshotPlugin {
 mod tests {
     use crate::{
         snapshot::tests::{advance_frame, load_world, save_world},
-        AddRollbackCommandExtension, GgrsPlugin, GgrsSchedule,
+        snapshot::{AdvanceWorld, SnapshotPlugin},
+        AddRollbackCommandExtension,
     };
     use bevy::prelude::*;
     use ggrs::*;
@@ -141,11 +142,11 @@ mod tests {
     }
 
     #[test]
-    fn test_hirarchy_preservation() {
+    fn test_hierarchy_preservation() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
-        app.add_plugins(GgrsPlugin::<TestConfig>::default());
-        app.add_systems(GgrsSchedule, (spawn_child, despawn_children).chain());
+        app.add_plugins(SnapshotPlugin);
+        app.add_systems(AdvanceWorld, (spawn_child, despawn_children).chain());
         app.add_systems(Startup, spawn_player);
         app.update();
 

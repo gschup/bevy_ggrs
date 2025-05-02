@@ -188,16 +188,15 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
                 });
             })
             .add_systems(
+                AdvanceWorld,
+                (|world: &mut World| world.run_schedule(GgrsSchedule))
+                    .in_set(AdvanceWorldSet::Main),
+            )
+            .add_systems(
                 PreUpdate,
                 schedule_systems::run_ggrs_schedules::<C>.after(InputSystem),
             )
-            .add_plugins((
-                ChecksumPlugin,
-                EntitySnapshotPlugin,
-                EntityChecksumPlugin,
-                GgrsTimePlugin,
-                ChildOfSnapshotPlugin,
-            ));
+            .add_plugins((ChecksumPlugin, EntityChecksumPlugin, GgrsTimePlugin));
     }
 }
 

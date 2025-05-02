@@ -281,7 +281,11 @@ impl Plugin for SnapshotPlugin {
             .init_schedule(LoadWorld)
             .init_schedule(SaveWorld)
             .init_schedule(AdvanceWorld)
-            .add_plugins(ResourceSnapshotPlugin::<CloneStrategy<RollbackOrdered>>::default());
+            .add_plugins((
+                EntitySnapshotPlugin,
+                ResourceSnapshotPlugin::<CloneStrategy<RollbackOrdered>>::default(),
+                ChildOfSnapshotPlugin,
+            ));
     }
 }
 

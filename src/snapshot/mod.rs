@@ -303,10 +303,13 @@ pub(crate) mod tests {
 
     use super::{AdvanceWorld, LoadWorld, RollbackFrameCount, SaveWorld};
 
+    /// Saves the world by running the [`SaveWorld`] schedule.
     pub(crate) fn save_world(world: &mut World) {
         world.run_schedule(SaveWorld);
     }
 
+    /// Advances the world by one frame, running the [`AdvanceWorld`] schedule.
+    ///
     /// assumes input has already been updated
     pub(crate) fn advance_frame(world: &mut World) -> i32 {
         let mut frame_count = world
@@ -318,6 +321,7 @@ pub(crate) mod tests {
         frame
     }
 
+    /// Loads the world from the provided frame, by running the [`LoadWorld`] schedule.
     pub(crate) fn load_world(world: &mut World, frame: i32) {
         world
             .get_resource_mut::<RollbackFrameCount>()

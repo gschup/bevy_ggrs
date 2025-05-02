@@ -91,19 +91,8 @@ mod tests {
         AddRollbackCommandExtension, AdvanceWorld, SnapshotPlugin,
     };
     use bevy::prelude::*;
-    use ggrs::*;
-    use serde::{Deserialize, Serialize};
 
-    use crate::PlayerInputs;
-
-    struct TestConfig;
-    impl Config for TestConfig {
-        type Input = Input;
-        type State = u8;
-        type Address = usize;
-    }
-
-    #[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+    #[derive(Resource, Default)]
     enum Input {
         #[default]
         None,
@@ -116,20 +105,20 @@ mod tests {
 
     fn spawn_child(
         mut commands: Commands,
-        inputs: Res<PlayerInputs<TestConfig>>,
+        input: Res<Input>,
         player: Single<Entity, With<Player>>,
     ) {
-        if inputs[0].0 == Input::SpawnChild {
+        if let Input::SpawnChild = *input {
             commands.spawn(ChildOf(player.entity())).add_rollback();
         }
     }
 
     fn despawn_children(
         mut commands: Commands,
-        inputs: Res<PlayerInputs<TestConfig>>,
+        input: Res<Input>,
         player_children: Single<&Children, With<Player>>,
     ) {
-        if inputs[0].0 == Input::DespawnChildren {
+        if let Input::DespawnChildren = *input {
             for child in *player_children {
                 commands.entity(*child).despawn();
             }
@@ -149,11 +138,8 @@ mod tests {
         app.add_systems(Startup, spawn_player);
         app.update();
 
-        let advance = |world: &mut World, input: Input| {
-            world.insert_resource(PlayerInputs::<TestConfig>(vec![(
-                input,
-                InputStatus::Predicted,
-            )]));
+        let advance_with_input = |world: &mut World, input: Input| {
+            world.insert_resource(input);
             advance_frame(world);
         };
 
@@ -188,13 +174,13 @@ mod tests {
         assert_eq!(get_player_children(app.world_mut()), vec![]);
 
         // advance to frame 1, spawns a child
-        advance(app.world_mut(), Input::SpawnChild);
+        advance_with_input(app.world_mut(), Input::SpawnChild);
         save_world(app.world_mut());
         let initial_child_enitity = get_player_children(app.world_mut())[0];
         assert_eq!(get_player_children(app.world_mut()).len(), 1);
 
         // advance to frame 2, despawns the child
-        advance(app.world_mut(), Input::DespawnChildren);
+        advance_with_input(app.world_mut(), Input::DespawnChildren);
         save_world(app.world_mut());
         assert_eq!(get_player_children(app.world_mut()).len(), 0);
 

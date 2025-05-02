@@ -92,24 +92,17 @@ where
 
 #[cfg(test)]
 mod tests {
-    use ggrs::{Config, GameStateCell, GgrsRequest, InputStatus};
-    use serde::{Deserialize, Serialize};
-
     use super::*;
-    use crate::{prelude::*, schedule_systems::handle_requests};
+    use crate::snapshot::{
+        tests::{advance_frame, load_world, save_world},
+        AddRollbackCommandExtension, AdvanceWorld, RollbackApp, SnapshotPlugin,
+    };
 
-    #[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+    #[derive(Resource, Default)]
     enum Input {
         #[default]
         None,
         SpawnFriend,
-    }
-
-    struct TestConfig;
-    impl Config for TestConfig {
-        type Input = Input;
-        type State = u8;
-        type Address = usize;
     }
 
     #[derive(Component, MapEntities, Clone, Copy)]
@@ -132,8 +125,8 @@ mod tests {
         }
     }
 
-    fn spawn_friend(mut commands: Commands, inputs: Res<PlayerInputs<TestConfig>>) {
-        if inputs[0].0 == Input::SpawnFriend {
+    fn spawn_friend(mut commands: Commands, inputs: Res<Input>) {
+        if let Input::SpawnFriend = *inputs {
             commands.spawn(Friend).add_rollback();
         }
     }
@@ -146,10 +139,10 @@ mod tests {
     fn test_map_entities() {
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
-        app.add_plugins(GgrsPlugin::<TestConfig>::default());
+        app.add_plugins(SnapshotPlugin);
         app.rollback_component_with_copy::<Likes>();
         app.update_component_with_map_entities::<Likes>();
-        app.add_systems(GgrsSchedule, (spawn_friend, like_single_friend).chain());
+        app.add_systems(AdvanceWorld, (spawn_friend, like_single_friend).chain());
         app.add_systems(Startup, spawn_player);
         app.update();
 
@@ -168,47 +161,28 @@ mod tests {
                 .map(|likes| likes.0)
         };
 
-        let cell = GameStateCell::default();
-
-        handle_requests(
-            vec![GgrsRequest::<TestConfig>::SaveGameState {
-                cell: cell.clone(),
-                frame: 0,
-            }],
-            app.world_mut(),
-        );
+        save_world(app.world_mut()); // save frame 0
 
         assert_eq!(get_friend_entity(app.world_mut()), None);
         assert_eq!(get_liked_entity(app.world_mut()), None);
 
         // advance to frame 1, spawns a friend
-        handle_requests(
-            vec![GgrsRequest::<TestConfig>::AdvanceFrame {
-                inputs: vec![(Input::SpawnFriend, InputStatus::Confirmed)],
-            }],
-            app.world_mut(),
-        );
+        app.world_mut().insert_resource(Input::SpawnFriend);
+        advance_frame(app.world_mut());
 
         let initial_friend_entity = get_friend_entity(app.world_mut()).unwrap();
         let initial_liked_entity = get_liked_entity(app.world_mut()).unwrap();
         assert_eq!(initial_friend_entity, initial_liked_entity);
 
         // roll back to frame 0
-        handle_requests(
-            vec![GgrsRequest::<TestConfig>::LoadGameState { cell, frame: 0 }],
-            app.world_mut(),
-        );
+        load_world(app.world_mut(), 0);
 
         assert_eq!(get_friend_entity(app.world_mut()), None);
         assert_eq!(get_liked_entity(app.world_mut()), None);
 
         // advance to frame 1 again, spawns a friend (a new entity, though)
-        handle_requests(
-            vec![GgrsRequest::<TestConfig>::AdvanceFrame {
-                inputs: vec![(Input::SpawnFriend, InputStatus::Confirmed)],
-            }],
-            app.world_mut(),
-        );
+        app.world_mut().insert_resource(Input::SpawnFriend);
+        advance_frame(app.world_mut());
 
         {
             let friend_entity = get_friend_entity(app.world_mut()).unwrap();

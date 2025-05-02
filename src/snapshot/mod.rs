@@ -271,6 +271,20 @@ pub fn checksum_hasher() -> SeaHasher {
     SeaHasher::new()
 }
 
+pub(crate) struct SnapshotPlugin;
+
+impl Plugin for SnapshotPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins(SnapshotSetPlugin)
+            .init_resource::<RollbackOrdered>()
+            .init_resource::<RollbackFrameCount>()
+            .init_schedule(LoadWorld)
+            .init_schedule(SaveWorld)
+            .init_schedule(AdvanceWorld)
+            .add_plugins(ResourceSnapshotPlugin::<CloneStrategy<RollbackOrdered>>::default());
+    }
+}
+
 #[cfg(test)]
 pub(crate) mod tests {
     use bevy::prelude::*;

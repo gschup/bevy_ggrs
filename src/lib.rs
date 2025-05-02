@@ -170,15 +170,12 @@ impl<C: Config> Default for GgrsPlugin<C> {
 
 impl<C: Config> Plugin for GgrsPlugin<C> {
     fn build(&self, app: &mut App) {
-        app.init_resource::<RollbackFrameCount>()
+        app.add_plugins(SnapshotPlugin)
             .init_resource::<ConfirmedFrameCount>()
             .init_resource::<MaxPredictionWindow>()
-            .init_resource::<RollbackOrdered>()
             .init_resource::<LocalPlayers>()
             .init_resource::<FixedTimestepData>()
             .init_schedule(ReadInputs)
-            .init_schedule(LoadWorld)
-            .init_schedule(SaveWorld)
             .edit_schedule(AdvanceWorld, |schedule| {
                 // AdvanceWorld is mostly a facilitator for GgrsSchedule, so SingleThreaded avoids overhead
                 // This can be overridden if desired.
@@ -195,12 +192,10 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
                 schedule_systems::run_ggrs_schedules::<C>.after(InputSystem),
             )
             .add_plugins((
-                SnapshotSetPlugin,
                 ChecksumPlugin,
                 EntitySnapshotPlugin,
                 EntityChecksumPlugin,
                 GgrsTimePlugin,
-                ResourceSnapshotPlugin::<CloneStrategy<RollbackOrdered>>::default(),
                 ChildOfSnapshotPlugin,
             ));
     }

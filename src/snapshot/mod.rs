@@ -289,7 +289,7 @@ pub fn checksum_hasher() -> SeaHasher {
 ///
 /// This is independent of the GGRS plugin and can be used with any Bevy app,
 /// including tests and benchmarks.
-pub(crate) struct SnapshotPlugin;
+pub struct SnapshotPlugin;
 
 impl Plugin for SnapshotPlugin {
     fn build(&self, app: &mut App) {

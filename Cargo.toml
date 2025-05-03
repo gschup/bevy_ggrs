@@ -2,7 +2,7 @@
 name = "bevy_ggrs"
 version = "0.17.0"
 authors = ["Georg Schuppe <georg.schuppe@gmail.com>"]
-edition = "2021"
+edition = "2024"
 description = "Bevy plugin for the GGRS P2P rollback networking library"
 license = "MIT OR Apache-2.0"
 readme = "README.md"

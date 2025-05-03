@@ -217,7 +217,7 @@ impl<For, As> GgrsSnapshots<For, As> {
             .frames
             .iter()
             .enumerate()
-            .find(|(_, &saved_frame)| saved_frame == frame)?;
+            .find(|&(_, &saved_frame)| saved_frame == frame)?;
         self.snapshots.get(index)
     }
 

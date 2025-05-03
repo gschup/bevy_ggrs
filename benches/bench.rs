@@ -21,6 +21,11 @@ fn advance_and_load(app: &mut App) {
     app.world_mut().run_schedule(LoadWorld);
 }
 
+fn advance_and_save(app: &mut App) {
+    app.world_mut().run_schedule(AdvanceWorld);
+    app.world_mut().run_schedule(SaveWorld);
+}
+
 fn increment_foos(mut foos: Query<&mut Foo>) {
     for mut foo in &mut foos {
         foo.0 += 1;
@@ -56,6 +61,9 @@ fn foo_1000(c: &mut Criterion) {
     c.bench_function("advance_and_load_1000_components", |b| {
         b.iter(|| advance_and_load(&mut app))
     });
+    c.bench_function("advance_and_save_1000_components", |b| {
+        b.iter(|| advance_and_save(&mut app))
+    });
 }
 
 fn foo_bar_baz_1000(c: &mut Criterion) {
@@ -80,6 +88,9 @@ fn foo_bar_baz_1000(c: &mut Criterion) {
     app.world_mut().run_schedule(SaveWorld);
     c.bench_function("advance_and_load_3000_disjoint_components", |b| {
         b.iter(|| advance_and_load(&mut app))
+    });
+    c.bench_function("advance_and_save_3000_disjoint_components", |b| {
+        b.iter(|| advance_and_save(&mut app))
     });
 }
 

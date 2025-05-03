@@ -2,7 +2,7 @@ use crate::{
     GgrsComponentSnapshot, GgrsComponentSnapshots, LoadWorld, LoadWorldSet, Rollback,
     RollbackFrameCount, SaveWorld, SaveWorldSet, Strategy,
 };
-use bevy::{ecs::component::ComponentMutability, prelude::*};
+use bevy::{ecs::component::Mutable, prelude::*};
 use std::marker::PhantomData;
 
 /// A [`Plugin`] which manages snapshots for a [`Component`] using a provided [`Strategy`].
@@ -76,41 +76,27 @@ where
 impl<S> ComponentSnapshotPlugin<S>
 where
     S: Strategy,
-    S::Target: Component,
+    S::Target: Component<Mutability = Mutable>,
     S::Stored: Send + Sync + 'static,
 {
     pub fn load(
         mut commands: Commands,
         mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,
         frame: Res<RollbackFrameCount>,
-        mut query: Query<EntityMut, With<Rollback>>,
+        mut query: Query<(Entity, &Rollback, Option<&mut S::Target>)>,
     ) {
         let snapshot = snapshots.rollback(frame.0).get();
 
-        for mut entity in query.iter_mut() {
-            let (rollback, component) = entity.components::<(&Rollback, Option<&S::Target>)>();
-
+        for (entity, rollback, component) in query.iter_mut() {
             let snapshot = snapshot.get(rollback);
 
             match (component, snapshot) {
-                (Some(_), Some(snapshot)) => {
-                    if <S::Target as Component>::Mutability::MUTABLE {
-                        unsafe {
-                            // Error: get_mut_assume_mutable doesn't exist for EntityRef
-                            let mut component = entity
-                                .get_mut_assume_mutable::<S::Target>()
-                                .expect("Failed to get mutable component");
-                            S::update(component.as_mut(), snapshot);
-                        }
-                    } else {
-                        commands.entity(entity.id()).insert(S::load(snapshot));
-                    }
-                }
+                (Some(mut component), Some(snapshot)) => S::update(component.as_mut(), snapshot),
                 (Some(_), None) => {
-                    commands.entity(entity.id()).remove::<S::Target>();
+                    commands.entity(entity).remove::<S::Target>();
                 }
                 (None, Some(snapshot)) => {
-                    commands.entity(entity.id()).insert(S::load(snapshot));
+                    commands.entity(entity).insert(S::load(snapshot));
                 }
                 (None, None) => {}
             }
@@ -127,7 +113,7 @@ where
 impl<S> Plugin for ComponentSnapshotPlugin<S>
 where
     S: Send + Sync + 'static + Strategy,
-    S::Target: Component,
+    S::Target: Component<Mutability = Mutable>,
     S::Stored: Send + Sync + 'static,
 {
     fn build(&self, app: &mut App) {

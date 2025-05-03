@@ -16,7 +16,7 @@ pub trait RollbackApp {
     /// uses [`Copy`] based snapshots for rollback.
     fn rollback_component_with_copy<Type>(&mut self) -> &mut Self
     where
-        Type: Component + Copy;
+        Type: Component<Mutability = Mutable> + Copy;
 
     /// Registers a resource type for saving and loading from the world. This
     /// uses [`Copy`] based snapshots for rollback.
@@ -28,7 +28,7 @@ pub trait RollbackApp {
     /// uses [`Clone`] based snapshots for rollback.
     fn rollback_component_with_clone<Type>(&mut self) -> &mut Self
     where
-        Type: Component + Clone;
+        Type: Component<Mutability = Mutable> + Clone;
 
     /// Registers a resource type for saving and loading from the world. This
     /// uses [`Clone`] based snapshots for rollback.
@@ -44,7 +44,7 @@ pub trait RollbackApp {
     /// If you require this behavior, see [`ComponentMapEntitiesPlugin`].
     fn rollback_component_with_reflect<Type>(&mut self) -> &mut Self
     where
-        Type: Component + Reflect + FromWorld;
+        Type: Component<Mutability = Mutable> + Reflect + FromWorld;
 
     /// Registers a resource type for saving and loading from the world. This
     /// uses [`reflection`](`Reflect`) based snapshots for rollback.
@@ -90,7 +90,7 @@ pub trait RollbackApp {
 impl RollbackApp for App {
     fn rollback_component_with_reflect<Type>(&mut self) -> &mut Self
     where
-        Type: Component + Reflect + FromWorld,
+        Type: Component<Mutability = Mutable> + Reflect + FromWorld,
     {
         self.add_plugins(ComponentSnapshotPlugin::<ReflectStrategy<Type>>::default())
     }
@@ -104,7 +104,7 @@ impl RollbackApp for App {
 
     fn rollback_component_with_copy<Type>(&mut self) -> &mut Self
     where
-        Type: Component + Copy,
+        Type: Component<Mutability = Mutable> + Copy,
     {
         self.add_plugins(ComponentSnapshotPlugin::<CopyStrategy<Type>>::default())
     }
@@ -118,7 +118,7 @@ impl RollbackApp for App {
 
     fn rollback_component_with_clone<Type>(&mut self) -> &mut Self
     where
-        Type: Component + Clone,
+        Type: Component<Mutability = Mutable> + Clone,
     {
         self.add_plugins(ComponentSnapshotPlugin::<CloneStrategy<Type>>::default())
     }

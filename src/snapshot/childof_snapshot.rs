@@ -87,8 +87,8 @@ impl ChildOfSnapshotPlugin {
 #[cfg(test)]
 mod tests {
     use crate::snapshot::{
-        tests::{advance_frame, load_world, save_world},
         AddRollbackCommandExtension, AdvanceWorld, SnapshotPlugin,
+        tests::{advance_frame, load_world, save_world},
     };
     use bevy::prelude::*;
 

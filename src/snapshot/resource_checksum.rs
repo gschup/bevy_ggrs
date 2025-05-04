@@ -2,7 +2,7 @@ use std::hash::{Hash, Hasher};
 
 use bevy::prelude::*;
 
-use crate::{checksum_hasher, ChecksumFlag, ChecksumPart, Rollback, SaveWorld, SaveWorldSet};
+use crate::{ChecksumFlag, ChecksumPart, Rollback, SaveWorld, SaveWorldSet, checksum_hasher};
 
 /// Plugin which will track the [`Resource`] `R` and ensure a [`ChecksumPart`] is
 /// available and updated. This can be used to generate a [`Checksum`](`crate::Checksum`).

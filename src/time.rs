@@ -3,8 +3,8 @@ use std::time::Duration;
 use bevy::prelude::*;
 
 use crate::{
-    AdvanceWorld, AdvanceWorldSet, CloneStrategy, ResourceSnapshotPlugin, RollbackFrameCount,
-    DEFAULT_FPS,
+    AdvanceWorld, AdvanceWorldSet, CloneStrategy, DEFAULT_FPS, ResourceSnapshotPlugin,
+    RollbackFrameCount,
 };
 
 /// [`Resource`] describing the rate at which the [`AdvanceWorld`] will run.

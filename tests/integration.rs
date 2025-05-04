@@ -1,12 +1,12 @@
 use bevy::{
+    MinimalPlugins,
     input::{
-        keyboard::{Key, KeyboardInput},
         ButtonInput, ButtonState, InputPlugin,
+        keyboard::{Key, KeyboardInput},
     },
     platform::collections::HashMap,
     prelude::*,
     time::TimeUpdateStrategy,
-    MinimalPlugins,
 };
 use bevy_ggrs::{
     AddRollbackCommandExtension, GgrsConfig, GgrsPlugin, GgrsSchedule, LocalInputs, LocalPlayers,

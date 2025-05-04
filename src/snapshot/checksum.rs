@@ -5,7 +5,7 @@ use std::{
 
 use bevy::prelude::*;
 
-use crate::{checksum_hasher, SaveWorld, SaveWorldSet};
+use crate::{SaveWorld, SaveWorldSet, checksum_hasher};
 
 /// Flags an entity as containing a checksum for a type `T`
 #[derive(Component)]

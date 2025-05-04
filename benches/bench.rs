@@ -1,10 +1,10 @@
+use bevy::MinimalPlugins;
 use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
-use bevy::MinimalPlugins;
 use bevy_ggrs::SaveWorld;
 use bevy_ggrs::SnapshotPlugin;
-use bevy_ggrs::{prelude::*, AdvanceWorld, LoadWorld, RollbackFrameCount};
-use criterion::{criterion_group, criterion_main, Criterion};
+use bevy_ggrs::{AdvanceWorld, LoadWorld, RollbackFrameCount, prelude::*};
+use criterion::{Criterion, criterion_group, criterion_main};
 
 #[derive(Component, Clone, Copy)]
 struct Foo(i32);

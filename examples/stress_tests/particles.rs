@@ -2,7 +2,7 @@ use bevy::{
     color::palettes::css::ORANGE, math::vec3, platform::collections::HashMap, prelude::*,
     window::WindowResolution,
 };
-use bevy_ggrs::{checksum_hasher, prelude::*, LocalInputs, LocalPlayers};
+use bevy_ggrs::{LocalInputs, LocalPlayers, checksum_hasher, prelude::*};
 use clap::Parser;
 use ggrs::{DesyncDetection, UdpNonBlockingSocket};
 use rand::{Rng, SeedableRng};
@@ -301,9 +301,13 @@ fn print_events_system(mut session: ResMut<Session<Config>>, args: Res<Args>) {
                         ..
                     } => {
                         if args.continue_after_desync {
-                            error!("Desync on frame {frame}. Local checksum: {local_checksum:X}, remote checksum: {remote_checksum:X}");
+                            error!(
+                                "Desync on frame {frame}. Local checksum: {local_checksum:X}, remote checksum: {remote_checksum:X}"
+                            );
                         } else {
-                            panic!("Desync on frame {frame}. Local checksum: {local_checksum:X}, remote checksum: {remote_checksum:X}");
+                            panic!(
+                                "Desync on frame {frame}. Local checksum: {local_checksum:X}, remote checksum: {remote_checksum:X}"
+                            );
                         }
                     }
                     _ => info!("GGRS event: {event:?}"),

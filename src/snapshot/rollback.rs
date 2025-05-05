@@ -1,6 +1,6 @@
-use bevy::utils::HashMap;
 use bevy::{
     ecs::system::{EntityCommand, EntityCommands},
+    platform::collections::HashMap,
     prelude::*,
 };
 
@@ -9,6 +9,7 @@ use bevy::{
 /// You must use the [`AddRollbackCommand`] when spawning an entity to add this component. Alternatively,
 /// you can use the `add_rollback()` extension method provided by [`AddRollbackCommandExtension`].
 #[derive(Component, Hash, PartialEq, Eq, Clone, Copy, Debug)]
+#[component(immutable)]
 pub struct Rollback(Entity);
 
 impl Rollback {
@@ -22,14 +23,16 @@ impl Rollback {
 pub struct AddRollbackCommand;
 
 impl EntityCommand for AddRollbackCommand {
-    fn apply(self, id: Entity, world: &mut World) {
-        let rollback = Rollback::new(id);
+    fn apply(self, mut entity: EntityWorldMut) {
+        let rollback = Rollback::new(entity.id());
 
-        world.entity_mut(id).insert(rollback);
+        entity.insert(rollback);
 
-        world
-            .get_resource_or_insert_with::<RollbackOrdered>(default)
-            .push(rollback);
+        entity.world_scope(|world: &mut World| {
+            world
+                .get_resource_or_insert_with::<RollbackOrdered>(default)
+                .push(rollback);
+        })
     }
 }
 

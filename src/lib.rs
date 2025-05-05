@@ -1,37 +1,32 @@
 //! bevy_ggrs is a bevy plugin for the P2P rollback networking library GGRS.
 //!
 //! See [`GgrsPlugin`] for getting started.
-#![forbid(unsafe_code)] // let us try
 #![allow(clippy::type_complexity)] // Suppress warnings around Query
 
 use bevy::{
-    ecs::{
-        entity::MapEntities,
-        schedule::{ExecutorKind, LogLevel, ScheduleBuildSettings, ScheduleLabel},
-    },
+    ecs::schedule::{ExecutorKind, LogLevel, ScheduleBuildSettings, ScheduleLabel},
     input::InputSystem,
+    platform::collections::HashMap,
     prelude::*,
-    utils::{Duration, HashMap},
 };
+use core::time::Duration;
 use ggrs::{Config, InputStatus, P2PSession, PlayerHandle, SpectatorSession, SyncTestSession};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, net::SocketAddr};
 
 pub use ggrs;
 
-pub use rollback::*;
 pub use snapshot::*;
 pub use time::*;
 
-pub(crate) mod rollback;
 pub(crate) mod schedule_systems;
 pub(crate) mod snapshot;
 pub(crate) mod time;
 
 pub mod prelude {
     pub use crate::{
-        snapshot::prelude::*, AddRollbackCommandExtension, GgrsApp, GgrsConfig, GgrsPlugin,
-        GgrsSchedule, GgrsTime, PlayerInputs, ReadInputs, Rollback, Session,
+        AddRollbackCommandExtension, GgrsApp, GgrsConfig, GgrsPlugin, GgrsSchedule, GgrsTime,
+        PlayerInputs, ReadInputs, Rollback, RollbackApp, Session, snapshot::prelude::*,
     };
     pub use ggrs::{GgrsEvent, PlayerType, SessionBuilder};
 }
@@ -92,26 +87,6 @@ impl Default for FixedTimestepData {
     }
 }
 
-/// Keeps track of the current frame the rollback simulation is in
-#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct RollbackFrameCount(pub i32);
-
-impl From<RollbackFrameCount> for i32 {
-    fn from(value: RollbackFrameCount) -> i32 {
-        value.0
-    }
-}
-
-/// The most recently confirmed frame. Any information for frames stored before this point can be safely discarded.
-#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ConfirmedFrameCount(i32);
-
-impl From<ConfirmedFrameCount> for i32 {
-    fn from(value: ConfirmedFrameCount) -> i32 {
-        value.0
-    }
-}
-
 /// The maximum prediction window for this [`Session`], provided as a concrete [`Resource`].
 #[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MaxPredictionWindow(usize);
@@ -127,18 +102,6 @@ pub struct LocalPlayers(pub Vec<PlayerHandle>);
 /// Label for the schedule which reads the inputs for the current frame
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct ReadInputs;
-
-/// Label for the schedule which loads and overwrites a snapshot of the world.
-#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
-pub struct LoadWorld;
-
-/// Label for the schedule which saves a snapshot of the current world.
-#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
-pub struct SaveWorld;
-
-/// Label for the schedule which advances the current world to the next frame.
-#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
-pub struct AdvanceWorld;
 
 /// GGRS plugin for bevy.
 ///
@@ -193,15 +156,11 @@ impl<C: Config> Default for GgrsPlugin<C> {
 
 impl<C: Config> Plugin for GgrsPlugin<C> {
     fn build(&self, app: &mut App) {
-        app.init_resource::<RollbackFrameCount>()
-            .init_resource::<ConfirmedFrameCount>()
+        app.add_plugins(SnapshotPlugin)
             .init_resource::<MaxPredictionWindow>()
-            .init_resource::<RollbackOrdered>()
             .init_resource::<LocalPlayers>()
             .init_resource::<FixedTimestepData>()
             .init_schedule(ReadInputs)
-            .init_schedule(LoadWorld)
-            .init_schedule(SaveWorld)
             .edit_schedule(AdvanceWorld, |schedule| {
                 // AdvanceWorld is mostly a facilitator for GgrsSchedule, so SingleThreaded avoids overhead
                 // This can be overridden if desired.
@@ -214,102 +173,22 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
                 });
             })
             .add_systems(
+                AdvanceWorld,
+                (|world: &mut World| world.run_schedule(GgrsSchedule))
+                    .in_set(AdvanceWorldSet::Main),
+            )
+            .add_systems(
                 PreUpdate,
                 schedule_systems::run_ggrs_schedules::<C>.after(InputSystem),
             )
-            .add_plugins((
-                SnapshotSetPlugin,
-                ChecksumPlugin,
-                EntitySnapshotPlugin,
-                EntityChecksumPlugin,
-                GgrsTimePlugin,
-                ResourceSnapshotPlugin::<CloneStrategy<RollbackOrdered>>::default(),
-                ComponentSnapshotPlugin::<ReflectStrategy<Parent>>::default(),
-                ComponentMapEntitiesPlugin::<Parent>::default(),
-                ComponentSnapshotPlugin::<ReflectStrategy<Children>>::default(),
-                ComponentMapEntitiesPlugin::<Children>::default(),
-            ));
+            .add_plugins((ChecksumPlugin, EntityChecksumPlugin, GgrsTimePlugin));
     }
 }
 
-/// Extension trait to add the GGRS plugin idiomatically to Bevy Apps
-pub trait GgrsApp {
-    /// Registers a component type for saving and loading from the world. This
-    /// uses [`Copy`] based snapshots for rollback.
-    fn rollback_component_with_copy<Type>(&mut self) -> &mut Self
-    where
-        Type: Component + Copy;
-
-    /// Registers a resource type for saving and loading from the world. This
-    /// uses [`Copy`] based snapshots for rollback.
-    fn rollback_resource_with_copy<Type>(&mut self) -> &mut Self
-    where
-        Type: Resource + Copy;
-
-    /// Registers a component type for saving and loading from the world. This
-    /// uses [`Clone`] based snapshots for rollback.
-    fn rollback_component_with_clone<Type>(&mut self) -> &mut Self
-    where
-        Type: Component + Clone;
-
-    /// Registers a resource type for saving and loading from the world. This
-    /// uses [`Clone`] based snapshots for rollback.
-    fn rollback_resource_with_clone<Type>(&mut self) -> &mut Self
-    where
-        Type: Resource + Clone;
-
-    /// Registers a component type for saving and loading from the world. This
-    /// uses [`reflection`](`Reflect`) based snapshots for rollback.
-    ///
-    /// NOTE: Unlike previous versions of `bevy_ggrs`, this will no longer automatically
-    /// apply entity mapping through the [`MapEntities`](`bevy::ecs::entity::MapEntities`) trait.
-    /// If you require this behavior, see [`ComponentMapEntitiesPlugin`].
-    fn rollback_component_with_reflect<Type>(&mut self) -> &mut Self
-    where
-        Type: Component + Reflect + FromWorld;
-
-    /// Registers a resource type for saving and loading from the world. This
-    /// uses [`reflection`](`Reflect`) based snapshots for rollback.
-    ///
-    /// NOTE: Unlike previous versions of `bevy_ggrs`, this will no longer automatically
-    /// apply entity mapping through the [`MapEntities`](`bevy::ecs::entity::MapEntities`) trait.
-    /// If you require this behavior, see [`ComponentMapEntitiesPlugin`].
-    fn rollback_resource_with_reflect<Type>(&mut self) -> &mut Self
-    where
-        Type: Resource + Reflect + FromWorld;
-
+/// exstension trait for [`App`] to add GGRS specific functionality
+pub trait GgrsApp: RollbackApp {
     /// Set the frequency that game updates should be performed at.
     fn set_rollback_schedule_fps(&mut self, fps: usize) -> &mut Self;
-
-    /// Adds a component type to the checksum generation pipeline using [`Hash`].
-    fn checksum_component_with_hash<Type>(&mut self) -> &mut Self
-    where
-        Type: Component + Hash;
-
-    /// Updates a component after rollback using [`MapEntities`].
-    fn update_component_with_map_entities<Type>(&mut self) -> &mut Self
-    where
-        Type: Component + MapEntities;
-
-    /// Adds a resource type to the checksum generation pipeline using [`Hash`].
-    fn checksum_resource_with_hash<Type>(&mut self) -> &mut Self
-    where
-        Type: Resource + Hash;
-
-    /// Updates a resource after rollback using [`MapEntities`].
-    fn update_resource_with_map_entities<Type>(&mut self) -> &mut Self
-    where
-        Type: Resource + MapEntities;
-
-    /// Adds a component type to the checksum generation pipeline.
-    fn checksum_component<Type>(&mut self, hasher: for<'a> fn(&'a Type) -> u64) -> &mut Self
-    where
-        Type: Component;
-
-    /// Adds a resource type to the checksum generation pipeline.
-    fn checksum_resource<Type>(&mut self, hasher: for<'a> fn(&'a Type) -> u64) -> &mut Self
-    where
-        Type: Resource;
 }
 
 impl GgrsApp for App {
@@ -317,89 +196,5 @@ impl GgrsApp for App {
         self.world_mut().insert_resource(RollbackFrameRate(fps));
 
         self
-    }
-
-    fn rollback_component_with_reflect<Type>(&mut self) -> &mut Self
-    where
-        Type: Component + Reflect + FromWorld,
-    {
-        self.add_plugins(ComponentSnapshotPlugin::<ReflectStrategy<Type>>::default())
-    }
-
-    fn rollback_resource_with_reflect<Type>(&mut self) -> &mut Self
-    where
-        Type: Resource + Reflect + FromWorld,
-    {
-        self.add_plugins(ResourceSnapshotPlugin::<ReflectStrategy<Type>>::default())
-    }
-
-    fn rollback_component_with_copy<Type>(&mut self) -> &mut Self
-    where
-        Type: Component + Copy,
-    {
-        self.add_plugins(ComponentSnapshotPlugin::<CopyStrategy<Type>>::default())
-    }
-
-    fn rollback_resource_with_copy<Type>(&mut self) -> &mut Self
-    where
-        Type: Resource + Copy,
-    {
-        self.add_plugins(ResourceSnapshotPlugin::<CopyStrategy<Type>>::default())
-    }
-
-    fn rollback_component_with_clone<Type>(&mut self) -> &mut Self
-    where
-        Type: Component + Clone,
-    {
-        self.add_plugins(ComponentSnapshotPlugin::<CloneStrategy<Type>>::default())
-    }
-
-    fn rollback_resource_with_clone<Type>(&mut self) -> &mut Self
-    where
-        Type: Resource + Clone,
-    {
-        self.add_plugins(ResourceSnapshotPlugin::<CloneStrategy<Type>>::default())
-    }
-
-    fn checksum_component_with_hash<Type>(&mut self) -> &mut Self
-    where
-        Type: Component + Hash,
-    {
-        self.add_plugins(ComponentChecksumPlugin::<Type>::default())
-    }
-
-    fn update_component_with_map_entities<Type>(&mut self) -> &mut Self
-    where
-        Type: Component + MapEntities,
-    {
-        self.add_plugins(ComponentMapEntitiesPlugin::<Type>::default())
-    }
-
-    fn checksum_resource_with_hash<Type>(&mut self) -> &mut Self
-    where
-        Type: Resource + Hash,
-    {
-        self.add_plugins(ResourceChecksumPlugin::<Type>::default())
-    }
-
-    fn update_resource_with_map_entities<Type>(&mut self) -> &mut Self
-    where
-        Type: Resource + MapEntities,
-    {
-        self.add_plugins(ResourceMapEntitiesPlugin::<Type>::default())
-    }
-
-    fn checksum_component<Type>(&mut self, hasher: for<'a> fn(&'a Type) -> u64) -> &mut Self
-    where
-        Type: Component,
-    {
-        self.add_plugins(ComponentChecksumPlugin::<Type>(hasher))
-    }
-
-    fn checksum_resource<Type>(&mut self, hasher: for<'a> fn(&'a Type) -> u64) -> &mut Self
-    where
-        Type: Resource,
-    {
-        self.add_plugins(ResourceChecksumPlugin::<Type>(hasher))
     }
 }

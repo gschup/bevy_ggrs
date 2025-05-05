@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 use bevy::prelude::*;
 
 use crate::{
-    checksum_hasher, ChecksumFlag, ChecksumPart, Rollback, RollbackOrdered, SaveWorld, SaveWorldSet,
+    ChecksumFlag, ChecksumPart, Rollback, RollbackOrdered, SaveWorld, SaveWorldSet, checksum_hasher,
 };
 
 /// A [`Plugin`] which will track the [`Component`] `C` on [`Rollback Entities`](`Rollback`) and ensure a
@@ -92,7 +92,7 @@ where
                 result.0
             );
 
-            if let Ok(mut checksum) = checksum.get_single_mut() {
+            if let Ok(mut checksum) = checksum.single_mut() {
                 *checksum = result;
             } else {
                 commands.spawn((result, ChecksumFlag::<C>::default()));

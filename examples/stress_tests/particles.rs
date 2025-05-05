@@ -1,7 +1,8 @@
 use bevy::{
-    color::palettes::css::ORANGE, math::vec3, prelude::*, utils::HashMap, window::WindowResolution,
+    color::palettes::css::ORANGE, math::vec3, platform::collections::HashMap, prelude::*,
+    window::WindowResolution,
 };
-use bevy_ggrs::{checksum_hasher, prelude::*, LocalInputs, LocalPlayers};
+use bevy_ggrs::{LocalInputs, LocalPlayers, checksum_hasher, prelude::*};
 use clap::Parser;
 use ggrs::{DesyncDetection, UdpNonBlockingSocket};
 use rand::{Rng, SeedableRng};
@@ -280,7 +281,7 @@ fn despawn_particles(mut commands: Commands, mut particles: Query<(Entity, &mut 
     for (entity, mut ttl) in &mut particles {
         **ttl -= 1;
         if **ttl == 0 {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
 }
@@ -300,9 +301,13 @@ fn print_events_system(mut session: ResMut<Session<Config>>, args: Res<Args>) {
                         ..
                     } => {
                         if args.continue_after_desync {
-                            error!("Desync on frame {frame}. Local checksum: {local_checksum:X}, remote checksum: {remote_checksum:X}");
+                            error!(
+                                "Desync on frame {frame}. Local checksum: {local_checksum:X}, remote checksum: {remote_checksum:X}"
+                            );
                         } else {
-                            panic!("Desync on frame {frame}. Local checksum: {local_checksum:X}, remote checksum: {remote_checksum:X}");
+                            panic!(
+                                "Desync on frame {frame}. Local checksum: {local_checksum:X}, remote checksum: {remote_checksum:X}"
+                            );
                         }
                     }
                     _ => info!("GGRS event: {event:?}"),

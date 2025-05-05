@@ -2,7 +2,7 @@
 name = "bevy_ggrs"
 version = "0.17.0"
 authors = ["Georg Schuppe <georg.schuppe@gmail.com>"]
-edition = "2021"
+edition = "2024"
 description = "Bevy plugin for the GGRS P2P rollback networking library"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
@@ -16,7 +16,7 @@ categories = ["network-programming", "game-development"]
 wasm-bindgen = ["instant/wasm-bindgen", "ggrs/wasm-bindgen"]
 
 [dependencies]
-bevy = { version = "0.15", default-features = false }
+bevy = { version = "0.16", default-features = false, features = ["bevy_log"] }
 instant = { version = "0.1", optional = true }
 log = "0.4"
 #ggrs = { version= "0.11.0", features=["sync-send"]}
@@ -26,13 +26,14 @@ disqualified = "1.0.0"
 serde = { version = "1", default-features = false }
 
 [dev-dependencies]
-bevy = { version = "0.15", default-features = true }
+bevy = { version = "0.16", default-features = true }
 clap = { version = "4.4", features = ["derive"] }
-rand = "0.8.4"
-rand_xoshiro = "0.6"
+rand = "0.9"
+rand_xoshiro = "0.7"
 serde = "1.0.196"
 serde_json = "1.0"
 serial_test = "2.0"
+criterion = "0.5"
 
 # Examples
 [[example]]
@@ -50,3 +51,7 @@ path = "examples/box_game/box_game_synctest.rs"
 [[example]]
 name = "particles"
 path = "examples/stress_tests/particles.rs"
+
+[[bench]]
+name = "bench"
+harness = false

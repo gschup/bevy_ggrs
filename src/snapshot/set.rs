@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{AdvanceWorld, GgrsSchedule, LoadWorld, SaveWorld};
+use crate::snapshot::{AdvanceWorld, LoadWorld, SaveWorld};
 
 /// Set for ordering systems during the [`LoadWorld`] schedule.
 /// The most common option is [`LoadWorldSet::Data`], which is where [`Component`]
@@ -83,23 +83,19 @@ impl Plugin for SnapshotSetPlugin {
             )
                 .chain(),
         )
-        .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::EntityFlush))
-        .add_systems(LoadWorld, apply_deferred.in_set(LoadWorldSet::DataFlush))
+        .add_systems(LoadWorld, ApplyDeferred.in_set(LoadWorldSet::EntityFlush))
+        .add_systems(LoadWorld, ApplyDeferred.in_set(LoadWorldSet::DataFlush))
         .add_systems(
             AdvanceWorld,
-            apply_deferred
+            ApplyDeferred
                 .after(AdvanceWorldSet::First)
                 .before(AdvanceWorldSet::Main),
         )
         .add_systems(
             AdvanceWorld,
-            apply_deferred
+            ApplyDeferred
                 .after(AdvanceWorldSet::Main)
                 .before(AdvanceWorldSet::Last),
-        )
-        .add_systems(
-            AdvanceWorld,
-            (|world: &mut World| world.run_schedule(GgrsSchedule)).in_set(AdvanceWorldSet::Main),
         );
     }
 }

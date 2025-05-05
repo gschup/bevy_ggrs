@@ -1,4 +1,4 @@
-use bevy::{prelude::*, utils::HashMap};
+use bevy::{platform::collections::HashMap, prelude::*};
 use bevy_ggrs::{
     AddRollbackCommandExtension, GgrsConfig, LocalInputs, LocalPlayers, PlayerInputs, Rollback,
     Session,
@@ -161,7 +161,7 @@ pub fn move_cube_system(
     let dt = time.delta().as_secs_f32();
 
     for (mut t, mut v, p) in query.iter_mut() {
-        let input = inputs[p.handle].0 .0;
+        let input = inputs[p.handle].0.0;
         // set velocity through key presses
         if input & INPUT_UP != 0 && input & INPUT_DOWN == 0 {
             v.z -= ACCELERATION * dt;

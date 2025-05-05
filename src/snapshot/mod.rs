@@ -1,9 +1,10 @@
-use crate::{ConfirmedFrameCount, Rollback, DEFAULT_FPS};
-use bevy::{prelude::*, utils::HashMap};
+use crate::DEFAULT_FPS;
+use bevy::{ecs::schedule::ScheduleLabel, platform::collections::HashMap, prelude::*};
 use seahash::SeaHasher;
 use std::{collections::VecDeque, marker::PhantomData};
 
 mod checksum;
+mod childof_snapshot;
 mod component_checksum;
 mod component_map;
 mod component_snapshot;
@@ -12,11 +13,14 @@ mod entity_checksum;
 mod resource_checksum;
 mod resource_map;
 mod resource_snapshot;
+mod rollback;
+mod rollback_app;
 mod rollback_entity_map;
 mod set;
 mod strategy;
 
 pub use checksum::*;
+pub use childof_snapshot::*;
 pub use component_checksum::*;
 pub use component_map::*;
 pub use component_snapshot::*;
@@ -25,12 +29,46 @@ pub use entity_checksum::*;
 pub use resource_checksum::*;
 pub use resource_map::*;
 pub use resource_snapshot::*;
+pub use rollback::*;
+pub use rollback_app::*;
 pub use rollback_entity_map::*;
 pub use set::*;
 pub use strategy::*;
 
 pub mod prelude {
     pub use super::{Checksum, LoadWorldSet, SaveWorldSet};
+}
+
+/// Label for the schedule which loads and overwrites a snapshot of the world.
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct LoadWorld;
+
+/// Label for the schedule which saves a snapshot of the current world.
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct SaveWorld;
+
+/// Label for the schedule which advances the current world to the next frame.
+#[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct AdvanceWorld;
+
+/// Keeps track of the current frame the rollback simulation is in
+#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct RollbackFrameCount(pub i32);
+
+impl From<RollbackFrameCount> for i32 {
+    fn from(value: RollbackFrameCount) -> i32 {
+        value.0
+    }
+}
+
+/// The most recently confirmed frame. Any information for frames stored before this point can be safely discarded.
+#[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ConfirmedFrameCount(pub(crate) i32);
+
+impl From<ConfirmedFrameCount> for i32 {
+    fn from(value: ConfirmedFrameCount) -> i32 {
+        value.0
+    }
 }
 
 /// Typical [`Resource`] used to store snapshots for a [`Resource`] `R` as the type `As`.
@@ -179,7 +217,7 @@ impl<For, As> GgrsSnapshots<For, As> {
             .frames
             .iter()
             .enumerate()
-            .find(|(_, &saved_frame)| saved_frame == frame)?;
+            .find(|&(_, &saved_frame)| saved_frame == frame)?;
         self.snapshots.get(index)
     }
 
@@ -243,4 +281,63 @@ impl<For, As> GgrsComponentSnapshot<For, As> {
 /// Returns a hasher built using the `seahash` library appropriate for creating portable checksums.
 pub fn checksum_hasher() -> SeaHasher {
     SeaHasher::new()
+}
+
+/// This plugin sets up the [`LoadWorld`], [`SaveWorld`], and [`AdvanceWorld`]
+/// schedules and adds the required systems and resources for basic rollback
+/// functionality.
+///
+/// This is independent of the GGRS plugin and can be used with any Bevy app,
+/// including tests and benchmarks.
+pub struct SnapshotPlugin;
+
+impl Plugin for SnapshotPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins(SnapshotSetPlugin)
+            .init_resource::<RollbackOrdered>()
+            .init_resource::<RollbackFrameCount>()
+            .init_resource::<ConfirmedFrameCount>()
+            .init_schedule(LoadWorld)
+            .init_schedule(SaveWorld)
+            .init_schedule(AdvanceWorld)
+            .add_plugins((
+                EntitySnapshotPlugin,
+                ResourceSnapshotPlugin::<CloneStrategy<RollbackOrdered>>::default(),
+                ChildOfSnapshotPlugin,
+            ));
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use bevy::prelude::*;
+
+    use super::{AdvanceWorld, LoadWorld, RollbackFrameCount, SaveWorld};
+
+    /// Saves the world by running the [`SaveWorld`] schedule.
+    pub(crate) fn save_world(world: &mut World) {
+        world.run_schedule(SaveWorld);
+    }
+
+    /// Advances the world by one frame, running the [`AdvanceWorld`] schedule.
+    ///
+    /// assumes input has already been updated
+    pub(crate) fn advance_frame(world: &mut World) -> i32 {
+        let mut frame_count = world
+            .get_resource_mut::<RollbackFrameCount>()
+            .expect("Unable to find GGRS RollbackFrameCount. Did you remove it?");
+        frame_count.0 += 1;
+        let frame = frame_count.0;
+        world.run_schedule(AdvanceWorld);
+        frame
+    }
+
+    /// Loads the world from the provided frame, by running the [`LoadWorld`] schedule.
+    pub(crate) fn load_world(world: &mut World, frame: i32) {
+        world
+            .get_resource_mut::<RollbackFrameCount>()
+            .expect("Unable to find GGRS RollbackFrameCount. Did you remove it?")
+            .0 = frame;
+        world.run_schedule(LoadWorld);
+    }
 }

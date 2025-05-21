@@ -260,7 +260,7 @@ fn spawn_particles(mut commands: Commands, args: Res<Args>, mut rng: ResMut<Part
         commands
             .spawn((
                 Sprite::from_color(ORANGE, Vec2::splat(5.0)),
-                Velocity(vec3(rng.gen_range(-s..s), rng.gen_range(-s..s), 0.0)),
+                Velocity(vec3(rng.random_range(-s..s), rng.random_range(-s..s), 0.0)),
                 Ttl(ttl),
             ))
             .add_rollback();

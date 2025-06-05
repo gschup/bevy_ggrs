@@ -9,7 +9,7 @@ use crate::{
 
 /// [`Resource`] describing the rate at which the [`AdvanceWorld`] will run.
 #[derive(Resource, Clone, Copy, Debug, Hash, Deref)]
-pub struct RollbackFrameRate(pub(crate) usize);
+pub struct RollbackFrameRate(pub usize);
 
 impl Default for RollbackFrameRate {
     fn default() -> Self {

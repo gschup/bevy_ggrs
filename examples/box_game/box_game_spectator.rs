@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_ggrs::{prelude::*, RollbackFrameRate};
+use bevy_ggrs::prelude::*;
 use clap::Parser;
 use ggrs::UdpNonBlockingSocket;
 use std::net::SocketAddr;

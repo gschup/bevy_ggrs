@@ -2,7 +2,7 @@ use bevy::{
     color::palettes::css::ORANGE, math::vec3, platform::collections::HashMap, prelude::*,
     window::WindowResolution,
 };
-use bevy_ggrs::{checksum_hasher, prelude::*, LocalInputs, LocalPlayers};
+use bevy_ggrs::{LocalInputs, LocalPlayers, checksum_hasher, prelude::*};
 use clap::Parser;
 use ggrs::{DesyncDetection, UdpNonBlockingSocket};
 use rand::{Rng, SeedableRng};

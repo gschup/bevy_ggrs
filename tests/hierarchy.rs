@@ -87,7 +87,6 @@ fn hierarchy() {
                 .unwrap(),
         ))
         .add_plugins(GgrsPlugin::<GgrsConfig>::default())
-        .set_rollback_schedule_fps(60)
         .add_systems(ReadInputs, input_system)
         .rollback_component_with_reflect::<ChildEntity>()
         .rollback_component_with_reflect::<ParentEntity>()

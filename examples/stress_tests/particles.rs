@@ -2,7 +2,7 @@ use bevy::{
     color::palettes::css::ORANGE, math::vec3, platform::collections::HashMap, prelude::*,
     window::WindowResolution,
 };
-use bevy_ggrs::{LocalInputs, LocalPlayers, checksum_hasher, prelude::*};
+use bevy_ggrs::{checksum_hasher, prelude::*, LocalInputs, LocalPlayers, RollbackFrameRate};
 use clap::Parser;
 use ggrs::{DesyncDetection, UdpNonBlockingSocket};
 use rand::{Rng, SeedableRng};
@@ -163,7 +163,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut app = App::new();
 
     app.add_plugins(GgrsPlugin::<Config>::default())
-        .set_rollback_schedule_fps(args.fps)
+        .insert_resource(RollbackFrameRate(args.fps))
         .add_systems(ReadInputs, read_local_inputs);
 
     if args.reflect {

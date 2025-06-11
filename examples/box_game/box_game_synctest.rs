@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_ggrs::prelude::*;
+use bevy_ggrs::{prelude::*, RollbackFrameRate};
 use clap::Parser;
 
 mod box_game;
@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     App::new()
         .add_plugins(GgrsPlugin::<BoxConfig>::default())
         // define frequency of rollback game logic update
-        .set_rollback_schedule_fps(FPS)
+        .insert_resource(RollbackFrameRate(FPS))
         // this system will be executed as part of input reading
         .add_systems(ReadInputs, read_local_inputs)
         .insert_resource(opt)

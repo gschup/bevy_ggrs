@@ -163,7 +163,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut app = App::new();
 
     app.add_plugins(GgrsPlugin::<Config>::default())
-        .set_rollback_schedule_fps(args.fps)
+        .insert_resource(RollbackFrameRate(args.fps))
         .add_systems(ReadInputs, read_local_inputs);
 
     if args.reflect {

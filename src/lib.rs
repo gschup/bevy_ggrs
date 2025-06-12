@@ -25,8 +25,8 @@ pub(crate) mod time;
 
 pub mod prelude {
     pub use crate::{
-        AddRollbackCommandExtension, GgrsApp, GgrsConfig, GgrsPlugin, GgrsSchedule, GgrsTime,
-        PlayerInputs, ReadInputs, Rollback, RollbackApp, Session, snapshot::prelude::*,
+        AddRollbackCommandExtension, GgrsConfig, GgrsPlugin, GgrsSchedule, GgrsTime, PlayerInputs,
+        ReadInputs, Rollback, RollbackApp, RollbackFrameRate, Session, snapshot::prelude::*,
     };
     pub use ggrs::{GgrsEvent, PlayerType, SessionBuilder};
 }
@@ -130,8 +130,8 @@ pub struct ReadInputs;
 /// // Add the GgrsPlugin with your input type
 /// app.add_plugins(GgrsPlugin::<GgrsConfig<MyInputType>>::default());
 ///
-/// // (optional) Override the default frequency of rollback game logic updates
-/// app.set_rollback_schedule_fps(FPS);
+/// // (optional) Override the default frequency (60) of rollback game logic updates
+/// app.insert_resource(RollbackFrameRate(FPS));
 ///
 /// // Provide a system to get player input
 /// app.add_systems(ReadInputs, read_local_inputs);
@@ -182,19 +182,5 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
                 schedule_systems::run_ggrs_schedules::<C>.after(InputSystem),
             )
             .add_plugins((ChecksumPlugin, EntityChecksumPlugin, GgrsTimePlugin));
-    }
-}
-
-/// exstension trait for [`App`] to add GGRS specific functionality
-pub trait GgrsApp: RollbackApp {
-    /// Set the frequency that game updates should be performed at.
-    fn set_rollback_schedule_fps(&mut self, fps: usize) -> &mut Self;
-}
-
-impl GgrsApp for App {
-    fn set_rollback_schedule_fps(&mut self, fps: usize) -> &mut Self {
-        self.world_mut().insert_resource(RollbackFrameRate(fps));
-
-        self
     }
 }

@@ -3,7 +3,8 @@ use std::hash::{Hash, Hasher};
 use bevy::prelude::*;
 
 use crate::{
-    ChecksumFlag, ChecksumPart, Rollback, RollbackOrdered, SaveWorld, SaveWorldSystems, checksum_hasher,
+    ChecksumFlag, ChecksumPart, Rollback, RollbackOrdered, SaveWorld, SaveWorldSystems,
+    checksum_hasher,
 };
 
 pub struct EntityChecksumPlugin;

@@ -73,7 +73,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .insert_resource(opt)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                resolution: WindowResolution::new(720., 720.),
+                resolution: WindowResolution::new(720, 720),
                 title: "GGRS Box Game".to_owned(),
                 ..default()
             }),

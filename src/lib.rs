@@ -5,7 +5,7 @@
 
 use bevy::{
     ecs::schedule::{ExecutorKind, LogLevel, ScheduleBuildSettings, ScheduleLabel},
-    input::InputSystem,
+    input::InputSystems,
     platform::collections::HashMap,
     prelude::*,
 };
@@ -179,7 +179,7 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
             )
             .add_systems(
                 PreUpdate,
-                schedule_systems::run_ggrs_schedules::<C>.after(InputSystem),
+                schedule_systems::run_ggrs_schedules::<C>.after(InputSystems),
             )
             .add_plugins((ChecksumPlugin, EntityChecksumPlugin, GgrsTimePlugin));
     }

@@ -219,7 +219,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         })
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                resolution: WindowResolution::new(720., 720.),
+                resolution: WindowResolution::new(720, 720),
                 title: "GGRS particles stress test".to_owned(),
                 ..default()
             }),

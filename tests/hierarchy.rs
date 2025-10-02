@@ -19,7 +19,10 @@ struct ParentEntity;
 #[derive(Reflect, Resource, Default, Debug)]
 struct FrameCounter(u16);
 
-fn input_system(mut commands: Commands, mut delete_events: EventReader<DeleteChildEntityEvent>) {
+fn input_system(
+    mut commands: Commands,
+    mut delete_events: MessageReader<DeleteChildEntityMessage>,
+) {
     let should_delete = u8::from(delete_events.read().count() > 0);
 
     let mut local_inputs = HashMap::new();
@@ -63,8 +66,8 @@ fn frame_counter(mut counter: ResMut<FrameCounter>) {
     counter.0 = counter.0.wrapping_add(1);
 }
 
-#[derive(Event)]
-struct DeleteChildEntityEvent;
+#[derive(Message)]
+struct DeleteChildEntityMessage;
 
 /// This test makes sure that the hiearchy of entities is correctly restored when rolling back.
 #[test]
@@ -73,7 +76,7 @@ fn hierarchy() {
 
     app.add_plugins(MinimalPlugins)
         .add_plugins(TransformPlugin)
-        .add_event::<DeleteChildEntityEvent>()
+        .add_message::<DeleteChildEntityMessage>()
         .init_resource::<FrameCounter>()
         .add_systems(Startup, setup_system)
         // Insert the GGRS session
@@ -120,10 +123,10 @@ fn hierarchy() {
     sleep();
     app.update();
 
-    // Send the event to delete the child entity
+    // Send the message to delete the child entity
     app.world_mut()
-        .resource_mut::<Events<DeleteChildEntityEvent>>()
-        .send(DeleteChildEntityEvent);
+        .resource_mut::<Messages<DeleteChildEntityMessage>>()
+        .write(DeleteChildEntityMessage);
 
     // Run for a number of times to make sure we get some rollbacks to happen
     for _ in 0..5 {

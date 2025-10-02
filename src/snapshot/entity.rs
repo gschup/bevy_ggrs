@@ -1,6 +1,6 @@
 use crate::{
-    GgrsComponentSnapshot, GgrsComponentSnapshots, LoadWorld, LoadWorldSet, Rollback,
-    RollbackEntityMap, RollbackFrameCount, SaveWorld, SaveWorldSet,
+    GgrsComponentSnapshot, GgrsComponentSnapshots, LoadWorld, LoadWorldSystems, Rollback,
+    RollbackEntityMap, RollbackFrameCount, SaveWorld, SaveWorldSystems,
 };
 use bevy::{platform::collections::HashMap, prelude::*};
 
@@ -97,8 +97,8 @@ impl Plugin for EntitySnapshotPlugin {
                     Self::save,
                 )
                     .chain()
-                    .in_set(SaveWorldSet::Snapshot),
+                    .in_set(SaveWorldSystems::Snapshot),
             )
-            .add_systems(LoadWorld, Self::load.in_set(LoadWorldSet::Entity));
+            .add_systems(LoadWorld, Self::load.in_set(LoadWorldSystems::Entity));
     }
 }

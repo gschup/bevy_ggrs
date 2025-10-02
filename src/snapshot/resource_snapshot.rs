@@ -1,5 +1,5 @@
 use crate::{
-    GgrsResourceSnapshots, LoadWorld, LoadWorldSet, RollbackFrameCount, SaveWorld, SaveWorldSet,
+    GgrsResourceSnapshots, LoadWorld, LoadWorldSystems, RollbackFrameCount, SaveWorld, SaveWorldSystems,
     Strategy,
 };
 use bevy::prelude::*;
@@ -99,8 +99,8 @@ where
                     Self::save,
                 )
                     .chain()
-                    .in_set(SaveWorldSet::Snapshot),
+                    .in_set(SaveWorldSystems::Snapshot),
             )
-            .add_systems(LoadWorld, Self::load.in_set(LoadWorldSet::Data));
+            .add_systems(LoadWorld, Self::load.in_set(LoadWorldSystems::Data));
     }
 }

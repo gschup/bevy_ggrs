@@ -5,7 +5,7 @@ use bevy::{
     prelude::*,
 };
 
-use crate::{LoadWorld, LoadWorldSet, RollbackEntityMap};
+use crate::{LoadWorld, LoadWorldSystems, RollbackEntityMap};
 
 /// A [`Plugin`] which updates the state of a post-rollback [`Component`] `C` using [`MapEntities`].
 ///
@@ -86,7 +86,7 @@ where
     C: Component<Mutability = Mutable> + MapEntities,
 {
     fn build(&self, app: &mut App) {
-        app.add_systems(LoadWorld, Self::update.in_set(LoadWorldSet::Mapping));
+        app.add_systems(LoadWorld, Self::update.in_set(LoadWorldSystems::Mapping));
     }
 }
 

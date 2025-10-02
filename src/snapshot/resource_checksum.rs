@@ -2,7 +2,7 @@ use std::hash::{Hash, Hasher};
 
 use bevy::prelude::*;
 
-use crate::{ChecksumFlag, ChecksumPart, Rollback, SaveWorld, SaveWorldSet, checksum_hasher};
+use crate::{ChecksumFlag, ChecksumPart, Rollback, SaveWorld, SaveWorldSystems, checksum_hasher};
 
 /// Plugin which will track the [`Resource`] `R` and ensure a [`ChecksumPart`] is
 /// available and updated. This can be used to generate a [`Checksum`](`crate::Checksum`).
@@ -74,6 +74,6 @@ where
                 commands.spawn((result, ChecksumFlag::<R>::default()));
             }
         };
-        app.add_systems(SaveWorld, update.in_set(SaveWorldSet::Checksum));
+        app.add_systems(SaveWorld, update.in_set(SaveWorldSystems::Checksum));
     }
 }

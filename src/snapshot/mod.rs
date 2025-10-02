@@ -36,7 +36,7 @@ pub use set::*;
 pub use strategy::*;
 
 pub mod prelude {
-    pub use super::{Checksum, LoadWorldSet, SaveWorldSet};
+    pub use super::{Checksum, LoadWorldSystems, SaveWorldSystems};
 }
 
 /// Label for the schedule which loads and overwrites a snapshot of the world.

@@ -175,7 +175,7 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
             .add_systems(
                 AdvanceWorld,
                 (|world: &mut World| world.run_schedule(GgrsSchedule))
-                    .in_set(AdvanceWorldSet::Main),
+                    .in_set(AdvanceWorldSystems::Main),
             )
             .add_systems(
                 PreUpdate,

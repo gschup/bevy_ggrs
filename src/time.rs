@@ -3,7 +3,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 
 use crate::{
-    AdvanceWorld, AdvanceWorldSet, CloneStrategy, DEFAULT_FPS, ResourceSnapshotPlugin,
+    AdvanceWorld, AdvanceWorldSystems, CloneStrategy, DEFAULT_FPS, ResourceSnapshotPlugin,
     RollbackFrameCount,
 };
 
@@ -92,11 +92,11 @@ impl Plugin for GgrsTimePlugin {
                 AdvanceWorld,
                 (Self::update, Self::replace_default_with_ggrs)
                     .chain()
-                    .in_set(AdvanceWorldSet::First),
+                    .in_set(AdvanceWorldSystems::First),
             )
             .add_systems(
                 AdvanceWorld,
-                Self::replace_default_with_virtual.in_set(AdvanceWorldSet::Last),
+                Self::replace_default_with_virtual.in_set(AdvanceWorldSystems::Last),
             );
     }
 }

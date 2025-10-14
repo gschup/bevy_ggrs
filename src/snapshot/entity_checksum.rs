@@ -3,7 +3,8 @@ use std::hash::{Hash, Hasher};
 use bevy::prelude::*;
 
 use crate::{
-    ChecksumFlag, ChecksumPart, Rollback, RollbackOrdered, SaveWorld, SaveWorldSet, checksum_hasher,
+    ChecksumFlag, ChecksumPart, Rollback, RollbackOrdered, SaveWorld, SaveWorldSystems,
+    checksum_hasher,
 };
 
 pub struct EntityChecksumPlugin;
@@ -38,6 +39,6 @@ impl EntityChecksumPlugin {
 
 impl Plugin for EntityChecksumPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(SaveWorld, Self::update.in_set(SaveWorldSet::Checksum));
+        app.add_systems(SaveWorld, Self::update.in_set(SaveWorldSystems::Checksum));
     }
 }

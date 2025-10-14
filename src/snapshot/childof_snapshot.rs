@@ -1,5 +1,6 @@
 use crate::{
-    GgrsComponentSnapshots, LoadWorld, LoadWorldSet, RollbackFrameCount, SaveWorld, SaveWorldSet,
+    GgrsComponentSnapshots, LoadWorld, LoadWorldSystems, RollbackFrameCount, SaveWorld,
+    SaveWorldSystems,
 };
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 
@@ -22,9 +23,9 @@ impl Plugin for ChildOfSnapshotPlugin {
                     Self::save,
                 )
                     .chain()
-                    .in_set(SaveWorldSet::Snapshot),
+                    .in_set(SaveWorldSystems::Snapshot),
             )
-            .add_systems(LoadWorld, Self::load.in_set(LoadWorldSet::Data));
+            .add_systems(LoadWorld, Self::load.in_set(LoadWorldSystems::Data));
     }
 }
 

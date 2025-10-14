@@ -5,7 +5,7 @@ use std::{
 
 use bevy::prelude::*;
 
-use crate::{SaveWorld, SaveWorldSet, checksum_hasher};
+use crate::{SaveWorld, SaveWorldSystems, checksum_hasher};
 
 /// Flags an entity as containing a checksum for a type `T`
 #[derive(Component)]
@@ -94,8 +94,8 @@ impl Plugin for ChecksumPlugin {
         app.init_resource::<Checksum>().add_systems(
             SaveWorld,
             Self::update
-                .after(SaveWorldSet::Checksum)
-                .before(SaveWorldSet::Snapshot),
+                .after(SaveWorldSystems::Checksum)
+                .before(SaveWorldSystems::Snapshot),
         );
     }
 }

@@ -6,7 +6,7 @@ use crate::snapshot::{AdvanceWorld, LoadWorld, SaveWorld};
 /// The most common option is [`LoadWorldSet::Data`], which is where [`Component`]
 /// and [`Resource`] snapshots are loaded and applied to the [`World`].
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
-pub enum LoadWorldSet {
+pub enum LoadWorldSystems {
     /// Recreate the [`Entity`] graph as it was during the frame to be rolled back to.
     /// When this set is complete, all entities that were alive during the snapshot
     /// frame have been recreated, and any that were not have been removed. If the
@@ -32,7 +32,7 @@ pub enum LoadWorldSet {
 }
 
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
-pub enum SaveWorldSet {
+pub enum SaveWorldSystems {
     /// Generate checksums for any tracked data.
     ///
     /// Within this set, it is expected that all data which will participate in the
@@ -47,7 +47,7 @@ pub enum SaveWorldSet {
 }
 
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
-pub enum AdvanceWorldSet {
+pub enum AdvanceWorldSystems {
     First,
     Main,
     Last,
@@ -62,40 +62,43 @@ impl Plugin for SnapshotSetPlugin {
         app.configure_sets(
             LoadWorld,
             (
-                LoadWorldSet::Entity,
-                LoadWorldSet::EntityFlush,
-                LoadWorldSet::Data,
-                LoadWorldSet::DataFlush,
-                LoadWorldSet::Mapping,
+                LoadWorldSystems::Entity,
+                LoadWorldSystems::EntityFlush,
+                LoadWorldSystems::Data,
+                LoadWorldSystems::DataFlush,
+                LoadWorldSystems::Mapping,
             )
                 .chain(),
         )
         .configure_sets(
             SaveWorld,
-            (SaveWorldSet::Checksum, SaveWorldSet::Snapshot).chain(),
+            (SaveWorldSystems::Checksum, SaveWorldSystems::Snapshot).chain(),
         )
         .configure_sets(
             AdvanceWorld,
             (
-                AdvanceWorldSet::First,
-                AdvanceWorldSet::Main,
-                AdvanceWorldSet::Last,
+                AdvanceWorldSystems::First,
+                AdvanceWorldSystems::Main,
+                AdvanceWorldSystems::Last,
             )
                 .chain(),
         )
-        .add_systems(LoadWorld, ApplyDeferred.in_set(LoadWorldSet::EntityFlush))
-        .add_systems(LoadWorld, ApplyDeferred.in_set(LoadWorldSet::DataFlush))
+        .add_systems(
+            LoadWorld,
+            ApplyDeferred.in_set(LoadWorldSystems::EntityFlush),
+        )
+        .add_systems(LoadWorld, ApplyDeferred.in_set(LoadWorldSystems::DataFlush))
         .add_systems(
             AdvanceWorld,
             ApplyDeferred
-                .after(AdvanceWorldSet::First)
-                .before(AdvanceWorldSet::Main),
+                .after(AdvanceWorldSystems::First)
+                .before(AdvanceWorldSystems::Main),
         )
         .add_systems(
             AdvanceWorld,
             ApplyDeferred
-                .after(AdvanceWorldSet::Main)
-                .before(AdvanceWorldSet::Last),
+                .after(AdvanceWorldSystems::Main)
+                .before(AdvanceWorldSystems::Last),
         );
     }
 }

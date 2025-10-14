@@ -1,6 +1,6 @@
 use crate::{
-    GgrsComponentSnapshot, GgrsComponentSnapshots, LoadWorld, LoadWorldSet, Rollback,
-    RollbackFrameCount, SaveWorld, SaveWorldSet, Strategy,
+    GgrsComponentSnapshot, GgrsComponentSnapshots, LoadWorld, LoadWorldSystems, Rollback,
+    RollbackFrameCount, SaveWorld, SaveWorldSystems, Strategy,
 };
 use bevy::{
     ecs::component::{Immutable, Mutable},
@@ -128,9 +128,9 @@ where
                     Self::save,
                 )
                     .chain()
-                    .in_set(SaveWorldSet::Snapshot),
+                    .in_set(SaveWorldSystems::Snapshot),
             );
-        app.add_systems(LoadWorld, Self::load.in_set(LoadWorldSet::Data));
+        app.add_systems(LoadWorld, Self::load.in_set(LoadWorldSystems::Data));
     }
 }
 
@@ -187,9 +187,9 @@ where
                     ComponentSnapshotPlugin::<S>::save,
                 )
                     .chain()
-                    .in_set(SaveWorldSet::Snapshot),
+                    .in_set(SaveWorldSystems::Snapshot),
             )
-            .add_systems(LoadWorld, Self::load.in_set(LoadWorldSet::Data));
+            .add_systems(LoadWorld, Self::load.in_set(LoadWorldSystems::Data));
     }
 }
 

@@ -162,7 +162,7 @@ pub fn increase_frame_system(mut frame_count: ResMut<FrameCount>) {
 }
 
 fn press_key(app: &mut App, key: KeyCode) {
-    app.world_mut().send_event(KeyboardInput {
+    app.world_mut().write_message(KeyboardInput {
         logical_key: Key::Character("w".into()),
         key_code: key,
         state: ButtonState::Pressed,

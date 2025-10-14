@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use bevy::{ecs::entity::MapEntities, prelude::*};
 
-use crate::{LoadWorld, LoadWorldSet, RollbackEntityMap};
+use crate::{LoadWorld, LoadWorldSystems, RollbackEntityMap};
 
 /// A [`Plugin`] which updates the state of a post-rollback [`Resource`] `R` using [`MapEntities`].
 ///
@@ -81,6 +81,6 @@ where
     R: Resource + MapEntities,
 {
     fn build(&self, app: &mut App) {
-        app.add_systems(LoadWorld, Self::update.in_set(LoadWorldSet::Mapping));
+        app.add_systems(LoadWorld, Self::update.in_set(LoadWorldSystems::Mapping));
     }
 }

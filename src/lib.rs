@@ -13,7 +13,7 @@ use core::time::Duration;
 use ggrs::{Config, InputStatus, P2PSession, PlayerHandle, SpectatorSession, SyncTestSession};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, net::SocketAddr};
-
+use bevy::ecs::intern::Interned;
 pub use ggrs;
 
 pub use snapshot::*;
@@ -103,6 +103,9 @@ pub struct LocalPlayers(pub Vec<PlayerHandle>);
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct ReadInputs;
 
+#[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
+pub struct RunGgrsSystems;
+
 /// GGRS plugin for bevy.
 ///
 /// # Rollback
@@ -144,13 +147,26 @@ pub struct ReadInputs;
 /// # }
 /// ```
 pub struct GgrsPlugin<C: Config> {
+    schedule: Interned<dyn ScheduleLabel>,
     /// phantom marker for ggrs config
     _marker: PhantomData<C>,
 }
 
+impl<C: Config> GgrsPlugin<C> {
+    pub fn new(schedule: Interned<dyn ScheduleLabel>) -> Self {
+        Self {
+            schedule,
+            _marker: default()
+        }
+    }
+}
+
 impl<C: Config> Default for GgrsPlugin<C> {
     fn default() -> Self {
-        Self { _marker: default() }
+        Self {
+            schedule: PreUpdate.intern(),
+            _marker: default()
+        }
     }
 }
 
@@ -178,8 +194,10 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
                     .in_set(AdvanceWorldSystems::Main),
             )
             .add_systems(
-                PreUpdate,
-                schedule_systems::run_ggrs_schedules::<C>.after(InputSystems),
+                self.schedule,
+                schedule_systems::run_ggrs_schedules::<C>
+                    .in_set(RunGgrsSystems)
+                    .after(InputSystems), // If we are in PreUpdate, run after input is read
             )
             .add_plugins((ChecksumPlugin, EntityChecksumPlugin, GgrsTimePlugin));
     }

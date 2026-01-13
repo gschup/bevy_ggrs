@@ -16,7 +16,7 @@ categories = ["network-programming", "game-development"]
 wasm-bindgen = ["instant/wasm-bindgen", "ggrs/wasm-bindgen"]
 
 [dependencies]
-bevy = { version = "0.18.0-rc.2", default-features = false, features = ["bevy_log"] }
+bevy = { version = "0.18.0", default-features = false, features = ["bevy_log"] }
 instant = { version = "0.1", optional = true }
 log = "0.4"
 ggrs = { version= "0.11.1", features = ["sync-send"] }

@@ -165,7 +165,7 @@ impl<C: Config> Default for GgrsPlugin<C> {
     fn default() -> Self {
         Self {
             schedule: PreUpdate.intern(),
-            _marker: default()
+            _marker: default(),
         }
     }
 }

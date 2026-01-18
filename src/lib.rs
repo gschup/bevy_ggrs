@@ -153,9 +153,9 @@ pub struct GgrsPlugin<C: Config> {
 }
 
 impl<C: Config> GgrsPlugin<C> {
-    pub fn new(schedule: Interned<dyn ScheduleLabel>) -> Self {
+    pub fn new(schedule: impl ScheduleLabel) -> Self {
         Self {
-            schedule,
+            schedule: schedule.intern(),
             _marker: default()
         }
     }

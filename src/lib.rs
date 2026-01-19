@@ -3,6 +3,7 @@
 //! See [`GgrsPlugin`] for getting started.
 #![allow(clippy::type_complexity)] // Suppress warnings around Query
 
+use bevy::ecs::intern::Interned;
 use bevy::{
     ecs::schedule::{ExecutorKind, LogLevel, ScheduleBuildSettings, ScheduleLabel},
     input::InputSystems,
@@ -10,11 +11,10 @@ use bevy::{
     prelude::*,
 };
 use core::time::Duration;
+pub use ggrs;
 use ggrs::{Config, InputStatus, P2PSession, PlayerHandle, SpectatorSession, SyncTestSession};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, net::SocketAddr};
-use bevy::ecs::intern::Interned;
-pub use ggrs;
 
 pub use snapshot::*;
 pub use time::*;
@@ -156,7 +156,7 @@ impl<C: Config> GgrsPlugin<C> {
     pub fn new(schedule: impl ScheduleLabel) -> Self {
         Self {
             schedule: schedule.intern(),
-            _marker: default()
+            _marker: default(),
         }
     }
 }

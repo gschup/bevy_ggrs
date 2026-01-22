@@ -8,6 +8,7 @@ mod childof_snapshot;
 mod component_checksum;
 mod component_map;
 mod component_snapshot;
+mod despawn;
 mod entity;
 mod entity_checksum;
 mod resource_checksum;
@@ -18,8 +19,8 @@ mod rollback_app;
 mod rollback_entity_map;
 mod set;
 mod strategy;
-mod despawn;
 
+use crate::snapshot::despawn::RollbackDespawnPlugin;
 pub use checksum::*;
 pub use childof_snapshot::*;
 pub use component_checksum::*;
@@ -35,7 +36,6 @@ pub use rollback_app::*;
 pub use rollback_entity_map::*;
 pub use set::*;
 pub use strategy::*;
-use crate::snapshot::despawn::RollbackDespawnPlugin;
 
 pub mod prelude {
     pub use super::{Checksum, LoadWorldSystems, SaveWorldSystems};

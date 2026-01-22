@@ -20,7 +20,7 @@ mod rollback_entity_map;
 mod set;
 mod strategy;
 
-use crate::snapshot::despawn::RollbackDespawnPlugin;
+pub use despawn::*;
 pub use checksum::*;
 pub use childof_snapshot::*;
 pub use component_checksum::*;

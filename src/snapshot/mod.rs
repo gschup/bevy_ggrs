@@ -18,6 +18,7 @@ mod rollback_app;
 mod rollback_entity_map;
 mod set;
 mod strategy;
+mod despawn;
 
 pub use checksum::*;
 pub use childof_snapshot::*;
@@ -34,6 +35,7 @@ pub use rollback_app::*;
 pub use rollback_entity_map::*;
 pub use set::*;
 pub use strategy::*;
+use crate::snapshot::despawn::RollbackDespawnPlugin;
 
 pub mod prelude {
     pub use super::{Checksum, LoadWorldSystems, SaveWorldSystems};
@@ -304,6 +306,7 @@ impl Plugin for SnapshotPlugin {
                 EntitySnapshotPlugin,
                 ResourceSnapshotPlugin::<CloneStrategy<RollbackOrdered>>::default(),
                 ChildOfSnapshotPlugin,
+                RollbackDespawnPlugin,
             ));
     }
 }

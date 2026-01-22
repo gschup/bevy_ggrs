@@ -32,12 +32,18 @@
 //! Entities which have been marked for despawn are disabled using the [`RollbackDespawned`]
 //! component, so they will appear as though they are despawned to normal system queries.
 
-use std::cmp::Ordering;
-use bevy::app::{App, Plugin};
-use bevy::prelude::{Children, Component, Entity, EntityCommands, EntityMut, EntityRef, EntityWorldMut, IntoScheduleConfigs, Local, Query, QueryState, Res, World};
-use ggrs::Frame;
-use crate::{AdvanceWorld, AdvanceWorldSystems, ConfirmedFrameCount, LoadWorld, LoadWorldSystems, RollbackFrameCount, SaveWorld, SaveWorldSystems};
 use crate::snapshot::despawn::private::RollbackDespawnCommandExtensionSeal;
+use crate::{
+    AdvanceWorld, AdvanceWorldSystems, ConfirmedFrameCount, LoadWorld, LoadWorldSystems,
+    RollbackFrameCount, SaveWorld, SaveWorldSystems,
+};
+use bevy::app::{App, Plugin};
+use bevy::prelude::{
+    Children, Component, Entity, EntityCommands, EntityMut, EntityRef, EntityWorldMut,
+    IntoScheduleConfigs, Local, Query, QueryState, Res, World,
+};
+use ggrs::Frame;
+use std::cmp::Ordering;
 
 /// Marks an entity as despawned, contains the frame that the entity was despawned on.
 ///
@@ -54,8 +60,14 @@ impl Plugin for RollbackDespawnPlugin {
     fn build(&self, app: &mut App) {
         app.register_disabling_component::<RollbackDespawned>();
 
-        app.add_systems(LoadWorld, resurrect_entities.in_set(LoadWorldSystems::EntityResurrect))
-            .add_systems(AdvanceWorld, despawn_confirmed_entities.in_set(AdvanceWorldSystems::DespawnConfirmed));
+        app.add_systems(
+            LoadWorld,
+            resurrect_entities.in_set(LoadWorldSystems::EntityResurrect),
+        )
+        .add_systems(
+            AdvanceWorld,
+            despawn_confirmed_entities.in_set(AdvanceWorldSystems::DespawnConfirmed),
+        );
     }
 }
 
@@ -74,7 +86,9 @@ fn resurrect_entities(
         })
         .collect::<Vec<_>>()
         .into_iter()
-        .for_each(|entity| { world.entity_mut(entity).remove::<RollbackDespawned>(); });
+        .for_each(|entity| {
+            world.entity_mut(entity).remove::<RollbackDespawned>();
+        });
 }
 
 fn despawn_confirmed_entities(
@@ -97,7 +111,9 @@ fn despawn_confirmed_entities(
         })
         .collect::<Vec<_>>()
         .into_iter()
-        .for_each(|entity| { world.despawn(entity); });
+        .for_each(|entity| {
+            world.despawn(entity);
+        });
 }
 
 mod private {

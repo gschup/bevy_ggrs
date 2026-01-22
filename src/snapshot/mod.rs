@@ -20,12 +20,12 @@ mod rollback_entity_map;
 mod set;
 mod strategy;
 
-pub use despawn::*;
 pub use checksum::*;
 pub use childof_snapshot::*;
 pub use component_checksum::*;
 pub use component_map::*;
 pub use component_snapshot::*;
+pub use despawn::*;
 pub use entity::*;
 pub use entity_checksum::*;
 pub use resource_checksum::*;
@@ -38,8 +38,8 @@ pub use set::*;
 pub use strategy::*;
 
 pub mod prelude {
+    pub use super::despawn::{RollbackDespawnCommandExtension, RollbackDespawned};
     pub use super::{Checksum, LoadWorldSystems, SaveWorldSystems};
-    pub use super::despawn::{RollbackDespawned, RollbackDespawnCommandExtension};
 }
 
 /// Label for the schedule which loads and overwrites a snapshot of the world.

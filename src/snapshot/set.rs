@@ -13,6 +13,9 @@ use crate::snapshot::{AdvanceWorld, LoadWorld, SaveWorld};
 /// and [`Resource`] snapshots are loaded and applied to the [`World`].
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
 pub enum LoadWorldSystems {
+    /// Removes any despawn markers if the loaded frame is before they were marked.
+    /// See [`despawn module docs`](`crate::snapshot::despawn`).
+    EntityResurrect,
     /// Recreate the [`Entity`] graph as it was during the frame to be rolled back to.
     /// When this set is complete, all entities that were alive during the snapshot
     /// frame have been recreated, and any that were not have been removed. If the
@@ -68,6 +71,9 @@ pub enum AdvanceWorldSystems {
     /// Runs before [`GgrsSchedule`](`crate::GgrsSchedule`). Use this for setup work that
     /// must happen at the very start of each GGRS frame.
     First,
+    /// Despawn any entities if their marked frame has been confirmed.
+    /// See [`despawn module docs`](`crate::snapshot::despawn`).
+    DespawnConfirmed,
     /// The main GGRS frame step. [`GgrsSchedule`](`crate::GgrsSchedule`) runs here.
     Main,
     /// Runs after [`GgrsSchedule`](`crate::GgrsSchedule`). Use this for teardown or
@@ -86,6 +92,7 @@ impl Plugin for SnapshotSetPlugin {
         app.configure_sets(
             LoadWorld,
             (
+                LoadWorldSystems::EntityResurrect,
                 LoadWorldSystems::Entity,
                 LoadWorldSystems::EntityFlush,
                 LoadWorldSystems::Data,
@@ -96,12 +103,16 @@ impl Plugin for SnapshotSetPlugin {
         )
         .configure_sets(
             SaveWorld,
-            (SaveWorldSystems::Checksum, SaveWorldSystems::Snapshot).chain(),
+            (
+                SaveWorldSystems::Checksum,
+                SaveWorldSystems::Snapshot
+            ).chain(),
         )
         .configure_sets(
             AdvanceWorld,
             (
                 AdvanceWorldSystems::First,
+                AdvanceWorldSystems::DespawnConfirmed,
                 AdvanceWorldSystems::Main,
                 AdvanceWorldSystems::Last,
             )

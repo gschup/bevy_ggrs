@@ -79,10 +79,7 @@ impl Plugin for SnapshotSetPlugin {
         )
         .configure_sets(
             SaveWorld,
-            (
-                SaveWorldSystems::Checksum,
-                SaveWorldSystems::Snapshot
-            ).chain(),
+            (SaveWorldSystems::Checksum, SaveWorldSystems::Snapshot).chain(),
         )
         .configure_sets(
             AdvanceWorld,

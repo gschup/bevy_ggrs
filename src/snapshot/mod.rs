@@ -39,6 +39,7 @@ pub use strategy::*;
 
 pub mod prelude {
     pub use super::{Checksum, LoadWorldSystems, SaveWorldSystems};
+    pub use super::despawn::{RollbackDespawned, RollbackDespawnCommandExtension};
 }
 
 /// Label for the schedule which loads and overwrites a snapshot of the world.

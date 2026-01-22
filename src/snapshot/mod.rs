@@ -8,6 +8,7 @@ mod childof_snapshot;
 mod component_checksum;
 mod component_map;
 mod component_snapshot;
+mod despawn;
 mod entity;
 mod entity_checksum;
 mod resource_checksum;
@@ -24,6 +25,7 @@ pub use childof_snapshot::*;
 pub use component_checksum::*;
 pub use component_map::*;
 pub use component_snapshot::*;
+pub use despawn::*;
 pub use entity::*;
 pub use entity_checksum::*;
 pub use resource_checksum::*;
@@ -36,6 +38,7 @@ pub use set::*;
 pub use strategy::*;
 
 pub mod prelude {
+    pub use super::despawn::{RollbackDespawnCommandExtension, RollbackDespawned};
     pub use super::{Checksum, LoadWorldSystems, SaveWorldSystems};
 }
 
@@ -304,6 +307,7 @@ impl Plugin for SnapshotPlugin {
                 EntitySnapshotPlugin,
                 ResourceSnapshotPlugin::<CloneStrategy<RollbackOrdered>>::default(),
                 ChildOfSnapshotPlugin,
+                RollbackDespawnPlugin,
             ));
     }
 }

@@ -26,7 +26,8 @@ pub(crate) mod time;
 pub mod prelude {
     pub use crate::{
         AddRollbackCommandExtension, GgrsConfig, GgrsPlugin, GgrsSchedule, GgrsTime, PlayerInputs,
-        ReadInputs, Rollback, RollbackApp, RollbackFrameRate, Session, snapshot::prelude::*,
+        ReadInputs, Rollback, RollbackApp, RollbackFrameRate, Session, SyncTestMismatch,
+        snapshot::prelude::*,
     };
     pub use ggrs::{GgrsEvent, PlayerType, SessionBuilder};
 }
@@ -90,6 +91,26 @@ impl Default for FixedTimestepData {
 /// The maximum prediction window for this [`Session`], provided as a concrete [`Resource`].
 #[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MaxPredictionWindow(usize);
+
+/// Triggered when a [`SyncTestSession`] detects a checksum mismatch after
+/// rollback resimulation. This means the resimulated state diverged from
+/// the original — indicating a rollback correctness issue.
+///
+/// Observe this event to handle desyncs in tests:
+///
+/// ```rust,ignore
+/// app.world_mut().add_observer(|trigger: On<SyncTestMismatch>| {
+///     panic!("Desync at frame {}: mismatched frames {:?}",
+///         trigger.event().current_frame, trigger.event().mismatched_frames);
+/// });
+/// ```
+#[derive(Event, Debug, Clone)]
+pub struct SyncTestMismatch {
+    /// The frame at which the mismatch was detected.
+    pub current_frame: ggrs::Frame,
+    /// The frames whose checksums did not match.
+    pub mismatched_frames: Vec<ggrs::Frame>,
+}
 
 /// Inputs from local players. You have to fill this resource in the ReadInputs schedule.
 #[derive(Resource)]

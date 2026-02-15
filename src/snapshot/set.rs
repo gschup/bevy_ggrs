@@ -7,6 +7,9 @@ use crate::snapshot::{AdvanceWorld, LoadWorld, SaveWorld};
 /// and [`Resource`] snapshots are loaded and applied to the [`World`].
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
 pub enum LoadWorldSystems {
+    /// Removes any despawn markers if the loaded frame is before they were marked.
+    /// See [`despawn module docs`](`crate::snapshot::despawn`).
+    EntityResurrect,
     /// Recreate the [`Entity`] graph as it was during the frame to be rolled back to.
     /// When this set is complete, all entities that were alive during the snapshot
     /// frame have been recreated, and any that were not have been removed. If the
@@ -19,7 +22,7 @@ pub enum LoadWorldSystems {
     /// When this set is complete, all [`Components`](`Component`) and [`Resources`](`Resource`)
     /// will be rolled back to their exact state during the snapshot.
     ///
-    /// NOTE: At this point, [`Entity`] relationships may be broken, see [`LoadWorldSet::Mapping`]
+    /// NOTE: At this point, [`Entity`] relationships may be broken, see [`LoadWorldSystems::Mapping`]
     /// for when those relationships are fixed.
     Data,
     /// Flush any deferred operations
@@ -49,6 +52,9 @@ pub enum SaveWorldSystems {
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
 pub enum AdvanceWorldSystems {
     First,
+    /// Despawn any entities if their marked frame has been confirmed.
+    /// See [`despawn module docs`](`crate::snapshot::despawn`).
+    DespawnConfirmed,
     Main,
     Last,
 }
@@ -62,6 +68,7 @@ impl Plugin for SnapshotSetPlugin {
         app.configure_sets(
             LoadWorld,
             (
+                LoadWorldSystems::EntityResurrect,
                 LoadWorldSystems::Entity,
                 LoadWorldSystems::EntityFlush,
                 LoadWorldSystems::Data,
@@ -78,6 +85,7 @@ impl Plugin for SnapshotSetPlugin {
             AdvanceWorld,
             (
                 AdvanceWorldSystems::First,
+                AdvanceWorldSystems::DespawnConfirmed,
                 AdvanceWorldSystems::Main,
                 AdvanceWorldSystems::Last,
             )

@@ -1,7 +1,7 @@
 use crate::{
     AdvanceWorld, Checksum, ConfirmedFrameCount, FixedTimestepData, LoadWorld, LocalInputs,
     LocalPlayers, MaxPredictionWindow, PlayerInputs, ReadInputs, RollbackFrameCount,
-    RollbackFrameRate, SaveWorld, Session,
+    RollbackFrameRate, SaveWorld, Session, SyncTestMismatch,
 };
 use bevy::prelude::*;
 use core::time::Duration;
@@ -92,7 +92,19 @@ pub(crate) fn run_synctest<C: Config>(world: &mut World, mut sess: SyncTestSessi
 
     match requests {
         Ok(requests) => handle_requests(requests, world),
-        Err(e) => warn!("{e}"),
+        Err(e) => {
+            warn!("{e}");
+            if let GgrsError::MismatchedChecksum {
+                current_frame,
+                mismatched_frames,
+            } = e
+            {
+                world.trigger(SyncTestMismatch {
+                    current_frame,
+                    mismatched_frames,
+                });
+            }
+        }
     }
 }
 

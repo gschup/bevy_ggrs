@@ -33,10 +33,9 @@ fn input_system(
 
 fn setup_system(mut commands: Commands) {
     commands
-        .spawn(ParentEntity)
-        .add_rollback()
+        .spawn((ParentEntity, Rollback))
         .with_children(|parent| {
-            parent.spawn(ChildEntity).add_rollback();
+            parent.spawn((ChildEntity, Rollback));
         });
 }
 

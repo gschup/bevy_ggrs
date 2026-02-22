@@ -94,7 +94,7 @@ where
 mod tests {
     use super::*;
     use crate::snapshot::{
-        AddRollbackCommandExtension, AdvanceWorld, RollbackApp, SnapshotPlugin,
+        AdvanceWorld, Rollback, RollbackApp, SnapshotPlugin,
         tests::{advance_frame, load_world, save_world},
     };
     use bevy::log::LogPlugin;
@@ -111,9 +111,11 @@ mod tests {
     struct Likes(#[entities] Entity);
 
     #[derive(Component, Clone, Copy)]
+    #[require(Rollback)]
     struct Friend;
 
     #[derive(Component)]
+    #[require(Rollback)]
     struct Player;
 
     fn like_single_friend(
@@ -132,7 +134,7 @@ mod tests {
 
     fn spawn_friend(mut commands: Commands, inputs: Res<Input>) {
         if let Input::SpawnFriend = *inputs {
-            commands.spawn(Friend).add_rollback();
+            commands.spawn(Friend);
         }
     }
 
@@ -149,7 +151,7 @@ mod tests {
     }
 
     fn spawn_player(mut commands: Commands) {
-        commands.spawn(Player).add_rollback();
+        commands.spawn(Player);
     }
 
     #[test]

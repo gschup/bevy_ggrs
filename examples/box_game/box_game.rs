@@ -1,8 +1,5 @@
 use bevy::{platform::collections::HashMap, prelude::*};
-use bevy_ggrs::{
-    AddRollbackCommandExtension, GgrsConfig, LocalInputs, LocalPlayers, PlayerInputs, Rollback,
-    Session,
-};
+use bevy_ggrs::{GgrsConfig, LocalInputs, LocalPlayers, PlayerInputs, Rollback, Session};
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 
@@ -114,20 +111,18 @@ pub fn setup_system(
         let color = PLAYER_COLORS[handle % PLAYER_COLORS.len()];
 
         // Entities which will be rolled back can be created just like any other...
-        commands
-            .spawn((
-                // ...add visual information...
-                Mesh3d(mesh.clone()),
-                MeshMaterial3d(materials.add(StandardMaterial::from(color))),
-                transform,
-                // ...flags...
-                Player { handle },
-                // ...and components which will be rolled-back...
-                Velocity::default(),
-            ))
-            // ...just ensure you call `add_rollback()`
-            // This ensures a stable ID is available for the rollback system to refer to
-            .add_rollback();
+        commands.spawn((
+            // ...add visual information...
+            Mesh3d(mesh.clone()),
+            MeshMaterial3d(materials.add(StandardMaterial::from(color))),
+            transform,
+            // ...flags...
+            Player { handle },
+            // ...and components which will be rolled-back...
+            Velocity::default(),
+            // The Rollback marker ensures a stable ID is available for the rollback system
+            Rollback,
+        ));
     }
 
     // light
@@ -153,7 +148,6 @@ pub fn increase_frame_system(mut frame_count: ResMut<FrameCount>) {
 #[allow(dead_code)]
 pub fn move_cube_system(
     mut query: Query<(&mut Transform, &mut Velocity, &Player), With<Rollback>>,
-    //                                                              ^------^ Added by `add_rollback` earlier
     inputs: Res<PlayerInputs<BoxConfig>>,
     // Thanks to RollbackTimePlugin, this is rollback safe
     time: Res<Time>,

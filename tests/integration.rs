@@ -9,8 +9,8 @@ use bevy::{
     time::TimeUpdateStrategy,
 };
 use bevy_ggrs::{
-    AddRollbackCommandExtension, GgrsConfig, GgrsPlugin, GgrsSchedule, LocalInputs, LocalPlayers,
-    PlayerInputs, ReadInputs, Rollback, Session,
+    GgrsConfig, GgrsPlugin, GgrsSchedule, LocalInputs, LocalPlayers, PlayerInputs, ReadInputs,
+    Rollback, RollbackId, Session,
 };
 use core::time::Duration;
 use ggrs::{Config, P2PSession, PlayerHandle, PlayerType, SessionBuilder, UdpNonBlockingSocket};
@@ -192,7 +192,7 @@ pub struct Velocity {
 }
 
 pub fn move_player_system(
-    mut query: Query<(&mut Transform, &mut Velocity, &PlayerComponent), With<Rollback>>,
+    mut query: Query<(&mut Transform, &mut Velocity, &PlayerComponent), With<RollbackId>>,
     inputs: Res<PlayerInputs<TestConfig>>,
 ) {
     const MOVEMENT_SPEED: f32 = 0.1;
@@ -213,12 +213,11 @@ pub fn spawn_players(mut commands: Commands, session: Res<Session<TestConfig>>) 
     };
 
     for handle in 0..num_players {
-        commands
-            .spawn((
-                PlayerComponent { handle },
-                Velocity::default(),
-                Transform::default(),
-            ))
-            .add_rollback();
+        commands.spawn((
+            PlayerComponent { handle },
+            Velocity::default(),
+            Transform::default(),
+            Rollback,
+        ));
     }
 }

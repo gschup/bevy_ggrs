@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 use bevy::prelude::*;
 
 use crate::{
-    ChecksumFlag, ChecksumPart, Rollback, RollbackOrdered, SaveWorld, SaveWorldSystems,
+    ChecksumFlag, ChecksumPart, RollbackId, RollbackOrdered, SaveWorld, SaveWorldSystems,
     checksum_hasher,
 };
 
@@ -60,12 +60,12 @@ where
         let update = move |mut commands: Commands,
                            rollback_ordered: Res<RollbackOrdered>,
                            components: Query<
-            (&Rollback, &C),
-            (With<Rollback>, Without<ChecksumFlag<C>>),
+            (&RollbackId, &C),
+            (With<RollbackId>, Without<ChecksumFlag<C>>),
         >,
                            mut checksum: Query<
             &mut ChecksumPart,
-            (Without<Rollback>, With<ChecksumFlag<C>>),
+            (Without<RollbackId>, With<ChecksumFlag<C>>),
         >| {
             let mut hasher = checksum_hasher();
 

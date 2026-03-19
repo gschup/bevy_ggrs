@@ -22,7 +22,7 @@ jobs:
       - name: Run tests
         run: cargo test --verbose
       - name: Build docs
-        run: cargo doc --verbose
+        run: cargo doc --verbose --no-deps
       - name: Check formatting
         run: cargo fmt --check
 

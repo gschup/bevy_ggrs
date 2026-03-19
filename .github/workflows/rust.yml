@@ -2,25 +2,38 @@ name: Rust
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   build:
-
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
-    - name: Update rust
-      run: rustup update stable
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
-    - name: Check formatting
-      run: cargo fmt --check
+      - uses: actions/checkout@v4
+      - name: Update rust
+        run: rustup update stable
+      - name: Build
+        run: cargo build --verbose
+      - name: Run tests
+        run: cargo test --verbose
+      - name: Build docs
+        run: cargo doc --verbose
+      - name: Check formatting
+        run: cargo fmt --check
+
+  check-wasm:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install stable wasm toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Check wasm
+        run: cargo check --target wasm32-unknown-unknown --features wasm-bindgen

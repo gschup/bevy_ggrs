@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // create a GGRS session
     let mut sess_build = SessionBuilder::<BoxConfig>::new()
-        .with_num_players(opt.num_players)
+        .with_num_players(opt.num_players)?
         .with_check_distance(opt.check_distance)
         .with_input_delay(2); // (optional) set input delay for the local player
 

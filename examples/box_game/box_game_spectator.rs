@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let socket = UdpNonBlockingSocket::bind_to_port(opt.local_port)?;
     let sess = SessionBuilder::<BoxConfig>::new()
-        .with_num_players(opt.num_players)
+        .with_num_players(opt.num_players)?
         .start_spectator_session(opt.host, socket);
 
     App::new()

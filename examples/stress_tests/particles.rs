@@ -138,7 +138,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let mut session_builder = SessionBuilder::<Config>::new()
-        .with_num_players(num_players)
+        .with_num_players(num_players)?
         .with_desync_detection_mode(desync_mode)
         .with_max_prediction_window(args.max_prediction)
         .with_input_delay(args.input_delay);

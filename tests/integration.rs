@@ -124,7 +124,7 @@ fn start_session(
     remote_player: &TestPlayer,
 ) -> Result<P2PSession<TestConfig>, Box<dyn std::error::Error>> {
     let mut session_builder = SessionBuilder::<TestConfig>::new()
-        .with_num_players(2)
+        .with_num_players(2)?
         .with_max_prediction_window(12)
         .with_input_delay(2); // (optional) set input delay for the local player
     session_builder = session_builder.add_player(PlayerType::Local, local_player.handle)?;

@@ -83,6 +83,7 @@ fn hierarchy() {
         .insert_resource(Session::SyncTest(
             SessionBuilder::<GgrsConfig>::new()
                 .with_num_players(1)
+                .unwrap()
                 .with_check_distance(2)
                 .add_player(PlayerType::Local, 0)
                 .unwrap()

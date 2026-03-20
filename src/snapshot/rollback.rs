@@ -1,96 +1,86 @@
 use bevy::{
-    ecs::system::{EntityCommand, EntityCommands},
+    ecs::{lifecycle::HookContext, world::DeferredWorld},
     platform::collections::HashMap,
     prelude::*,
 };
 
-/// This component flags an entity as being included in the rollback save/load schedule with GGRS.
+/// Marker component that flags an entity for inclusion in the rollback save/load schedule.
 ///
-/// You must use the [`AddRollbackCommand`] when spawning an entity to add this component. Alternatively,
-/// you can use the `add_rollback()` extension method provided by [`AddRollbackCommandExtension`].
+/// Simply include this in your spawn bundle:
+/// ```rust,ignore
+/// commands.spawn((MyComponent, Rollback));
+/// ```
+///
+/// An [`on_add`] hook will automatically create a [`RollbackId`] for the entity and
+/// register it for stable ordering.
+#[derive(Component, Clone, Copy, Debug, Default)]
+#[component(on_add = on_rollback_added)]
+pub struct Rollback;
+
+/// A stable identifier for rollback entities, used as a key in snapshot storage.
+/// Automatically inserted when [`Rollback`] is added to an entity.
 #[derive(Component, Hash, PartialEq, Eq, Clone, Copy, Debug)]
 #[component(immutable)]
-pub struct Rollback(Entity);
+pub struct RollbackId(Entity);
 
-impl Rollback {
-    /// Creates a new [`Rollback`] component from an [`Entity`].
+impl RollbackId {
+    /// Creates a new [`RollbackId`] from an [`Entity`].
     pub(crate) fn new(entity: Entity) -> Self {
         Self(entity)
     }
 }
 
-/// An [`EntityCommand`] which adds a [`Rollback`] component to an entity.
-pub struct AddRollbackCommand;
+fn on_rollback_added(mut world: DeferredWorld, ctx: HookContext) {
+    let entity = ctx.entity;
 
-impl EntityCommand for AddRollbackCommand {
-    fn apply(self, mut entity: EntityWorldMut) {
-        let rollback = Rollback::new(entity.id());
-
-        entity.insert(rollback);
-
-        entity.world_scope(|world: &mut World| {
-            world
-                .get_resource_or_insert_with::<RollbackOrdered>(default)
-                .push(rollback);
-        })
+    // Respawn path: RollbackId already present from bundle (e.g. during rollback restore).
+    // RollbackOrdered is independently restored by its own snapshot, so no push needed.
+    if world.get::<RollbackId>(entity).is_some() {
+        return;
     }
+
+    // Normal path: create new RollbackId and register for ordering
+    let rollback_id = RollbackId::new(entity);
+    world.commands().entity(entity).insert(rollback_id);
+    let mut ordered = world.resource_mut::<RollbackOrdered>();
+    ordered.push(rollback_id);
 }
 
-mod private {
-    /// Private seal to ensure [`AddRollbackCommandExtension`](`super::AddRollbackCommandExtension`) cannot be implemented by crate consumers.
-    pub trait AddRollbackCommandExtensionSeal {}
-}
-
-/// Extension trait for [`EntityCommands`] which adds the `add_rollback()` method.
-pub trait AddRollbackCommandExtension: private::AddRollbackCommandExtensionSeal {
-    /// Adds an automatically generated `Rollback` component to this `Entity`.
-    fn add_rollback(&mut self) -> &mut Self;
-}
-
-impl private::AddRollbackCommandExtensionSeal for EntityCommands<'_> {}
-
-impl AddRollbackCommandExtension for EntityCommands<'_> {
-    fn add_rollback(&mut self) -> &mut Self {
-        self.queue(AddRollbackCommand);
-        self
-    }
-}
-
-/// A [`Resource`] which provides methods for stable ordering of [`Rollback`] flags.
+/// A [`Resource`] which provides methods for stable ordering of [`RollbackId`] components.
 #[derive(Resource, Default, Clone)]
 pub struct RollbackOrdered {
-    order: HashMap<Rollback, u64>,
-    sorted: Vec<Rollback>,
+    order: HashMap<RollbackId, u64>,
+    sorted: Vec<RollbackId>,
 }
 
 impl RollbackOrdered {
-    /// Register a new [`Rollback`] for explicit ordering.
-    fn push(&mut self, rollback: Rollback) -> &mut Self {
+    /// Register a new [`RollbackId`] for explicit ordering.
+    fn push(&mut self, rollback: RollbackId) -> &mut Self {
         self.sorted.push(rollback);
         self.order.insert(rollback, self.sorted.len() as u64 - 1);
 
         self
     }
 
-    /// Iterate over all [`Rollback`] markers ever registered, even if they have since been deleted.
-    pub fn iter_sorted(&self) -> impl Iterator<Item = Rollback> + '_ {
+    /// Iterate over all [`RollbackId`] markers ever registered, even if they have since been deleted.
+    pub fn iter_sorted(&self) -> impl Iterator<Item = RollbackId> + '_ {
         self.sorted.iter().copied()
     }
 
-    /// Returns a unique and order stable index for the provided [`Rollback`].
-    pub fn order(&self, rollback: Rollback) -> u64 {
+    /// Returns a unique and order stable index for the provided [`RollbackId`].
+    pub fn order(&self, rollback: RollbackId) -> u64 {
         self.order
             .get(&rollback)
             .copied()
-            .expect("Rollback requested was not created using AddRollbackCommand!")
+            .expect("RollbackId was not registered in RollbackOrdered!")
     }
 
-    /// Get the number of registered [`Rollback`] entities.
+    /// Get the number of registered rollback entities.
     pub fn len(&self) -> usize {
         self.order.len()
     }
 
-    /// Returns `true` if there are no registered [`Rollback`] entities, false otherwise.
+    /// Returns `true` if there are no registered rollback entities, false otherwise.
     pub fn is_empty(&self) -> bool {
         self.order.is_empty()
     }

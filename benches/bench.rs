@@ -53,7 +53,7 @@ fn foo_1000(c: &mut Criterion) {
     app.world_mut()
         .run_system_once(|mut commands: Commands| {
             for i in 0..1000 {
-                commands.spawn(Foo(i)).add_rollback();
+                commands.spawn((Foo(i), Rollback));
             }
         })
         .unwrap();
@@ -79,9 +79,9 @@ fn foo_bar_baz_1000(c: &mut Criterion) {
     app.world_mut()
         .run_system_once(|mut commands: Commands| {
             for i in 0..1000 {
-                commands.spawn(Foo(i)).add_rollback();
-                commands.spawn(Bar(i)).add_rollback();
-                commands.spawn(Baz(i)).add_rollback();
+                commands.spawn((Foo(i), Rollback));
+                commands.spawn((Bar(i), Rollback));
+                commands.spawn((Baz(i), Rollback));
             }
         })
         .unwrap();

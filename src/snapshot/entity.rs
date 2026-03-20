@@ -1,6 +1,6 @@
 use crate::{
     GgrsComponentSnapshot, GgrsComponentSnapshots, LoadWorld, LoadWorldSystems, Rollback,
-    RollbackEntityMap, RollbackFrameCount, SaveWorld, SaveWorldSystems,
+    RollbackEntityMap, RollbackFrameCount, RollbackId, SaveWorld, SaveWorldSystems,
 };
 use bevy::{platform::collections::HashMap, prelude::*};
 
@@ -31,7 +31,7 @@ impl EntitySnapshotPlugin {
     pub fn save(
         mut snapshots: ResMut<GgrsComponentSnapshots<Entity>>,
         frame: Res<RollbackFrameCount>,
-        query: Query<(&Rollback, Entity)>,
+        query: Query<(&RollbackId, Entity)>,
     ) {
         let entities = query.iter().map(|(&rollback, entity)| (rollback, entity));
 
@@ -47,7 +47,7 @@ impl EntitySnapshotPlugin {
         mut snapshots: ResMut<GgrsComponentSnapshots<Entity>>,
         mut map: ResMut<RollbackEntityMap>,
         frame: Res<RollbackFrameCount>,
-        query: Query<(&Rollback, Entity)>,
+        query: Query<(&RollbackId, Entity)>,
     ) {
         let mut entity_map = HashMap::default();
         let mut rollback_mapping = HashMap::new();
@@ -71,7 +71,7 @@ impl EntitySnapshotPlugin {
                     commands.entity(current_entity).despawn();
                 }
                 (None, Some(old_entity)) => {
-                    let current_entity = commands.spawn(rollback).id();
+                    let current_entity = commands.spawn((rollback, Rollback)).id();
                     entity_map.insert(old_entity, current_entity);
                 }
                 (None, None) => unreachable!(

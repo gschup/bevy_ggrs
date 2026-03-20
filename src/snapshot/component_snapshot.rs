@@ -1,6 +1,6 @@
 use crate::{
-    GgrsComponentSnapshot, GgrsComponentSnapshots, LoadWorld, LoadWorldSystems, Rollback,
-    RollbackFrameCount, SaveWorld, SaveWorldSystems, Strategy,
+    GgrsComponentSnapshot, GgrsComponentSnapshots, LoadWorld, LoadWorldSystems, RollbackFrameCount,
+    RollbackId, SaveWorld, SaveWorldSystems, Strategy,
 };
 use bevy::{
     ecs::component::{Immutable, Mutable},
@@ -58,7 +58,7 @@ where
     pub fn save(
         mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,
         frame: Res<RollbackFrameCount>,
-        query: Query<(&Rollback, &S::Target)>,
+        query: Query<(&RollbackId, &S::Target)>,
     ) {
         let components = query
             .iter()
@@ -86,7 +86,7 @@ where
         mut commands: Commands,
         mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,
         frame: Res<RollbackFrameCount>,
-        mut query: Query<(Entity, &Rollback, Option<&mut S::Target>)>,
+        mut query: Query<(Entity, &RollbackId, Option<&mut S::Target>)>,
     ) {
         let snapshot = snapshots.rollback(frame.0).get();
 
@@ -203,7 +203,7 @@ where
         mut commands: Commands,
         mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,
         frame: Res<RollbackFrameCount>,
-        mut query: Query<(Entity, &Rollback, Has<S::Target>)>,
+        mut query: Query<(Entity, &RollbackId, Has<S::Target>)>,
     ) {
         let snapshot = snapshots.rollback(frame.0).get();
 

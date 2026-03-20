@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 
-use super::{GgrsComponentSnapshot, Rollback, RollbackEntityMap};
+use super::{GgrsComponentSnapshot, RollbackEntityMap, RollbackId};
 
 /// Specialized snapshotting plugin for [`ChildOf`] components.
 ///
@@ -33,7 +33,7 @@ impl ChildOfSnapshotPlugin {
     pub fn save(
         mut snapshots: ResMut<GgrsComponentSnapshots<ChildOf, ChildOf>>,
         frame: Res<RollbackFrameCount>,
-        query: Query<(&Rollback, &ChildOf)>,
+        query: Query<(&RollbackId, &ChildOf)>,
     ) {
         let components = query
             .iter()
@@ -54,7 +54,7 @@ impl ChildOfSnapshotPlugin {
         mut commands: Commands,
         mut snapshots: ResMut<GgrsComponentSnapshots<ChildOf, ChildOf>>,
         frame: Res<RollbackFrameCount>,
-        mut query: Query<(Entity, &Rollback, Option<&ChildOf>)>,
+        mut query: Query<(Entity, &RollbackId, Option<&ChildOf>)>,
         map: Res<RollbackEntityMap>,
     ) {
         let snapshot = snapshots.rollback(frame.0).get();
@@ -88,7 +88,7 @@ impl ChildOfSnapshotPlugin {
 #[cfg(test)]
 mod tests {
     use crate::snapshot::{
-        AddRollbackCommandExtension, AdvanceWorld, SnapshotPlugin,
+        AdvanceWorld, Rollback, SnapshotPlugin,
         tests::{advance_frame, load_world, save_world},
     };
     use bevy::prelude::*;
@@ -102,6 +102,7 @@ mod tests {
     }
 
     #[derive(Component, Clone, Copy)]
+    #[require(Rollback)]
     struct Player;
 
     fn spawn_child(
@@ -110,7 +111,7 @@ mod tests {
         player: Single<Entity, With<Player>>,
     ) {
         if let Input::SpawnChild = *input {
-            commands.spawn(ChildOf(player.entity())).add_rollback();
+            commands.spawn((ChildOf(player.entity()), Rollback));
         }
     }
 
@@ -127,7 +128,7 @@ mod tests {
     }
 
     fn spawn_player(mut commands: Commands) {
-        commands.spawn(Player).add_rollback();
+        commands.spawn(Player);
     }
 
     #[test]

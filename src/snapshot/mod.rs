@@ -239,7 +239,7 @@ impl<For, As> GgrsSnapshots<For, As> {
 
 /// A storage type suitable for per-[`Entity`] snapshots, such as [`Component`] types.
 pub struct GgrsComponentSnapshot<For, As = For> {
-    snapshot: HashMap<Rollback, As>,
+    snapshot: HashMap<RollbackId, As>,
     _phantom: PhantomData<For>,
 }
 
@@ -254,7 +254,7 @@ impl<For, As> Default for GgrsComponentSnapshot<For, As> {
 
 impl<For, As> GgrsComponentSnapshot<For, As> {
     /// Create a new snapshot from a list of [`Rollback`] flags and stored [`Component`] types.
-    pub fn new(components: impl IntoIterator<Item = (Rollback, As)>) -> Self {
+    pub fn new(components: impl IntoIterator<Item = (RollbackId, As)>) -> Self {
         Self {
             snapshot: components.into_iter().collect(),
             ..default()
@@ -262,18 +262,18 @@ impl<For, As> GgrsComponentSnapshot<For, As> {
     }
 
     /// Insert a single snapshot for the provided [`Rollback`].
-    pub fn insert(&mut self, entity: Rollback, snapshot: As) -> &mut Self {
+    pub fn insert(&mut self, entity: RollbackId, snapshot: As) -> &mut Self {
         self.snapshot.insert(entity, snapshot);
         self
     }
 
     /// Get a single snapshot for the provided [`Rollback`].
-    pub fn get(&self, entity: &Rollback) -> Option<&As> {
+    pub fn get(&self, entity: &RollbackId) -> Option<&As> {
         self.snapshot.get(entity)
     }
 
     /// Iterate over all stored snapshots.
-    pub fn iter(&self) -> impl Iterator<Item = (&Rollback, &As)> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = (&RollbackId, &As)> + '_ {
         self.snapshot.iter()
     }
 }

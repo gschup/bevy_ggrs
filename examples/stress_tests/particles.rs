@@ -257,13 +257,12 @@ fn spawn_particles(mut commands: Commands, args: Res<Args>, mut rng: ResMut<Part
     let ttl = args.fps * 5;
 
     for _ in 0..args.rate {
-        commands
-            .spawn((
-                Sprite::from_color(ORANGE, Vec2::splat(5.0)),
-                Velocity(vec3(rng.random_range(-s..s), rng.random_range(-s..s), 0.0)),
-                Ttl(ttl),
-            ))
-            .add_rollback();
+        commands.spawn((
+            Sprite::from_color(ORANGE, Vec2::splat(5.0)),
+            Velocity(vec3(rng.random_range(-s..s), rng.random_range(-s..s), 0.0)),
+            Ttl(ttl),
+            Rollback,
+        ));
     }
 }
 

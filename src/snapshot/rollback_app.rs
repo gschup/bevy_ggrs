@@ -112,6 +112,12 @@ pub trait RollbackApp {
     fn checksum_resource<Type>(&mut self, hasher: for<'a> fn(&'a Type) -> u64) -> &mut Self
     where
         Type: Resource;
+
+    /// Registers [`Rollback`](`super::Rollback`) as a required component for `Type`.
+    /// This is useful for third-party components where you can't add `#[require(Rollback)]`.
+    fn require_rollback<Type>(&mut self) -> &mut Self
+    where
+        Type: Component;
 }
 
 impl RollbackApp for App {
@@ -218,5 +224,13 @@ impl RollbackApp for App {
         Type: Resource,
     {
         self.add_plugins(ResourceChecksumPlugin::<Type>(hasher))
+    }
+
+    fn require_rollback<Type>(&mut self) -> &mut Self
+    where
+        Type: Component,
+    {
+        self.register_required_components::<Type, super::Rollback>();
+        self
     }
 }

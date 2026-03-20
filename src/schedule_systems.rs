@@ -196,7 +196,7 @@ pub(crate) fn handle_requests<T: Config>(requests: Vec<GgrsRequest<T>>, world: &
             Some(Session::P2P(s)) => Some(s.confirmed_frame()),
             Some(Session::SyncTest(s)) => {
                 let current_frame = current_frame - (s.check_distance() as i32);
-                (current_frame < 0).then_some(current_frame)
+                (current_frame >= 0).then_some(current_frame)
             }
             Some(Session::Spectator(_)) => Some(current_frame),
             None => None,

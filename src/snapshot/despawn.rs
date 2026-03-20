@@ -8,31 +8,25 @@
 //! # Examples
 //! ```rust
 //! # use bevy::prelude::*;
-//! # use bevy_ggrs::{prelude::*, ResourceChecksumPlugin};
+//! # use bevy_ggrs::prelude::*;
 //! #
-//! # const FPS: usize = 60;
-//! #
-//! # type MyInputType = u8;
-//! #
-//! # fn read_local_inputs() {}
-//! #
-//! # fn start(session: Session<GgrsConfig<MyInputType>>) {
-//! # let mut app = App::new();
-//! #[derive(Resource, Clone, Hash)]
-//! struct BossHealth(u32);
-//!
-//! // To include something in the checksum, it should also be rolled back
-//! app.rollback_resource_with_clone::<BossHealth>();
-//!
-//! // This will update the checksum every frame to include BossHealth
-//! app.add_plugins(ResourceChecksumPlugin::<BossHealth>::default());
-//! # }
+//! fn despawn_player(
+//!     mut commands: Commands,
+//!     players: Query<Entity, With<Player>>,
+//! ) {
+//!     for entity in &players {
+//!         // Instead of commands.entity(entity).despawn(), use despawn_rollback()
+//!         // so the entity can be resurrected if a rollback happens.
+//!         commands.entity(entity).despawn_rollback();
+//!     }
+//! }
+//! # #[derive(Component)]
+//! # struct Player;
 //! ```
 //!
 //! Entities which have been marked for despawn are disabled using the [`RollbackDespawned`]
 //! component, so they will appear as though they are despawned to normal system queries.
 
-use crate::snapshot::despawn::private::RollbackDespawnCommandExtensionSeal;
 use crate::{
     AdvanceWorld, AdvanceWorldSystems, ConfirmedFrameCount, LoadWorld, LoadWorldSystems,
     RollbackFrameCount,
@@ -113,36 +107,17 @@ fn despawn_confirmed_entities(
         });
 }
 
-mod private {
-    pub trait RollbackDespawnCommandExtensionSeal {}
-}
-pub trait RollbackDespawnCommandExtension: private::RollbackDespawnCommandExtensionSeal {
+pub trait RollbackDespawnCommandExtension {
     /// Despawns this entity and its children recursively using the [`RollbackDespawned`]
     /// component, such that they can be resurrected following a rollback.
     ///
     /// NOTE: This does not yet support [`RelationshipTarget`] with linked spawn mode.
     fn despawn_rollback(&mut self);
-
-    /// NOTE: Not implemented yet.
-    fn despawn_children_rollback(&mut self) -> &mut Self;
-
-    /// NOTE: Not implemented yet.
-    fn despawn_related_rollback<S>(&mut self) -> &mut Self;
 }
-
-impl RollbackDespawnCommandExtensionSeal for EntityCommands<'_> {}
 
 impl RollbackDespawnCommandExtension for EntityCommands<'_> {
     fn despawn_rollback(&mut self) {
         self.queue_silenced(despawn_rollback);
-    }
-
-    fn despawn_children_rollback(&mut self) -> &mut Self {
-        todo!()
-    }
-
-    fn despawn_related_rollback<S>(&mut self) -> &mut Self {
-        todo!()
     }
 }
 

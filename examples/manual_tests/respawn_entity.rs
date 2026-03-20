@@ -70,7 +70,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 fn spawn_player(mut commands: Commands) {
     info!("spawning player");
-    commands.spawn(Health::default()).add_rollback();
+    commands.spawn((Health::default(), Rollback));
 }
 
 /// Exits the app once the despawn has been confirmed. Runs in `Update` (outside `GgrsSchedule`)

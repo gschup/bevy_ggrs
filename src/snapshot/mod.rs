@@ -1,4 +1,4 @@
-use crate::DEFAULT_FPS;
+use crate::{DEFAULT_FPS, MaxPredictionWindow};
 use bevy::{ecs::schedule::ScheduleLabel, platform::collections::HashMap, prelude::*};
 use seahash::SeaHasher;
 use std::{collections::VecDeque, marker::PhantomData};
@@ -96,9 +96,9 @@ pub struct GgrsSnapshots<For, As = For> {
 impl<For, As> Default for GgrsSnapshots<For, As> {
     fn default() -> Self {
         Self {
-            snapshots: VecDeque::with_capacity(DEFAULT_FPS),
-            frames: VecDeque::with_capacity(DEFAULT_FPS),
-            depth: DEFAULT_FPS, // TODO: Make sensible choice here
+            snapshots: VecDeque::new(),
+            frames: VecDeque::new(),
+            depth: DEFAULT_FPS, // Synced to MaxPredictionWindow before every save via sync_depth
             _phantom: default(),
         }
     }
@@ -234,6 +234,21 @@ impl<For, As> GgrsSnapshots<For, As> {
         };
 
         snapshots.confirm(confirmed_frame.0);
+    }
+
+    /// A system which syncs the snapshot depth to [`MaxPredictionWindow`].
+    /// Runs before each save to ensure snapshots are never evicted prematurely
+    /// when the prediction window exceeds the default depth.
+    pub fn sync_depth(mut snapshots: ResMut<Self>, max_prediction: Option<Res<MaxPredictionWindow>>)
+    where
+        For: Send + Sync + 'static,
+        As: Send + Sync + 'static,
+    {
+        let Some(max_prediction) = max_prediction else {
+            return;
+        };
+
+        snapshots.set_depth(max_prediction.0);
     }
 }
 

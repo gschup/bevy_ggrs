@@ -19,6 +19,7 @@ impl Plugin for ChildOfSnapshotPlugin {
             .add_systems(
                 SaveWorld,
                 (
+                    GgrsComponentSnapshots::<ChildOf, ChildOf>::sync_depth,
                     GgrsComponentSnapshots::<ChildOf, ChildOf>::discard_old_snapshots,
                     Self::save,
                 )

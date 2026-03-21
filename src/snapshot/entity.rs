@@ -93,6 +93,7 @@ impl Plugin for EntitySnapshotPlugin {
             .add_systems(
                 SaveWorld,
                 (
+                    GgrsComponentSnapshots::<Entity>::sync_depth,
                     GgrsComponentSnapshots::<Entity>::discard_old_snapshots,
                     Self::save,
                 )

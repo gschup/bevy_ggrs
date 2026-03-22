@@ -1,6 +1,14 @@
+//! Entity identity mapping produced during rollback.
+//!
+//! When [`EntitySnapshotPlugin`](`super::EntitySnapshotPlugin`) reconstructs the entity
+//! graph for a rollback frame, entities that had to be respawned may receive new
+//! [`Entity`] IDs. [`RollbackEntityMap`] records the old-to-new mapping so that
+//! downstream plugins (e.g. [`ComponentMapEntitiesPlugin`](`super::ComponentMapEntitiesPlugin`))
+//! can fix up any stale [`Entity`] references stored in components or resources.
+
 use bevy::{ecs::entity::EntityHashMap, prelude::*};
 
-/// A [`Resource`] which provides an [`EntityMap`], describing how [`Entities`](`Entity`)
+/// A [`Resource`] which provides an entity-to-entity mapping describing how [`Entity`] IDs
 /// changed during a rollback.
 #[derive(Resource, Default)]
 pub struct RollbackEntityMap(EntityHashMap<Entity>);

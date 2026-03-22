@@ -149,11 +149,14 @@ pub fn increase_frame_system(mut frame_count: ResMut<FrameCount>) {
 pub fn move_cube_system(
     mut query: Query<(&mut Transform, &mut Velocity, &Player), With<Rollback>>,
     inputs: Res<PlayerInputs<BoxConfig>>,
-    // Thanks to RollbackTimePlugin, this is rollback safe
+    // Thanks to GgrsTimePlugin, this is rollback safe
     time: Res<Time>,
 ) {
     let dt = time.delta().as_secs_f32();
 
+    // NOTE: query iteration order is non-deterministic. This is fine for a demo because each
+    // player only affects their own entity, but in a real game you should sort by a stable key
+    // (e.g. player handle or RollbackOrdered) before mutating shared state.
     for (mut t, mut v, p) in query.iter_mut() {
         let input = inputs[p.handle].0.0;
         // set velocity through key presses

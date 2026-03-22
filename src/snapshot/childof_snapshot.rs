@@ -1,3 +1,9 @@
+//! Snapshot and restore of parent–child hierarchy ([`ChildOf`]) for rollback entities.
+//!
+//! [`ChildOfSnapshotPlugin`] is a specialised replacement for [`ComponentSnapshotPlugin`]
+//! because [`ChildOf`] is immutable and stores an [`Entity`] that must be remapped through
+//! [`RollbackEntityMap`] after the entity graph is reconstructed.
+
 use crate::{
     GgrsComponentSnapshots, LoadWorld, LoadWorldSystems, RollbackFrameCount, SaveWorld,
     SaveWorldSystems,
@@ -8,12 +14,17 @@ use super::{GgrsComponentSnapshot, RollbackEntityMap, RollbackId};
 
 /// Specialized snapshotting plugin for [`ChildOf`] components.
 ///
-/// ChildOf cannot use ComponentSnapshotPlugin, because:
-/// 1. It is an immutable component
-/// 2. It requires entity mapping before insertion
+/// [`ChildOf`] cannot use [`ComponentSnapshotPlugin`](`crate::ComponentSnapshotPlugin`) because:
+/// 1. It is an immutable component.
+/// 2. The stored parent [`Entity`] must be remapped through [`RollbackEntityMap`] at restore time.
+///
+/// Unlike components that go through [`LoadWorldSystems::Mapping`], the remapping is performed
+/// inline during [`LoadWorldSystems::Data`] so that the hierarchy is coherent by the time
+/// the mapping stage runs.
 pub struct ChildOfSnapshotPlugin;
 
 impl Plugin for ChildOfSnapshotPlugin {
+    /// Registers [`ChildOf`] snapshot storage and the save/load systems.
     fn build(&self, app: &mut App) {
         app.init_resource::<GgrsComponentSnapshots<ChildOf, ChildOf>>()
             .add_systems(
@@ -31,6 +42,7 @@ impl Plugin for ChildOfSnapshotPlugin {
 }
 
 impl ChildOfSnapshotPlugin {
+    /// System that snapshots the [`ChildOf`] component on all rollback entities for this frame.
     pub fn save(
         mut snapshots: ResMut<GgrsComponentSnapshots<ChildOf, ChildOf>>,
         frame: Res<RollbackFrameCount>,
@@ -51,6 +63,8 @@ impl ChildOfSnapshotPlugin {
         snapshots.push(frame.0, snapshot);
     }
 
+    /// System that restores the [`ChildOf`] component for the target frame, remapping parent
+    /// entities through [`RollbackEntityMap`] to account for any ID changes.
     pub fn load(
         mut commands: Commands,
         mut snapshots: ResMut<GgrsComponentSnapshots<ChildOf, ChildOf>>,

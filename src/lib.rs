@@ -1,6 +1,9 @@
 //! bevy_ggrs is a bevy plugin for the P2P rollback networking library GGRS.
 //!
 //! See [`GgrsPlugin`] for getting started.
+//! For an overview of the internals, see the
+//! [architecture doc](https://github.com/gschup/bevy_ggrs/blob/main/docs/architecture.md).
+#![warn(missing_docs)]
 #![allow(clippy::type_complexity)] // Suppress warnings around Query
 
 use bevy::ecs::intern::Interned;
@@ -23,6 +26,7 @@ pub(crate) mod schedule_systems;
 pub(crate) mod snapshot;
 pub(crate) mod time;
 
+/// Convenient re-exports of the most commonly used types. Glob-import this to get started.
 pub mod prelude {
     pub use crate::{
         GgrsConfig, GgrsPlugin, GgrsSchedule, GgrsTime, PlayerInputs, ReadInputs, Rollback,
@@ -55,6 +59,17 @@ where
 
 const DEFAULT_FPS: usize = 60;
 
+/// The schedule that runs your rollback game logic each GGRS frame.
+///
+/// Systems added to this schedule will be saved and rolled back by bevy_ggrs.
+/// It runs inside [`AdvanceWorld`] and inherits its ambiguity detection settings
+/// (set to [`LogLevel::Error`](`bevy::ecs::schedule::LogLevel`) by default).
+///
+/// Add your gameplay systems here:
+///
+/// ```rust,ignore
+/// app.add_systems(GgrsSchedule, (move_players, apply_inputs).chain());
+/// ```
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct GgrsSchedule;
 
@@ -62,11 +77,21 @@ pub struct GgrsSchedule;
 #[allow(clippy::large_enum_variant)]
 #[derive(Resource)]
 pub enum Session<T: Config> {
+    /// A local determinism-check session that resimulates every frame to verify rollback correctness.
     SyncTest(SyncTestSession<T>),
+    /// A peer-to-peer session with rollback between connected players.
     P2P(P2PSession<T>),
+    /// A spectator session that follows a P2P game without participating in input.
     Spectator(SpectatorSession<T>),
 }
 
+/// A resource holding the inputs for all players in the current GGRS frame.
+///
+/// Each entry is a `(Input, `[`InputStatus`]`)` pair. The [`InputStatus`] indicates
+/// whether the input was received, predicted, or is from a disconnected player.
+///
+/// This resource is populated by bevy_ggrs before [`GgrsSchedule`] runs and should
+/// be read by your input-handling systems.
 #[derive(Resource, Deref, DerefMut)]
 pub struct PlayerInputs<T: Config>(Vec<(T::Input, InputStatus)>);
 
@@ -123,6 +148,10 @@ pub struct LocalPlayers(pub Vec<PlayerHandle>);
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone)]
 pub struct ReadInputs;
 
+/// A [`SystemSet`] label for the system that drives all GGRS schedules each Bevy frame.
+///
+/// Use this to order your systems relative to the GGRS update loop.
+/// By default this set runs in [`PreUpdate`], after [`InputSystems`].
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
 pub struct RunGgrsSystems;
 
@@ -132,10 +161,10 @@ pub struct RunGgrsSystems;
 ///
 /// This will provide rollback management for the following items in the Bevy ECS:
 /// - [Entities](`Entity`)
-/// - [Parent] and [Children] components
-/// - [Time]
+/// - [`ChildOf`] and [`Children`] components
+/// - [`Time`]
 ///
-/// To add more data to the rollback management, see the methods provided by [GgrsApp].
+/// To add more data to the rollback management, see the methods provided by [`RollbackApp`].
 ///
 /// # Examples
 /// ```rust
@@ -173,6 +202,9 @@ pub struct GgrsPlugin<C: Config> {
 }
 
 impl<C: Config> GgrsPlugin<C> {
+    /// Creates a new [`GgrsPlugin`] that runs the GGRS update loop in the given `schedule`.
+    ///
+    /// Use this when you need GGRS to run in a schedule other than the default [`PreUpdate`].
     pub fn new(schedule: impl ScheduleLabel) -> Self {
         Self {
             schedule: schedule.intern(),
@@ -182,6 +214,7 @@ impl<C: Config> GgrsPlugin<C> {
 }
 
 impl<C: Config> Default for GgrsPlugin<C> {
+    /// Creates a [`GgrsPlugin`] that runs the GGRS update loop in [`PreUpdate`] (the recommended default).
     fn default() -> Self {
         Self {
             schedule: PreUpdate.intern(),
@@ -191,6 +224,7 @@ impl<C: Config> Default for GgrsPlugin<C> {
 }
 
 impl<C: Config> Plugin for GgrsPlugin<C> {
+    /// Registers all GGRS resources, schedules, and the session update system.
     fn build(&self, app: &mut App) {
         app.add_plugins(SnapshotPlugin)
             .init_resource::<MaxPredictionWindow>()

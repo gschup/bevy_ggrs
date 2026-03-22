@@ -1,3 +1,8 @@
+//! Per-frame checksum tracking for [`Resource`] types.
+//!
+//! [`ResourceChecksumPlugin`] hashes a resource's value into a [`ChecksumPart`] each
+//! frame so that resource desyncs are detected by GGRS's checksum comparison.
+
 use std::hash::{Hash, Hasher};
 
 use bevy::prelude::*;
@@ -51,6 +56,7 @@ impl<R> Plugin for ResourceChecksumPlugin<R>
 where
     R: Resource,
 {
+    /// Registers the checksum update system for this resource type in [`SaveWorldSystems::Checksum`].
     fn build(&self, app: &mut App) {
         let custom_hasher = self.0;
 

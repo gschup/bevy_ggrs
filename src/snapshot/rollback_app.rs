@@ -1,3 +1,15 @@
+//! Extension trait that provides ergonomic methods for registering rollback plugins.
+//!
+//! [`RollbackApp`] is the primary API for users who want to opt specific
+//! [`Component`] or [`Resource`] types into rollback and/or checksum tracking.
+//! It is implemented for [`App`] and delegates to the low-level snapshot plugins.
+//!
+//! # Example
+//! ```rust,ignore
+//! app.rollback_component_with_clone::<Transform>();
+//! app.checksum_component_with_hash::<Health>();
+//! ```
+
 use crate::snapshot::{
     CloneStrategy, ComponentChecksumPlugin, ComponentMapEntitiesPlugin, ComponentSnapshotPlugin,
     ResourceChecksumPlugin, ResourceSnapshotPlugin,
@@ -15,7 +27,7 @@ use super::{
     CopyStrategy, ImmutableComponentSnapshotPlugin, ReflectStrategy, ResourceMapEntitiesPlugin,
 };
 
-/// Extension trait to ergonimically add rollback plugins to Bevy Apps
+/// Extension trait to ergonomically add rollback plugins to Bevy Apps
 pub trait RollbackApp {
     /// Registers a component type for saving and loading from the world. This
     /// uses [`Copy`] based snapshots for rollback.

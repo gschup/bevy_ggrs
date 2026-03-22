@@ -1,3 +1,14 @@
+//! Snapshot storage strategies: [`CopyStrategy`], [`CloneStrategy`], and [`ReflectStrategy`].
+//!
+//! A [`Strategy`] defines how a value is serialized into a stored snapshot form and
+//! deserialized back. The three built-in strategies cover the common cases:
+//! - [`CopyStrategy`] — bitwise copy for [`Copy`] types (cheapest)
+//! - [`CloneStrategy`] — `.clone()` for [`Clone`] types
+//! - [`ReflectStrategy`] — dynamic reflection for [`Reflect`] + [`FromWorld`] types
+//!
+//! Pass a strategy as a type parameter to [`ComponentSnapshotPlugin`](`super::ComponentSnapshotPlugin`)
+//! or [`ResourceSnapshotPlugin`](`super::ResourceSnapshotPlugin`) to control how data is stored.
+
 use std::marker::PhantomData;
 
 use bevy::{

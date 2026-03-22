@@ -1,3 +1,9 @@
+//! Checksum contribution based on the current rollback entity population.
+//!
+//! [`EntityChecksumPlugin`] hashes the count of active rollback entities and the
+//! total number ever spawned into a [`ChecksumPart`], catching desyncs where peers
+//! disagree on how many entities exist.
+
 use std::hash::{Hash, Hasher};
 
 use bevy::prelude::*;
@@ -7,9 +13,18 @@ use crate::{
     checksum_hasher,
 };
 
+/// A plugin that contributes a checksum of the current rollback entity state to the
+/// frame checksum.
+///
+/// It hashes the number of currently active rollback entities and the total number of
+/// rollback entities ever spawned. This catches desyncs caused by mismatched entity
+/// spawning or despawning across peers.
+///
+/// Added automatically by [`GgrsPlugin`](`crate::GgrsPlugin`).
 pub struct EntityChecksumPlugin;
 
 impl EntityChecksumPlugin {
+    /// Computes a [`ChecksumPart`] from entity counts and upserts it into the [`World`].
     #[allow(clippy::type_complexity)]
     pub fn update(
         mut commands: Commands,
@@ -38,6 +53,7 @@ impl EntityChecksumPlugin {
 }
 
 impl Plugin for EntityChecksumPlugin {
+    /// Registers the entity checksum system in [`SaveWorldSystems::Checksum`].
     fn build(&self, app: &mut App) {
         app.add_systems(SaveWorld, Self::update.in_set(SaveWorldSystems::Checksum));
     }

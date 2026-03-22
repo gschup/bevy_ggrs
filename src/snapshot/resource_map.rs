@@ -1,3 +1,9 @@
+//! Post-rollback entity remapping for [`Resource`] types that hold [`Entity`] references.
+//!
+//! After a rollback, some entities may have been recreated with new [`Entity`] IDs.
+//! [`ResourceMapEntitiesPlugin`] applies the [`RollbackEntityMap`] to any resource that
+//! implements [`MapEntities`], keeping cross-entity references inside resources valid.
+
 use std::marker::PhantomData;
 
 use bevy::{ecs::entity::MapEntities, prelude::*};
@@ -80,6 +86,7 @@ impl<R> Plugin for ResourceMapEntitiesPlugin<R>
 where
     R: Resource + MapEntities,
 {
+    /// Registers the entity-mapping system for this resource type in [`LoadWorldSystems::Mapping`].
     fn build(&self, app: &mut App) {
         app.add_systems(LoadWorld, Self::update.in_set(LoadWorldSystems::Mapping));
     }

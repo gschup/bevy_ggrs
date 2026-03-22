@@ -1,3 +1,14 @@
+//! Core snapshot infrastructure for bevy_ggrs.
+//!
+//! This module exposes the three fundamental schedules that drive the rollback loop —
+//! [`SaveWorld`], [`LoadWorld`], and [`AdvanceWorld`] — together with the snapshot storage
+//! types ([`GgrsSnapshots`], [`GgrsComponentSnapshot`]) and the top-level
+//! [`SnapshotPlugin`] that wires them all together.
+//!
+//! Most users interact with this module indirectly through [`RollbackApp`] and
+//! [`GgrsPlugin`](`crate::GgrsPlugin`), but the types here are public so that
+//! advanced users can build custom snapshot behaviour.
+
 use crate::{DEFAULT_FPS, MaxPredictionWindow};
 use bevy::{ecs::schedule::ScheduleLabel, platform::collections::HashMap, prelude::*};
 use seahash::SeaHasher;
@@ -188,6 +199,11 @@ impl<For, As> GgrsSnapshots<For, As> {
     }
 
     /// Rolls back to the provided frame, discarding snapshots taken after the rollback point.
+    ///
+    /// # Panics
+    ///
+    /// Panics if no snapshot exists for `frame`. Ensure snapshots are stored at least as far
+    /// back as the maximum prediction window to avoid this.
     pub fn rollback(&mut self, frame: i32) -> &mut Self {
         loop {
             let Some(&current) = self.frames.front() else {
@@ -309,6 +325,7 @@ pub fn checksum_hasher() -> SeaHasher {
 pub struct SnapshotPlugin;
 
 impl Plugin for SnapshotPlugin {
+    /// Registers the rollback schedules, frame-count resources, and core snapshot plugins.
     fn build(&self, app: &mut App) {
         app.add_plugins(SnapshotSetPlugin)
             .init_resource::<RollbackOrdered>()

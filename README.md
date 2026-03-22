@@ -40,7 +40,8 @@ fn spawn_player(mut commands: Commands) {
 ```
 
 For full P2P and spectator session examples, see [examples/](./examples/).
-For guides on writing correct rollback systems, see [docs/](./docs/).
+For guides on writing correct rollback systems, see [docs/pitfalls.md](./docs/pitfalls.md) and [docs/debugging-desyncs.md](./docs/debugging-desyncs.md).
+For an overview of how bevy_ggrs works internally, see [docs/architecture.md](./docs/architecture.md).
 
 ## Live Demonstration (unmaintained)
 

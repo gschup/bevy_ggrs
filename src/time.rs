@@ -1,3 +1,11 @@
+//! GGRS-synchronised time for rollback games.
+//!
+//! [`GgrsTimePlugin`] provides a [`Time<GgrsTime>`] resource that advances in lockstep
+//! with [`RollbackFrameCount`] at the configured [`RollbackFrameRate`]. Inside
+//! [`GgrsSchedule`](`crate::GgrsSchedule`), the default [`Time<()>`] is swapped out
+//! for this deterministic clock so that any system using `Res<Time>` automatically gets
+//! the rolled-back time without any extra plumbing.
+
 use std::time::Duration;
 
 use bevy::prelude::*;
@@ -85,6 +93,8 @@ impl GgrsTimePlugin {
 }
 
 impl Plugin for GgrsTimePlugin {
+    /// Registers [`Time<GgrsTime>`], its snapshot plugin, and the systems that keep it in sync
+    /// with [`RollbackFrameCount`] and swap [`Time<()>`] at frame boundaries.
     fn build(&self, app: &mut App) {
         app.insert_resource(Time::new_with(GgrsTime))
             .add_plugins(ResourceSnapshotPlugin::<CloneStrategy<Time<GgrsTime>>>::default())

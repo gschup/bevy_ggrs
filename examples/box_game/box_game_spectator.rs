@@ -46,7 +46,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .rollback_resource_with_copy::<FrameCount>()
         // Same with the Velocity Component
         .rollback_component_with_copy::<Velocity>()
-        // Transform only implement Clone, so instead we'll use that to snapshot and rollback with
+        // Transform only implements Clone, so instead we'll use that to snapshot and rollback with
         .rollback_component_with_clone::<Transform>()
         .insert_resource(opt)
         .add_plugins(DefaultPlugins)

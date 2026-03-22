@@ -1,3 +1,10 @@
+//! Rollback marker component and stable entity identity.
+//!
+//! Add [`Rollback`] to any entity whose state should be saved and restored during rollback.
+//! An [`on_add`](`bevy::ecs::lifecycle`) hook automatically assigns a stable
+//! [`RollbackId`] and registers the entity in [`RollbackOrdered`], which provides a
+//! deterministic iteration order across peers.
+
 use bevy::{
     ecs::{lifecycle::HookContext, world::DeferredWorld},
     platform::collections::HashMap,
@@ -11,7 +18,7 @@ use bevy::{
 /// commands.spawn((MyComponent, Rollback));
 /// ```
 ///
-/// An [`on_add`] hook will automatically create a [`RollbackId`] for the entity and
+/// An `on_add` hook will automatically create a [`RollbackId`] for the entity and
 /// register it for stable ordering.
 #[derive(Component, Clone, Copy, Debug, Default)]
 #[component(on_add = on_rollback_added)]

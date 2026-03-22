@@ -1,3 +1,9 @@
+//! Post-rollback entity remapping for [`Component`] types that hold [`Entity`] references.
+//!
+//! After a rollback, some entities may have been recreated with new [`Entity`] IDs.
+//! [`ComponentMapEntitiesPlugin`] applies the [`RollbackEntityMap`] to any component
+//! that implements [`MapEntities`], keeping cross-entity references valid.
+
 use std::marker::PhantomData;
 
 use bevy::{
@@ -85,6 +91,7 @@ impl<C> Plugin for ComponentMapEntitiesPlugin<C>
 where
     C: Component<Mutability = Mutable> + MapEntities,
 {
+    /// Registers the entity-mapping system for this component type in [`LoadWorldSystems::Mapping`].
     fn build(&self, app: &mut App) {
         app.add_systems(LoadWorld, Self::update.in_set(LoadWorldSystems::Mapping));
     }

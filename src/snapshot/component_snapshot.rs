@@ -1,3 +1,10 @@
+//! Snapshot and restore of [`Component`] data on rollback entities.
+//!
+//! [`ComponentSnapshotPlugin`] saves all instances of a component type each frame and
+//! restores them during rollback using a configurable [`Strategy`].
+//! [`ImmutableComponentSnapshotPlugin`] provides the same behaviour for components
+//! marked `#[component(immutable)]`, which must be re-inserted rather than mutated in place.
+
 use crate::{
     GgrsComponentSnapshot, GgrsComponentSnapshots, LoadWorld, LoadWorldSystems, RollbackFrameCount,
     RollbackId, SaveWorld, SaveWorldSystems, Strategy,
@@ -55,6 +62,7 @@ where
     S::Target: Component,
     S::Stored: Send + Sync + 'static,
 {
+    /// System that snapshots all instances of the component on rollback entities for this frame.
     pub fn save(
         mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,
         frame: Res<RollbackFrameCount>,
@@ -82,6 +90,8 @@ where
     S::Target: Component<Mutability = Mutable>,
     S::Stored: Send + Sync + 'static,
 {
+    /// System that restores the component to its snapshotted state for the target frame,
+    /// inserting or removing it as required.
     pub fn load(
         mut commands: Commands,
         mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,
@@ -119,6 +129,7 @@ where
     S::Target: Component<Mutability = Mutable>,
     S::Stored: Send + Sync + 'static,
 {
+    /// Registers snapshot storage and the save/load systems for this component type.
     fn build(&self, app: &mut App) {
         app.init_resource::<GgrsComponentSnapshots<S::Target, S::Stored>>()
             .add_systems(
@@ -179,6 +190,7 @@ where
     S::Target: Component<Mutability = Immutable>,
     S::Stored: Send + Sync + 'static,
 {
+    /// Registers snapshot storage and the save/load systems for this immutable component type.
     fn build(&self, app: &mut App) {
         app.init_resource::<GgrsComponentSnapshots<S::Target, S::Stored>>()
             .add_systems(
@@ -201,6 +213,8 @@ where
     S::Target: Component<Mutability = Immutable>,
     S::Stored: Send + Sync + 'static,
 {
+    /// System that restores this immutable component to its snapshotted state for the target frame,
+    /// re-inserting it (triggering hooks) or removing it as required.
     pub fn load(
         mut commands: Commands,
         mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,

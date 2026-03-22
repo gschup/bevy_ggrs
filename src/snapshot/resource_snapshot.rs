@@ -1,3 +1,9 @@
+//! Snapshot and restore of [`Resource`] data.
+//!
+//! [`ResourceSnapshotPlugin`] saves a copy of a resource each frame (using a configurable
+//! [`Strategy`]) and restores it during rollback. Resources that are absent from the world
+//! are snapshotted as `None` and removed on restore.
+
 use crate::{
     GgrsResourceSnapshots, LoadWorld, LoadWorldSystems, RollbackFrameCount, SaveWorld,
     SaveWorldSystems, Strategy,
@@ -55,6 +61,7 @@ where
     S::Target: Resource,
     S::Stored: Send + Sync + 'static,
 {
+    /// System that snapshots the resource for this frame. Stores `None` if the resource is absent.
     pub fn save(
         mut snapshots: ResMut<GgrsResourceSnapshots<S::Target, S::Stored>>,
         frame: Res<RollbackFrameCount>,
@@ -65,6 +72,8 @@ where
         trace!("Snapshot {}", disqualified::ShortName::of::<S::Target>());
     }
 
+    /// System that restores the resource to its snapshotted state for the target frame,
+    /// inserting or removing it as required.
     pub fn load(
         mut commands: Commands,
         mut snapshots: ResMut<GgrsResourceSnapshots<S::Target, S::Stored>>,
@@ -90,6 +99,7 @@ where
     S::Target: Resource,
     S::Stored: Send + Sync + 'static,
 {
+    /// Registers snapshot storage and the save/load systems for this resource type.
     fn build(&self, app: &mut App) {
         app.init_resource::<GgrsResourceSnapshots<S::Target, S::Stored>>()
             .add_systems(

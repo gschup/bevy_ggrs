@@ -1,3 +1,11 @@
+//! Per-frame checksum accumulation used to detect desyncs.
+//!
+//! Each piece of tracked data contributes a [`ChecksumPart`] (tagged with a [`ChecksumFlag`])
+//! to a single frame-level [`Checksum`] resource. [`ChecksumPlugin`] XORs all parts together
+//! after the [`SaveWorldSystems::Checksum`] set and before the
+//! [`SaveWorldSystems::Snapshot`] set, making the total available for GGRS to compare
+//! across peers.
+
 use std::{
     hash::{Hash, Hasher},
     marker::PhantomData,
@@ -41,7 +49,7 @@ impl ChecksumPart {
 pub struct Checksum(pub u128);
 
 /// A [`Plugin`] which creates a [`Checksum`] resource which can be read after or during the
-/// [`SaveWorldSet::Snapshot`] set in the [`SaveWorld`] schedule has been run.
+/// [`SaveWorldSystems::Snapshot`] set in the [`SaveWorld`] schedule has been run.
 ///
 /// To add you own data to this [`Checksum`], create an [`Entity`] with a [`ChecksumPart`]
 /// [`Component`]. Every [`Entity`] with this [`Component`] will participate in the
@@ -92,6 +100,7 @@ impl ChecksumPlugin {
 }
 
 impl Plugin for ChecksumPlugin {
+    /// Registers the [`Checksum`] resource and the system that folds [`ChecksumPart`]s into it.
     fn build(&self, app: &mut App) {
         app.init_resource::<Checksum>().add_systems(
             SaveWorld,

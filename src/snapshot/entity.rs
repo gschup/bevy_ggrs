@@ -1,3 +1,10 @@
+//! Snapshot and restore of the rollback entity set.
+//!
+//! [`EntitySnapshotPlugin`] saves a mapping of [`RollbackId`] → [`Entity`] each frame.
+//! On rollback, it reconciles the live entity set against the snapshot — spawning
+//! missing entities, despawning extras, and recording any ID changes in a
+//! [`RollbackEntityMap`] so that subsequent plugins can fix up stale entity references.
+
 use crate::{
     GgrsComponentSnapshot, GgrsComponentSnapshots, LoadWorld, LoadWorldSystems, Rollback,
     RollbackEntityMap, RollbackFrameCount, RollbackId, SaveWorld, SaveWorldSystems,
@@ -28,6 +35,7 @@ use bevy::{ecs::entity::EntityHashMap, platform::collections::HashMap, prelude::
 pub struct EntitySnapshotPlugin;
 
 impl EntitySnapshotPlugin {
+    /// System that records the current [`RollbackId`] → [`Entity`] mapping for this frame.
     pub fn save(
         mut snapshots: ResMut<GgrsComponentSnapshots<Entity>>,
         frame: Res<RollbackFrameCount>,
@@ -42,6 +50,8 @@ impl EntitySnapshotPlugin {
         snapshots.push(frame.0, snapshot);
     }
 
+    /// System that reconciles live entities against the snapshot for the target frame,
+    /// spawning or despawning as needed and populating [`RollbackEntityMap`] with any ID changes.
     pub fn load(
         mut commands: Commands,
         mut snapshots: ResMut<GgrsComponentSnapshots<Entity>>,
@@ -90,6 +100,7 @@ impl EntitySnapshotPlugin {
 }
 
 impl Plugin for EntitySnapshotPlugin {
+    /// Registers entity snapshot storage, [`RollbackEntityMap`], and the save/load systems.
     fn build(&self, app: &mut App) {
         app.init_resource::<GgrsComponentSnapshots<Entity>>()
             .init_resource::<RollbackEntityMap>()

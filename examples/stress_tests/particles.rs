@@ -167,7 +167,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .add_systems(ReadInputs, read_local_inputs);
 
     if args.reflect {
-        // SpriteBundle types
+        // Visual components (Sprite, Transform, visibility)
         app.rollback_component_with_reflect::<Sprite>()
             .rollback_component_with_reflect::<Transform>()
             .rollback_component_with_reflect::<GlobalTransform>()
@@ -184,7 +184,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         // clone/copy-based rollback
 
-        // SpriteBundle types
+        // Visual components (Sprite, Transform, visibility)
         app.rollback_component_with_clone::<Sprite>()
             .rollback_component_with_clone::<Transform>()
             .rollback_component_with_clone::<GlobalTransform>()

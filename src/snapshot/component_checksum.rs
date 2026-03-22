@@ -1,3 +1,9 @@
+//! Per-frame checksum tracking for [`Component`] types on rollback entities.
+//!
+//! [`ComponentChecksumPlugin`] hashes each rollback entity's component value (combined with
+//! its stable [`RollbackId`] order) and XORs the results into a [`ChecksumPart`] so that
+//! component desyncs are detected by GGRS's checksum comparison.
+
 use std::hash::{Hash, Hasher};
 
 use bevy::prelude::*;
@@ -7,7 +13,7 @@ use crate::{
     checksum_hasher,
 };
 
-/// A [`Plugin`] which will track the [`Component`] `C` on [`Rollback Entities`](`Rollback`) and ensure a
+/// A [`Plugin`] which will track the [`Component`] `C` on [`Rollback`](`crate::Rollback`) entities and ensure a
 /// [`ChecksumPart`] is available and updated. This can be used to generate a [`Checksum`](`crate::Checksum`).
 ///
 /// # Examples
@@ -54,6 +60,7 @@ impl<C> Plugin for ComponentChecksumPlugin<C>
 where
     C: Component,
 {
+    /// Registers the checksum update system for this component type in [`SaveWorldSystems::Checksum`].
     fn build(&self, app: &mut App) {
         let custom_hasher = self.0;
 

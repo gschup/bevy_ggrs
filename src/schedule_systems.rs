@@ -1,3 +1,10 @@
+//! The core Bevy system that drives the GGRS session each frame.
+//!
+//! [`run_ggrs_schedules`] is the single entry point registered by [`GgrsPlugin`](`crate::GgrsPlugin`)
+//! into the Bevy update loop. It accumulates real-time delta into a fixed-timestep accumulator,
+//! polls the active [`Session`](`crate::Session`), and dispatches [`GgrsRequest`]s
+//! (save, load, advance) to the corresponding bevy_ggrs schedules.
+
 use crate::{
     AdvanceWorld, Checksum, ConfirmedFrameCount, FixedTimestepData, LoadWorld, LocalInputs,
     LocalPlayers, MaxPredictionWindow, PlayerInputs, ReadInputs, RollbackFrameCount,

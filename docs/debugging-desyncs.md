@@ -21,7 +21,7 @@ let session = SessionBuilder::<GgrsConfig>::new()
 A `SyncTestMismatch` trigger fires if checksums diverge. You can observe it:
 
 ```rust
-app.observe(|trigger: Trigger<SyncTestMismatch>| {
+app.add_observer(|trigger: On<SyncTestMismatch>| {
     error!(
         "Desync detected! Frame: {}, mismatched frames: {:?}",
         trigger.event().current_frame,

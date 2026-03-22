@@ -40,6 +40,7 @@ fn spawn_player(mut commands: Commands) {
 ```
 
 For full P2P and spectator session examples, see [examples/](./examples/).
+For guides on writing correct rollback systems, see [docs/](./docs/).
 
 ## Live Demonstration (unmaintained)
 

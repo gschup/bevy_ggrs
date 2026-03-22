@@ -299,7 +299,7 @@ fn spectator_session_does_not_panic() -> Result<(), Box<dyn std::error::Error>> 
 #[serial]
 fn p2p_confirmed_frame_advances_and_prunes_snapshots() -> Result<(), Box<dyn std::error::Error>> {
     #[derive(Resource, Clone, Default)]
-    struct Counter(u32);
+    struct Counter;
 
     let (player1, player2) = create_players();
 

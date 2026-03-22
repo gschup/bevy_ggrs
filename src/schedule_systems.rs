@@ -21,10 +21,14 @@ pub(crate) fn run_ggrs_schedules<T: Config>(world: &mut World) {
         .expect("Time resource not found, did you remove it?")
         .delta();
 
-    let mut fps_delta = 1. / framerate as f64;
-    if time_data.run_slow {
-        fps_delta *= 1.1;
-    }
+    // Compute frame duration in nanoseconds to avoid floating-point drift.
+    // At 60 fps: 1_000_000_000 / 60 = 16_666_666 ns. The run_slow factor adds 10%
+    // by multiplying the period by 11/10 (integer arithmetic, no f64 accumulation).
+    let fps_delta = if time_data.run_slow {
+        Duration::from_nanos(1_000_000_000u64 * 11 / (framerate as u64 * 10))
+    } else {
+        Duration::from_nanos(1_000_000_000u64 / framerate as u64)
+    };
     time_data.accumulator = time_data.accumulator.saturating_add(delta);
 
     // no matter what, poll remotes and send responses
@@ -41,11 +45,9 @@ pub(crate) fn run_ggrs_schedules<T: Config>(world: &mut World) {
     }
 
     // if we accumulated enough time, do steps
-    while time_data.accumulator.as_secs_f64() > fps_delta {
+    while time_data.accumulator >= fps_delta {
         // decrease accumulator
-        time_data.accumulator = time_data
-            .accumulator
-            .saturating_sub(Duration::from_secs_f64(fps_delta));
+        time_data.accumulator = time_data.accumulator.saturating_sub(fps_delta);
 
         // depending on the session type, doing a single update looks a bit different
         let session = world.remove_resource::<Session<T>>();

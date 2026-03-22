@@ -12,10 +12,11 @@ you can specify spectators.
 
 ### Important Disclaimer - Determinism
 
-Since BoxGame is based on floats and uses floating-point sin, cos and sqrt,
-I fully expect this example to desync when compiled on two different architectures/platforms.
-This is intentional to see when and how that happens. If you plan to implement your own
-deterministic game, make sure to take floating-point imprecisions and non-deterministic results into consideration.
+BoxGame uses `f32` arithmetic (velocity integration, `clamp_length_max`) which is deterministic
+on the same platform but may produce different results across different CPU architectures or
+operating systems. I fully expect this example to desync when compiled on two different platforms.
+This is intentional. If you plan to implement your own deterministic game, consider fixed-point
+math or limit cross-platform play to the same architecture.
 
 ### Launching BoxGame P2P and Spectator
 
@@ -61,4 +62,34 @@ BoxGame SyncTest is launched by a single command-line argument:
 
 ```shell
 cargo run --example box_game_synctest -- --num-players 2 --check-distance 7
+```
+
+## Particles (Stress Test)
+
+A P2P stress test that spawns large numbers of particles to measure rollback performance.
+Supports switching between clone/copy-based and reflect-based rollback via `--reflect` to
+compare their overhead.
+
+### Launching Particles
+
+```
+--local-port / -l      local UDP port to bind
+--players / -p         list of player addresses; use "localhost" for yourself
+--spectators / -s      (optional) list of spectator addresses
+--input-delay          input delay in frames (default: 2)
+--rate / -n            particles spawned per frame when Space is held (default: 100)
+--fps                  simulation frame rate (default: 60)
+--max-prediction       max prediction window in frames (default: 8)
+--reflect              use reflect-based rollback instead of clone/copy
+--desync-detection-interval  how often to exchange checksums (default: 10; 0 = off)
+--continue-after-desync      log desyncs instead of panicking
+```
+
+Press **Space** to spawn particles. Press **N** to trigger a no-op rollback.
+
+For example, to run a two-player stress test:
+
+```shell
+cargo run --release --example particles -- --local-port 7000 --players localhost 127.0.0.1:7001
+cargo run --release --example particles -- --local-port 7001 --players 127.0.0.1:7000 localhost
 ```

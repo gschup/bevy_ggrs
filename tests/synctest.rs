@@ -1,14 +1,11 @@
-use bevy::{platform::collections::HashMap, prelude::*, time::TimeUpdateStrategy};
+#[allow(dead_code)]
+mod common;
+use bevy::prelude::*;
 use bevy_ggrs::{prelude::*, *};
-use core::time::Duration;
-use ggrs::*;
+use common::base_synctest_app;
+use std::sync::atomic::{AtomicU32, Ordering};
 
-pub struct GgrsConfig;
-impl Config for GgrsConfig {
-    type Input = u8;
-    type State = u8;
-    type Address = usize;
-}
+// --- Helpers specific to this file ---
 
 #[derive(Reflect, Resource, Default, Debug, Clone)]
 struct FrameCounter(u16);
@@ -17,33 +14,9 @@ fn frame_counter(mut counter: ResMut<FrameCounter>) {
     counter.0 = counter.0.wrapping_add(1);
 }
 
-fn input_system(mut commands: Commands, players: Res<LocalPlayers>) {
-    let mut inputs = HashMap::new();
-    for &handle in &players.0 {
-        inputs.insert(handle, 0u8);
-    }
-    commands.insert_resource(LocalInputs::<GgrsConfig>(inputs));
-}
-
 fn create_app(check_distance: usize) -> App {
-    let mut app = App::new();
-    app.add_plugins(MinimalPlugins)
-        .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
-            1.0 / 60.0,
-        )))
-        .init_resource::<FrameCounter>()
-        .insert_resource(Session::SyncTest(
-            SessionBuilder::<GgrsConfig>::new()
-                .with_num_players(1)
-                .unwrap()
-                .with_check_distance(check_distance)
-                .add_player(PlayerType::Local, 0)
-                .unwrap()
-                .start_synctest_session()
-                .unwrap(),
-        ))
-        .add_plugins(GgrsPlugin::<GgrsConfig>::default())
-        .add_systems(ReadInputs, input_system)
+    let mut app = base_synctest_app(check_distance);
+    app.init_resource::<FrameCounter>()
         .rollback_resource_with_clone::<FrameCounter>()
         .add_systems(GgrsSchedule, frame_counter);
     app
@@ -72,28 +45,14 @@ fn decrease_health(mut commands: Commands, mut players: Query<(Entity, &mut Heal
 }
 
 fn respawn_entity_app() -> App {
-    let mut app = App::new();
-    app.add_plugins(MinimalPlugins)
-        .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
-            1.0 / 60.0,
-        )))
-        .insert_resource(Session::SyncTest(
-            SessionBuilder::<GgrsConfig>::new()
-                .with_num_players(1)
-                .unwrap()
-                .with_check_distance(5)
-                .add_player(PlayerType::Local, 0)
-                .unwrap()
-                .start_synctest_session()
-                .unwrap(),
-        ))
-        .add_plugins(GgrsPlugin::<GgrsConfig>::default())
-        .add_systems(ReadInputs, input_system)
-        .rollback_component_with_copy::<Health>()
+    let mut app = base_synctest_app(5);
+    app.rollback_component_with_copy::<Health>()
         .add_systems(Startup, spawn_player)
         .add_systems(GgrsSchedule, decrease_health);
     app
 }
+
+// --- Tests ---
 
 /// Verifies that despawning a rollback entity and rolling back across the despawn does not panic,
 /// and that the entity is eventually confirmed as gone.
@@ -115,17 +74,65 @@ fn despawn_and_rollback_does_not_panic() {
     );
 }
 
+/// Verifies that `SyncTestMismatch` is triggered when game logic is non-deterministic.
+///
+/// A global atomic counter (not part of ECS and never rolled back) is incremented each time
+/// the game system runs. The system writes this counter's value into a checksummed component,
+/// so each re-simulation produces a different value — causing a checksum mismatch and firing
+/// `SyncTestMismatch`. This confirms that the desync-detection pipeline works end-to-end.
+#[test]
+fn synctest_mismatch_fires_on_non_determinism() {
+    static CALL_COUNT: AtomicU32 = AtomicU32::new(0);
+
+    #[derive(Component, Hash, Clone, Copy, Default)]
+    struct Counter(u32);
+
+    fn non_deterministic_counter(mut query: Query<&mut Counter, With<Rollback>>) {
+        let count = CALL_COUNT.fetch_add(1, Ordering::SeqCst);
+        for mut c in &mut query {
+            c.0 = count;
+        }
+    }
+
+    fn spawn_counter(mut commands: Commands) {
+        commands.spawn((Counter::default(), Rollback));
+    }
+
+    #[derive(Resource, Default)]
+    struct MismatchDetected(bool);
+
+    let mut app = base_synctest_app(2);
+    app.add_systems(Startup, spawn_counter)
+        .rollback_component_with_copy::<Counter>()
+        .checksum_component_with_hash::<Counter>()
+        .add_systems(GgrsSchedule, non_deterministic_counter);
+
+    app.init_resource::<MismatchDetected>();
+    app.world_mut().add_observer(
+        |_trigger: On<SyncTestMismatch>, mut detected: ResMut<MismatchDetected>| {
+            detected.0 = true;
+        },
+    );
+
+    for _ in 0..10 {
+        app.update();
+    }
+
+    assert!(
+        app.world().resource::<MismatchDetected>().0,
+        "SyncTestMismatch should have fired due to non-deterministic game logic"
+    );
+}
+
 /// Verifies that `ConfirmedFrameCount` advances for SyncTest sessions and that old snapshots are
 /// pruned once confirmed. Regression test for the inverted confirmed frame condition bug.
 #[test]
 fn synctest_prunes_confirmed_snapshots() {
     let check_distance: usize = 5;
     let mut app = create_app(check_distance);
-    let sleep = || std::thread::sleep(Duration::from_secs_f32(1.0 / 60.0));
 
     // Run enough frames for ConfirmedFrameCount to advance well past 0
     for _ in 0..20 {
-        sleep();
         app.update();
     }
 
@@ -143,4 +150,96 @@ fn synctest_prunes_confirmed_snapshots() {
         snapshots.peek(0).is_none(),
         "Frame 0 snapshot should have been pruned (confirmed_frame={confirmed})"
     );
+}
+
+/// Verifies that `require_rollback::<T>()` automatically attaches `Rollback` when `T` is spawned,
+/// and that rollback works correctly for entities registered this way.
+#[test]
+fn require_rollback_auto_adds_rollback_marker() {
+    #[derive(Component, Reflect, Default, Clone, Hash)]
+    struct Tag(u32);
+
+    fn increment_tag(mut query: Query<&mut Tag>) {
+        for mut tag in &mut query {
+            tag.0 += 1;
+        }
+    }
+
+    let mut app = base_synctest_app(2);
+    app.require_rollback::<Tag>()
+        .rollback_component_with_clone::<Tag>()
+        .checksum_component_with_hash::<Tag>()
+        .add_systems(Startup, |mut commands: Commands| {
+            // Spawn without explicit Rollback — require_rollback should add it automatically.
+            commands.spawn(Tag(0));
+        })
+        .add_systems(GgrsSchedule, increment_tag);
+
+    app.world_mut().add_observer(|_: On<SyncTestMismatch>| {
+        panic!("SyncTestMismatch: require_rollback entity rollback is non-deterministic");
+    });
+
+    let updates = 20usize;
+    for _ in 0..updates {
+        app.update();
+    }
+
+    let frame = app.world().resource::<RollbackFrameCount>().0 as u32;
+    let tag = app
+        .world_mut()
+        .query::<&Tag>()
+        .single(app.world())
+        .unwrap()
+        .0;
+    assert_eq!(
+        tag, frame,
+        "Tag value should equal the rollback frame count (entity added via require_rollback)"
+    );
+}
+
+/// Verifies that entities without the `Rollback` marker are not touched by rollback
+/// and don't cause a panic when rollback-enabled entities are also present.
+#[test]
+fn non_rollback_entity_survives_rollback() {
+    #[derive(Component)]
+    struct NonRollbackMarker;
+
+    let mut app = base_synctest_app(2);
+    app.add_systems(Startup, |mut commands: Commands| {
+        // This entity has no Rollback component — bevy_ggrs should leave it alone.
+        commands.spawn(NonRollbackMarker);
+    });
+
+    // Run through enough updates to trigger several rollbacks; the test passes if no panic occurs.
+    for _ in 0..20 {
+        app.update();
+    }
+
+    assert!(
+        app.world_mut()
+            .query::<&NonRollbackMarker>()
+            .iter(app.world())
+            .count()
+            == 1,
+        "Non-rollback entity should survive intact through all updates"
+    );
+}
+
+/// Verifies that changing `RollbackFrameRate` mid-session does not cause a panic.
+#[test]
+fn rollback_frame_rate_can_be_changed_mid_session() {
+    let mut app = create_app(2);
+
+    // Run a few frames at the default frame rate.
+    for _ in 0..10 {
+        app.update();
+    }
+
+    // Change the frame rate to something different.
+    app.world_mut().insert_resource(RollbackFrameRate(30));
+
+    // Continue running — should not panic.
+    for _ in 0..10 {
+        app.update();
+    }
 }

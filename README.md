@@ -25,7 +25,7 @@ App::new()
     .add_plugins(GgrsPlugin::<GgrsConfig>::default())
     .insert_resource(RollbackFrameRate(60))
     // register components/resources for snapshotting
-    .rollback_component_with_copy::<Transform>()
+    .rollback_component_with_clone::<Transform>()
     // provide inputs each frame
     .add_systems(ReadInputs, read_local_inputs)
     // your game logic — must be deterministic!
@@ -33,9 +33,14 @@ App::new()
     .insert_resource(Session::SyncTest(session))
     .run();
 
-// tag entities for rollback at spawn time
+// #[require(Rollback)] ensures Rollback is always added with Player —
+// no need to include it manually in every spawn call.
+#[derive(Component)]
+#[require(Rollback)]
+struct Player;
+
 fn spawn_player(mut commands: Commands) {
-    commands.spawn((Transform::default(), Rollback));
+    commands.spawn((Transform::default(), Player));
 }
 ```
 

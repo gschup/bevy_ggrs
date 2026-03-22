@@ -63,7 +63,7 @@ impl From<RollbackFrameCount> for i32 {
 
 /// The most recently confirmed frame. Any information for frames stored before this point can be safely discarded.
 #[derive(Resource, Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ConfirmedFrameCount(pub(crate) i32);
+pub struct ConfirmedFrameCount(pub i32);
 
 impl From<ConfirmedFrameCount> for i32 {
     fn from(value: ConfirmedFrameCount) -> i32 {

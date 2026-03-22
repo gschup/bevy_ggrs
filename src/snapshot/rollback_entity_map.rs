@@ -1,4 +1,4 @@
-use bevy::{ecs::entity::EntityHashMap, platform::collections::HashMap, prelude::*};
+use bevy::{ecs::entity::EntityHashMap, prelude::*};
 
 /// A [`Resource`] which provides an [`EntityMap`], describing how [`Entities`](`Entity`)
 /// changed during a rollback.
@@ -11,29 +11,7 @@ impl From<EntityHashMap<Entity>> for RollbackEntityMap {
     }
 }
 
-impl From<HashMap<Entity, Entity>> for RollbackEntityMap {
-    fn from(value: HashMap<Entity, Entity>) -> Self {
-        Self(value.into_iter().collect())
-    }
-}
-
 impl RollbackEntityMap {
-    /// Create a new [`RollbackEntityMap`], which can generate [`EntityMaps`](`EntityMap`) as required.
-    pub fn new(map: HashMap<Entity, Entity>) -> Self {
-        map.into()
-    }
-
-    /// Generate an owned [`EntityMap`], which can be used concurrently with other systems.
-    pub fn generate_map(&self) -> HashMap<Entity, Entity> {
-        let mut map = HashMap::<Entity, Entity>::default();
-
-        for (original, mapped) in self.iter() {
-            map.insert(original, mapped);
-        }
-
-        map
-    }
-
     /// Iterate over all [`Entity`] mappings as `(old, new)`
     pub fn iter(&self) -> impl Iterator<Item = (Entity, Entity)> + '_ {
         let Self(map) = self;

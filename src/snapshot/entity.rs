@@ -2,7 +2,7 @@ use crate::{
     GgrsComponentSnapshot, GgrsComponentSnapshots, LoadWorld, LoadWorldSystems, Rollback,
     RollbackEntityMap, RollbackFrameCount, RollbackId, SaveWorld, SaveWorldSystems,
 };
-use bevy::{platform::collections::HashMap, prelude::*};
+use bevy::{ecs::entity::EntityHashMap, platform::collections::HashMap, prelude::*};
 
 /// A [`Plugin`] which manages the rollback for [`Entities`](`Entity`). This will ensure
 /// all [`Entities`](`Entity`) match the state of the desired frame, or can be mapped using a
@@ -49,7 +49,7 @@ impl EntitySnapshotPlugin {
         frame: Res<RollbackFrameCount>,
         query: Query<(&RollbackId, Entity)>,
     ) {
-        let mut entity_map = HashMap::default();
+        let mut entity_map = HashMap::<Entity, Entity>::default();
         let mut rollback_mapping = HashMap::new();
 
         let snapshot = snapshots.rollback(frame.0).get();
@@ -82,7 +82,10 @@ impl EntitySnapshotPlugin {
 
         trace!("Rolled back {} entity(s)", snapshot.iter().count());
 
-        *map = RollbackEntityMap::new(entity_map);
+        *map = entity_map
+            .into_iter()
+            .collect::<EntityHashMap<Entity>>()
+            .into();
     }
 }
 

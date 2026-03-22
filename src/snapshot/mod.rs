@@ -208,7 +208,9 @@ impl<For, As> GgrsSnapshots<For, As> {
 
     /// Get the current snapshot. Use `rollback(frame)` to first select a frame to rollback to.
     pub fn get(&self) -> &As {
-        self.snapshots.front().unwrap()
+        self.snapshots
+            .front()
+            .expect("no snapshot available — call rollback(frame) before get()")
     }
 
     /// Get a particular snapshot if it exists.

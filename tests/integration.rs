@@ -39,10 +39,9 @@ fn it_runs_advance_frame_schedule_systems() -> Result<(), Box<dyn std::error::Er
     let frame_count1 = app1.world().get_resource::<FrameCount>().unwrap();
     let frame_count2 = app2.world().get_resource::<FrameCount>().unwrap();
 
-    // We've run Bevy for 50 frames, bevy_ggrs, however needs a couple of frames
-    // to sync before it starts to run the advance frame schedule, so the
-    // expected frame count is not 50 as one might expect.
-    // We just make sure that it started running
+    // The P2P session requires a handshake over real localhost UDP before advancing frames,
+    // which takes a variable number of Bevy updates. An exact frame count would be flaky.
+    // We assert > 25 (out of 50 Bevy updates) to confirm the session synced and ran.
     assert!(frame_count1.frame > 25);
     assert!(frame_count2.frame > 25);
 

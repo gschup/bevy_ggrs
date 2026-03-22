@@ -78,9 +78,11 @@ pub struct ChecksumPlugin;
 impl ChecksumPlugin {
     /// A [`System`] responsible for updating [`Checksum`] based on [`ChecksumParts`](`ChecksumPart`).
     pub fn update(mut checksum: ResMut<Checksum>, parts: Query<&ChecksumPart>) {
-        // TODO: Add explicit ordering to `ChecksumPart`'s to make checksum more robust to transposition
-        // XOR is commutative, ensuring order does not matter.
-        // Chosen over addition and multiplication as XOR is closed on u128
+        // XOR is commutative, so insertion order does not matter.
+        // Chosen over addition and multiplication as XOR is closed on u128.
+        // NOTE: XOR has a blind spot — if two entities swap `ChecksumPart` values, or the same
+        // value appears an even number of times, they cancel out (`a ^ a == 0`) and the desync
+        // goes undetected. Consider addition-based checksums if this is a concern.
         let parts = parts.iter().fold(0, |a: u128, &ChecksumPart(b)| a ^ b);
 
         trace!("Frame has checksum {:X}", parts);

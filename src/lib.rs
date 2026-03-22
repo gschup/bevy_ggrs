@@ -67,7 +67,6 @@ pub enum Session<T: Config> {
     Spectator(SpectatorSession<T>),
 }
 
-// TODO: more specific name to avoid conflicts?
 #[derive(Resource, Deref, DerefMut)]
 pub struct PlayerInputs<T: Config>(Vec<(T::Input, InputStatus)>);
 

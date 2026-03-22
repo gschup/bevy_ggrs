@@ -50,6 +50,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .rollback_component_with_copy::<Velocity>()
         // Transform only implements Clone, so instead we'll use that to snapshot and rollback with
         .rollback_component_with_clone::<Transform>()
+        // Register checksums so SyncTest can detect divergence in game state.
+        // Without this, only entity counts are compared — most logic bugs will go undetected.
+        .checksum_resource_with_hash::<FrameCount>()
         .add_systems(Startup, setup_system)
         // these systems will be executed as part of the advance frame update
         .add_systems(GgrsSchedule, (move_cube_system, increase_frame_system))
@@ -57,6 +60,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .insert_resource(Session::SyncTest(sess))
         // register a resource that will be rolled back
         .insert_resource(FrameCount { frame: 0 })
+        // Panic loudly if SyncTest detects a desync — this is the whole point of SyncTestSession.
+        // Observe SyncTestMismatch in your own app to handle desyncs however you prefer.
+        .add_observer(|trigger: On<SyncTestMismatch>| {
+            panic!(
+                "desync detected at frame {}! mismatched frames: {:?}",
+                trigger.event().current_frame,
+                trigger.event().mismatched_frames
+            );
+        })
         .run();
 
     Ok(())

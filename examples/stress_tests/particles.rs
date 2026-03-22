@@ -167,7 +167,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .add_systems(ReadInputs, read_local_inputs);
 
     if args.reflect {
-        // Visual components (Sprite, Transform, visibility)
+        // Visual components. Transform is required; GlobalTransform and visibility components
+        // are included to stress-test rollback throughput. In a typical game you would omit
+        // GlobalTransform (it is recalculated in PostUpdate) and skip visibility components
+        // that your game logic does not change.
         app.rollback_component_with_reflect::<Sprite>()
             .rollback_component_with_reflect::<Transform>()
             .rollback_component_with_reflect::<GlobalTransform>()
@@ -182,9 +185,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // negligible anyway.
             .rollback_resource_with_clone::<ParticleRng>();
     } else {
-        // clone/copy-based rollback
+        // clone/copy-based rollback (faster than reflect for types that support it)
 
-        // Visual components (Sprite, Transform, visibility)
+        // Visual components — see reflect branch above for notes on GlobalTransform/visibility.
         app.rollback_component_with_clone::<Sprite>()
             .rollback_component_with_clone::<Transform>()
             .rollback_component_with_clone::<GlobalTransform>()

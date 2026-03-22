@@ -28,7 +28,11 @@ pub type BoxConfig = GgrsConfig<BoxInput>;
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct BoxInput(u8);
 
+// #[require(Rollback)] is the idiomatic way to ensure an entity is always included in
+// the rollback system. Whenever a Player is spawned, Rollback (and its RollbackId) will
+// be added automatically — no need to add it manually in the spawn bundle.
 #[derive(Default, Component)]
+#[require(Rollback)]
 pub struct Player {
     pub handle: usize,
 }
@@ -49,6 +53,10 @@ pub struct FrameCount {
 }
 
 /// Collects player inputs during [`ReadInputs`](`bevy_ggrs::ReadInputs`) and creates a [`LocalInputs`] resource.
+///
+/// Reading `ButtonInput` here is safe because `ReadInputs` runs outside `GgrsSchedule`.
+/// Do not read `ButtonInput` inside `GgrsSchedule` — it will hold the current frame's
+/// input during resimulation, not the input for the frame being resimulated.
 pub fn read_local_inputs(
     mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,
@@ -112,16 +120,13 @@ pub fn setup_system(
 
         // Entities which will be rolled back can be created just like any other...
         commands.spawn((
-            // ...add visual information...
             Mesh3d(mesh.clone()),
             MeshMaterial3d(materials.add(StandardMaterial::from(color))),
             transform,
-            // ...flags...
             Player { handle },
-            // ...and components which will be rolled-back...
+            // Velocity is registered for rollback above, so it will be saved/restored each frame.
+            // Rollback is added automatically via #[require(Rollback)] on Player.
             Velocity::default(),
-            // The Rollback marker ensures a stable ID is available for the rollback system
-            Rollback,
         ));
     }
 
@@ -154,9 +159,14 @@ pub fn move_cube_system(
 ) {
     let dt = time.delta().as_secs_f32();
 
-    // NOTE: query iteration order is non-deterministic. This is fine for a demo because each
-    // player only affects their own entity, but in a real game you should sort by a stable key
-    // (e.g. player handle or RollbackOrdered) before mutating shared state.
+    // Iteration order is non-deterministic, but safe here because each player exclusively
+    // reads their own input and writes only their own Transform/Velocity — no entity reads
+    // or writes another entity's state, so the result is the same regardless of order.
+    //
+    // If your systems compute aggregates or have entities that affect each other (e.g.
+    // collision resolution), sort by a stable key first:
+    //   query.iter_mut().sort_by_key(|(_, _, p)| p.handle)
+    // or use RollbackOrdered for entities without a natural sort key.
     for (mut t, mut v, p) in query.iter_mut() {
         let input = inputs[p.handle].0.0;
         // set velocity through key presses

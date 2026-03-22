@@ -70,6 +70,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .rollback_component_with_copy::<Velocity>()
         // Transform only implements Clone, so instead we'll use that to snapshot and rollback with
         .rollback_component_with_clone::<Transform>()
+        // Register checksums for the state that matters most. Desync detection (enabled above)
+        // compares these values across peers — without them only entity counts are compared.
+        .checksum_resource_with_hash::<FrameCount>()
         .insert_resource(opt)
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {

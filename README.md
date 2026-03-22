@@ -5,15 +5,45 @@
 
 ## Bevy GGRS
 
-[Bevy](https://github.com/bevyengine/bevy) plugin for the [GGRS](https://github.com/gschup/ggrs) P2P rollback networking library.
-The plugin creates a custom stage with a separate schedule, which handles correctly advancing the gamestate, including rollbacks.
-It efficiently handles saving and loading of the gamestate by only snapshotting relevant parts of the world, as defined by the user. It is supposed to work with the latest released version of bevy.
+[Bevy](https://github.com/bevyengine/bevy) plugin for the [GGRS](https://github.com/gschup/ggrs) P2P rollback networking library. Handles advancing game state and rollbacks via a dedicated schedule, snapshotting only the components and resources you register.
 
-For explanation on how to use it, check the 👉[examples](./examples/)!
+## Quickstart
 
-## Live Demonstration (currently offline)
+```toml
+# Cargo.toml
+[dependencies]
+bevy_ggrs = { git = "https://github.com/gschup/bevy_ggrs" }
+```
 
-bevy_GGRS has a demo app you can try in the browser! It uses [matchbox](https://github.com/johanhelsing/matchbox) to facilitate communication between browsers. Try it out with a friend! Just click the link and match with another player! (You can also open the link in two separate windows to play against yourself)
+```rust
+use bevy::prelude::*;
+use bevy_ggrs::prelude::*;
+
+type GgrsConfig = bevy_ggrs::GgrsConfig<u8>; // replace u8 with your input type
+
+App::new()
+    .add_plugins(GgrsPlugin::<GgrsConfig>::default())
+    .insert_resource(RollbackFrameRate(60))
+    // register components/resources for snapshotting
+    .rollback_component_with_copy::<Transform>()
+    // provide inputs each frame
+    .add_systems(ReadInputs, read_local_inputs)
+    // your game logic — must be deterministic!
+    .add_systems(GgrsSchedule, move_players)
+    .insert_resource(Session::SyncTest(session))
+    .run();
+
+// tag entities for rollback at spawn time
+fn spawn_player(mut commands: Commands) {
+    commands.spawn((Transform::default(), Rollback));
+}
+```
+
+For full P2P and spectator session examples, see [examples/](./examples/).
+
+## Live Demonstration (unmaintained)
+
+bevy_ggrs has a demo app using [matchbox](https://github.com/johanhelsing/matchbox) for browser-based P2P. It is currently unmaintained and may not work with the latest version.
 
 - [Demo Repository](https://github.com/gschup/bevy_ggrs_demo)
 
@@ -35,9 +65,14 @@ bevy_GGRS has a demo app you can try in the browser! It uses [matchbox](https://
 | 0.8  | 0.10      | 0.9    |
 | 0.6  | 0.9       | 0.9    |
 
+## Community
+
+- [matchbox](https://github.com/johanhelsing/matchbox) — WebRTC socket layer, pairs well with bevy_ggrs for browser/WASM P2P
+- [extreme_bevy](https://github.com/johanhelsing/extreme_bevy) — tutorial and example project: how to build a low-latency P2P web game with bevy_ggrs and matchbox
+
 ## Thanks
 
-to [bevy_backroll](https://github.com/HouraiTeahouse/backroll-rs/tree/main/bevy_backroll) and [bevy_rollback](https://github.com/jamescarterbell/bevy_rollback) for figuring out pieces of the puzzle that made bevy_GGRS possible. Special thanks to the helpful folks in the bevy discord, providing useful help and pointers all over the place.
+to [bevy_backroll](https://github.com/HouraiTeahouse/backroll-rs/tree/main/bevy_backroll) and [bevy_rollback](https://github.com/jamescarterbell/bevy_rollback) for figuring out pieces of the puzzle that made bevy_ggrs possible. Special thanks to the helpful folks in the Bevy Discord for their support along the way.
 
 ## Licensing
 

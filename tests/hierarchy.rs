@@ -38,25 +38,14 @@ fn delete_child_system(
     mut commands: Commands,
     inputs: Res<PlayerInputs<GgrsConfig>>,
     parent: Query<&Children, With<ParentEntity>>,
-    child: Query<Entity, With<ChildEntity>>,
 ) {
-    println!("Inputs: {:?}", **inputs);
-
-    println!("Parent's children: {:?}", parent.single());
-
-    if let Ok(child) = child.single() {
-        println!("Child exists: {child:?}");
-    }
-
     if inputs[0].0 == 1 {
-        println!("Despawning child");
         let child_entity = parent.single().unwrap()[0];
         commands.entity(child_entity).despawn();
     }
 }
 
 fn frame_counter(mut counter: ResMut<FrameCounter>) {
-    println!("==== Frame {} ====", counter.0);
     counter.0 = counter.0.wrapping_add(1);
 }
 

@@ -108,3 +108,27 @@ impl<T: Reflect + FromWorld> Strategy for ReflectStrategy<T> {
         target
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use bevy::prelude::*;
+
+    use super::{ReflectStrategy, Strategy};
+
+    // --- ReflectStrategy ---
+
+    #[derive(Reflect, Default, PartialEq, Debug)]
+    struct Foo {
+        x: f32,
+        y: u32,
+    }
+
+    /// store→load round-trip preserves reflected fields.
+    #[test]
+    fn reflect_strategy_round_trip() {
+        let value = Foo { x: 1.5, y: 7 };
+        let stored = ReflectStrategy::<Foo>::store(&value);
+        let loaded = ReflectStrategy::<Foo>::load(&stored);
+        assert_eq!(loaded, value);
+    }
+}

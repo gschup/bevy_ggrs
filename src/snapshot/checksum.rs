@@ -99,6 +99,20 @@ impl ChecksumPlugin {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::ChecksumPart;
+
+    /// The same value always produces the same checksum (deterministic).
+    /// SeaHash must be stable across invocations since checksums are compared across peers.
+    #[test]
+    fn from_value_is_deterministic() {
+        let a = ChecksumPart::from_value(&42u32);
+        let b = ChecksumPart::from_value(&42u32);
+        assert_eq!(a.0, b.0);
+    }
+}
+
 impl Plugin for ChecksumPlugin {
     /// Registers the [`Checksum`] resource and the system that folds [`ChecksumPart`]s into it.
     fn build(&self, app: &mut App) {

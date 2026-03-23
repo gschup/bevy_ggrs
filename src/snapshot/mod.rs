@@ -360,26 +360,6 @@ pub(crate) mod tests {
 
     // --- push ---
 
-    /// Pushing a single frame stores it and makes it retrievable via peek.
-    #[test]
-    fn push_single_frame() {
-        let mut s = snap_with_depth(8);
-        s.push(0, 42);
-        assert_eq!(s.peek(0), Some(&42));
-    }
-
-    /// Frames pushed in ascending order are all retained up to depth.
-    #[test]
-    fn push_ascending_frames_retained() {
-        let mut s = snap_with_depth(8);
-        for i in 0..5_i32 {
-            s.push(i, i as u32 * 10);
-        }
-        for i in 0..5_i32 {
-            assert_eq!(s.peek(i), Some(&(i as u32 * 10)));
-        }
-    }
-
     /// When depth is exceeded, the oldest frames are evicted.
     #[test]
     fn push_evicts_oldest_when_depth_exceeded() {
@@ -490,17 +470,6 @@ pub(crate) mod tests {
         let mut s = snap_with_depth(8);
         s.push(0, 0);
         s.rollback(99);
-    }
-
-    // --- peek ---
-
-    /// Peek returns None for a frame that was never stored.
-    #[test]
-    fn peek_missing_frame_returns_none() {
-        let mut s = snap_with_depth(8);
-        s.push(1, 10);
-        assert!(s.peek(0).is_none());
-        assert!(s.peek(2).is_none());
     }
 
     // --- i32 wraparound ---

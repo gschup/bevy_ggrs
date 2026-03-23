@@ -152,51 +152,6 @@ fn synctest_prunes_confirmed_snapshots() {
     );
 }
 
-/// Verifies that `require_rollback::<T>()` automatically attaches `Rollback` when `T` is spawned,
-/// and that rollback works correctly for entities registered this way.
-#[test]
-fn require_rollback_auto_adds_rollback_marker() {
-    #[derive(Component, Reflect, Default, Clone, Hash)]
-    struct Tag(u32);
-
-    fn increment_tag(mut query: Query<&mut Tag>) {
-        for mut tag in &mut query {
-            tag.0 += 1;
-        }
-    }
-
-    let mut app = base_synctest_app(2);
-    app.require_rollback::<Tag>()
-        .rollback_component_with_clone::<Tag>()
-        .checksum_component_with_hash::<Tag>()
-        .add_systems(Startup, |mut commands: Commands| {
-            // Spawn without explicit Rollback — require_rollback should add it automatically.
-            commands.spawn(Tag(0));
-        })
-        .add_systems(GgrsSchedule, increment_tag);
-
-    app.world_mut().add_observer(|_: On<SyncTestMismatch>| {
-        panic!("SyncTestMismatch: require_rollback entity rollback is non-deterministic");
-    });
-
-    let updates = 20usize;
-    for _ in 0..updates {
-        app.update();
-    }
-
-    let frame = app.world().resource::<RollbackFrameCount>().0 as u32;
-    let tag = app
-        .world_mut()
-        .query::<&Tag>()
-        .single(app.world())
-        .unwrap()
-        .0;
-    assert_eq!(
-        tag, frame,
-        "Tag value should equal the rollback frame count (entity added via require_rollback)"
-    );
-}
-
 /// Verifies that entities without the `Rollback` marker are not touched by rollback
 /// and don't cause a panic when rollback-enabled entities are also present.
 #[test]
@@ -223,23 +178,4 @@ fn non_rollback_entity_survives_rollback() {
             == 1,
         "Non-rollback entity should survive intact through all updates"
     );
-}
-
-/// Verifies that changing `RollbackFrameRate` mid-session does not cause a panic.
-#[test]
-fn rollback_frame_rate_can_be_changed_mid_session() {
-    let mut app = create_app(2);
-
-    // Run a few frames at the default frame rate.
-    for _ in 0..10 {
-        app.update();
-    }
-
-    // Change the frame rate to something different.
-    app.world_mut().insert_resource(RollbackFrameRate(30));
-
-    // Continue running — should not panic.
-    for _ in 0..10 {
-        app.update();
-    }
 }

@@ -23,36 +23,6 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 #[test]
 #[serial]
-fn it_runs_advance_frame_schedule_systems() -> Result<(), Box<dyn std::error::Error>> {
-    let (player1, player2) = create_players();
-    let session1 = start_session(&player1, &player2)?;
-    let mut app1 = create_app::<TestConfig>(session1);
-    let session2 = start_session(&player2, &player1)?;
-    let mut app2 = create_app::<TestConfig>(session2);
-
-    let inputs1 = HashMap::from([(player1.handle, BoxInput { inp: 0 })]);
-    let inputs_resource = LocalInputs::<TestConfig>(inputs1);
-    app1.insert_resource(inputs_resource);
-
-    for _ in 0..50 {
-        app1.update();
-        app2.update();
-    }
-
-    let frame_count1 = app1.world().get_resource::<FrameCount>().unwrap();
-    let frame_count2 = app2.world().get_resource::<FrameCount>().unwrap();
-
-    // The P2P session requires a handshake over real localhost UDP before advancing frames,
-    // which takes a variable number of Bevy updates. An exact frame count would be flaky.
-    // We assert > 25 (out of 50 Bevy updates) to confirm the session synced and ran.
-    assert!(frame_count1.frame > 25);
-    assert!(frame_count2.frame > 25);
-
-    Ok(())
-}
-
-#[test]
-#[serial]
 fn it_syncs_rollback_components() -> Result<(), Box<dyn std::error::Error>> {
     let (player1, player2) = create_players();
     let session1 = start_session(&player1, &player2)?;

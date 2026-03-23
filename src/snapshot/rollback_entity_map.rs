@@ -52,3 +52,38 @@ impl EntityMapper for &RollbackEntityMap {
 
     fn set_mapped(&mut self, _source: Entity, _target: Entity) {}
 }
+
+#[cfg(test)]
+mod tests {
+    use bevy::{ecs::entity::EntityHashMap, prelude::*};
+
+    use super::RollbackEntityMap;
+
+    fn entity(index: u32) -> Entity {
+        Entity::from_raw_u32(index).expect("valid test entity index")
+    }
+
+    fn map_from(pairs: &[(u32, u32)]) -> RollbackEntityMap {
+        let inner: EntityHashMap<Entity> = pairs
+            .iter()
+            .map(|&(old, new)| (entity(old), entity(new)))
+            .collect();
+        RollbackEntityMap::from(inner)
+    }
+
+    /// get returns None for an entity not in the map.
+    #[test]
+    fn get_absent_key_returns_none() {
+        let m = map_from(&[(1, 2)]);
+        assert_eq!(m.get(entity(99)), None);
+    }
+
+    /// EntityMapper::get_mapped returns the source entity unchanged when not in the map.
+    /// Components holding stale Entity references must not be corrupted for unmapped entities.
+    #[test]
+    fn entity_mapper_falls_back_to_source() {
+        let m = map_from(&[(5, 6)]);
+        let mut mapper = &m;
+        assert_eq!(mapper.get_mapped(entity(99)), entity(99));
+    }
+}

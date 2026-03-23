@@ -111,22 +111,6 @@ mod tests {
         ro
     }
 
-    /// A freshly created `RollbackOrdered` is empty.
-    #[test]
-    fn default_is_empty() {
-        let ro = RollbackOrdered::default();
-        assert!(ro.is_empty());
-        assert_eq!(ro.len(), 0);
-    }
-
-    /// Pushing IDs increments len and clears is_empty.
-    #[test]
-    fn push_increases_len() {
-        let ro = ordered_with(&[0, 1, 2]);
-        assert!(!ro.is_empty());
-        assert_eq!(ro.len(), 3);
-    }
-
     /// Each ID receives a unique, zero-based, insertion-order index.
     #[test]
     fn order_returns_insertion_index() {

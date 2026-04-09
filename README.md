@@ -59,6 +59,7 @@ bevy_ggrs has a demo app using [matchbox](https://github.com/johanhelsing/matchb
 | bevy | bevy_ggrs | ggrs   |
 | ---- | --------- | ------ |
 | 0.18 | main      | main   |
+| 0.18 | 0.21      | 0.12.0 |
 | 0.18 | 0.20      | 0.11.1 |
 | 0.17 | 0.19      | 0.11.1 |
 | 0.16 | 0.18      | 0.11.1 |

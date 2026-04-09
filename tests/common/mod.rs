@@ -9,6 +9,7 @@ impl Config for GgrsConfig {
     type Input = u8;
     type State = u8;
     type Address = usize;
+    type InputPredictor = ggrs::PredictRepeatLast;
 }
 
 /// Fills `LocalInputs` with zero-input for every local player. Used as the `ReadInputs` system

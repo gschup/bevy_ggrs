@@ -55,6 +55,7 @@ where
     type Input = Input;
     type State = State;
     type Address = Address;
+    type InputPredictor = ggrs::PredictRepeatLast;
 }
 
 const DEFAULT_FPS: usize = 60;

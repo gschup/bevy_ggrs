@@ -26,8 +26,13 @@ pub struct Rollback;
 
 /// A stable identifier for rollback entities, used as a key in snapshot storage.
 /// Automatically inserted when [`Rollback`] is added to an entity.
+///
+/// `clone_behavior = Ignore` prevents `EntityCloner` from copying this value
+/// onto a clone. `RollbackId` is an identity, not a value to share. A clone
+/// instead receives a fresh `RollbackId` from `Rollback`'s `on_add` hook
+/// firing on the new entity.
 #[derive(Component, Hash, PartialEq, Eq, Clone, Copy, Debug)]
-#[component(immutable)]
+#[component(immutable, clone_behavior = Ignore)]
 pub struct RollbackId(Entity);
 
 impl RollbackId {
@@ -95,9 +100,10 @@ impl RollbackOrdered {
 
 #[cfg(test)]
 mod tests {
-    use bevy::prelude::Entity;
+    use bevy::{ecs::entity::EntityCloner, prelude::*};
 
-    use super::{RollbackId, RollbackOrdered};
+    use super::{Rollback, RollbackId, RollbackOrdered};
+    use crate::snapshot::SnapshotPlugin;
 
     fn id(n: u32) -> RollbackId {
         RollbackId::new(Entity::from_raw_u32(n).expect("valid test entity index"))
@@ -146,6 +152,35 @@ mod tests {
     fn order_unregistered_panics() {
         let ro = ordered_with(&[0]);
         ro.order(id(99));
+    }
+
+    /// Regression: `EntityCloner` must not copy `RollbackId` from the source.
+    /// Before `clone_behavior = Ignore`, the clone inherited the source's id
+    /// and `EntitySnapshotPlugin` couldn't tell them apart during save/load.
+    #[test]
+    fn entity_cloner_assigns_fresh_rollback_id() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(SnapshotPlugin);
+
+        let source = app.world_mut().spawn(Rollback).id();
+        app.update();
+        let source_rid = *app
+            .world()
+            .get::<RollbackId>(source)
+            .expect("source has RollbackId");
+
+        let clone = EntityCloner::default().spawn_clone(app.world_mut(), source);
+        app.update();
+        let clone_rid = *app
+            .world()
+            .get::<RollbackId>(clone)
+            .expect("clone has RollbackId");
+
+        assert_ne!(
+            source_rid, clone_rid,
+            "clone must have a unique RollbackId, got the source's id"
+        );
     }
 
     /// Cloning `RollbackOrdered` produces an independent copy with identical ordering.

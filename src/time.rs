@@ -72,7 +72,17 @@ impl GgrsTimePlugin {
         // By scaling to nanoseconds, rounding error should be minimised.
         let runtime = Duration::from_nanos(this_frame * 1_000_000_000 / framerate);
 
-        time.advance_to(runtime);
+        // `GgrsTime` is fully derived from the frame count, so it must be able to
+        // follow the frame count backwards. For example, when a session is stopped
+        // and a new one started, the frame count resets to 0 while this clock still
+        // holds the previous session's elapsed time. `advance_to` panics on backward
+        // movement, so reconstruct the clock in that case instead.
+        if runtime >= time.elapsed() {
+            time.advance_to(runtime);
+        } else {
+            *time = Time::new_with(GgrsTime);
+            time.advance_by(runtime);
+        }
     }
 
     /// Overrides the [default time](`Time<()>`) with [`Time<GgrsTime>`].

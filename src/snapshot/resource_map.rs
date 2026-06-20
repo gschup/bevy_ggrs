@@ -6,7 +6,10 @@
 
 use std::marker::PhantomData;
 
-use bevy::{ecs::entity::MapEntities, prelude::*};
+use bevy::{
+    ecs::{component::Mutable, entity::MapEntities},
+    prelude::*,
+};
 
 use crate::{LoadWorld, LoadWorldSystems, RollbackEntityMap};
 
@@ -43,14 +46,14 @@ use crate::{LoadWorld, LoadWorldSystems, RollbackEntityMap};
 /// ```
 pub struct ResourceMapEntitiesPlugin<R>
 where
-    R: Resource + MapEntities,
+    R: Resource<Mutability = Mutable> + MapEntities,
 {
     _phantom: PhantomData<R>,
 }
 
 impl<R> Default for ResourceMapEntitiesPlugin<R>
 where
-    R: Resource + MapEntities,
+    R: Resource<Mutability = Mutable> + MapEntities,
 {
     fn default() -> Self {
         Self {
@@ -61,7 +64,7 @@ where
 
 impl<R> ResourceMapEntitiesPlugin<R>
 where
-    R: Resource + MapEntities,
+    R: Resource<Mutability = Mutable> + MapEntities,
 {
     /// Exclusive system which will apply a [`RollbackEntityMap`] to the [`Resource`] `R`, provided it implements [`MapEntities`].
     pub fn update(world: &mut World) {
@@ -73,7 +76,7 @@ where
 
 fn apply_rollback_map_to_resource_inner<R>(world: &mut World, map: Mut<RollbackEntityMap>)
 where
-    R: Resource + MapEntities,
+    R: Resource<Mutability = Mutable> + MapEntities,
 {
     if let Some(mut resource) = world.get_resource_mut::<R>() {
         resource.map_entities(&mut map.as_ref());
@@ -84,7 +87,7 @@ where
 
 impl<R> Plugin for ResourceMapEntitiesPlugin<R>
 where
-    R: Resource + MapEntities,
+    R: Resource<Mutability = Mutable> + MapEntities,
 {
     /// Registers the entity-mapping system for this resource type in [`LoadWorldSystems::Mapping`].
     fn build(&self, app: &mut App) {

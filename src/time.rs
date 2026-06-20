@@ -75,13 +75,14 @@ impl GgrsTimePlugin {
         // `GgrsTime` is fully derived from the frame count, so it must be able to
         // follow the frame count backwards. For example, when a session is stopped
         // and a new one started, the frame count resets to 0 while this clock still
-        // holds the previous session's elapsed time. `advance_to` panics on backward
-        // movement, so reconstruct the clock in that case instead.
-        if runtime >= time.elapsed() {
-            time.advance_to(runtime);
-        } else {
+        // holds the previous session's elapsed time.
+        let time_moved_backwards = runtime < time.elapsed();
+        if time_moved_backwards {
+            // `advance_to` panics on backward movement, so rebuild the clock from zero.
             *time = Time::new_with(GgrsTime);
             time.advance_by(runtime);
+        } else {
+            time.advance_to(runtime);
         }
     }
 

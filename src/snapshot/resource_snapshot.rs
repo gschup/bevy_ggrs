@@ -3,11 +3,16 @@
 //! [`ResourceSnapshotPlugin`] saves a copy of a resource each frame (using a configurable
 //! [`Strategy`]) and restores it during rollback. Resources that are absent from the world
 //! are snapshotted as `None` and removed on restore.
+//!
+//! Note: only mutable resources are supported (Bevy 0.19's default). Immutable resources
+//! (`Mutability = Immutable`) would need a separate restore path that removes and re-inserts
+//! rather than updating in place; that is left as future work.
 
 use crate::{
     GgrsResourceSnapshots, LoadWorld, LoadWorldSystems, RollbackFrameCount, SaveWorld,
     SaveWorldSystems, Strategy,
 };
+use bevy::ecs::component::Mutable;
 use bevy::prelude::*;
 use std::marker::PhantomData;
 
@@ -36,7 +41,7 @@ use std::marker::PhantomData;
 pub struct ResourceSnapshotPlugin<S>
 where
     S: Strategy,
-    S::Target: Resource,
+    S::Target: Resource<Mutability = Mutable>,
     S::Stored: Send + Sync + 'static,
 {
     _phantom: PhantomData<S>,
@@ -45,7 +50,7 @@ where
 impl<S> Default for ResourceSnapshotPlugin<S>
 where
     S: Strategy,
-    S::Target: Resource,
+    S::Target: Resource<Mutability = Mutable>,
     S::Stored: Send + Sync + 'static,
 {
     fn default() -> Self {
@@ -58,7 +63,7 @@ where
 impl<S> ResourceSnapshotPlugin<S>
 where
     S: Strategy,
-    S::Target: Resource,
+    S::Target: Resource<Mutability = Mutable>,
     S::Stored: Send + Sync + 'static,
 {
     /// System that snapshots the resource for this frame. Stores `None` if the resource is absent.
@@ -96,7 +101,7 @@ where
 impl<S> Plugin for ResourceSnapshotPlugin<S>
 where
     S: Send + Sync + 'static + Strategy,
-    S::Target: Resource,
+    S::Target: Resource<Mutability = Mutable>,
     S::Stored: Send + Sync + 'static,
 {
     /// Registers snapshot storage and the save/load systems for this resource type.

@@ -124,7 +124,7 @@ struct Ttl(usize);
 
 type GameRng = rand_xoshiro::Xoshiro256PlusPlus;
 
-#[derive(Resource, Component, Clone, Deref, DerefMut)]
+#[derive(Resource, Clone, Deref, DerefMut)]
 struct ParticleRng(GameRng);
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

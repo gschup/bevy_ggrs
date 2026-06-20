@@ -7,8 +7,9 @@
 #![allow(clippy::type_complexity)] // Suppress warnings around Query
 
 use bevy::ecs::intern::Interned;
+use bevy::ecs::schedule::SingleThreadedExecutor;
 use bevy::{
-    ecs::schedule::{ExecutorKind, LogLevel, ScheduleBuildSettings, ScheduleLabel},
+    ecs::schedule::{LogLevel, ScheduleBuildSettings, ScheduleLabel},
     input::InputSystems,
     platform::collections::HashMap,
     prelude::*,
@@ -233,9 +234,9 @@ impl<C: Config> Plugin for GgrsPlugin<C> {
             .init_resource::<FixedTimestepData>()
             .init_schedule(ReadInputs)
             .edit_schedule(AdvanceWorld, |schedule| {
-                // AdvanceWorld is mostly a facilitator for GgrsSchedule, so SingleThreaded avoids overhead
+                // AdvanceWorld is mostly a facilitator for GgrsSchedule, so single threading avoids overhead
                 // This can be overridden if desired.
-                schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+                schedule.set_executor(SingleThreadedExecutor::new());
             })
             .edit_schedule(GgrsSchedule, |schedule| {
                 schedule.set_build_settings(ScheduleBuildSettings {

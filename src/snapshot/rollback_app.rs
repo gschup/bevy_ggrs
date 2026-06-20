@@ -45,7 +45,7 @@ pub trait RollbackApp {
     /// uses [`Copy`] based snapshots for rollback.
     fn rollback_resource_with_copy<Type>(&mut self) -> &mut Self
     where
-        Type: Resource + Copy;
+        Type: Resource<Mutability = Mutable> + Copy;
 
     /// Registers a component type for saving and loading from the world. This
     /// uses [`Clone`] based snapshots for rollback.
@@ -63,7 +63,7 @@ pub trait RollbackApp {
     /// uses [`Clone`] based snapshots for rollback.
     fn rollback_resource_with_clone<Type>(&mut self) -> &mut Self
     where
-        Type: Resource + Clone;
+        Type: Resource<Mutability = Mutable> + Clone;
 
     /// Registers a component type for saving and loading from the world. This
     /// uses [`reflection`](`Reflect`) based snapshots for rollback.
@@ -93,7 +93,7 @@ pub trait RollbackApp {
     /// If you require this behavior, see [`ComponentMapEntitiesPlugin`].
     fn rollback_resource_with_reflect<Type>(&mut self) -> &mut Self
     where
-        Type: Resource + Reflect + FromWorld;
+        Type: Resource<Mutability = Mutable> + Reflect + FromWorld;
 
     /// Adds a component type to the checksum generation pipeline using [`Hash`].
     fn checksum_component_with_hash<Type>(&mut self) -> &mut Self
@@ -113,7 +113,7 @@ pub trait RollbackApp {
     /// Updates a resource after rollback using [`MapEntities`].
     fn update_resource_with_map_entities<Type>(&mut self) -> &mut Self
     where
-        Type: Resource + MapEntities;
+        Type: Resource<Mutability = Mutable> + MapEntities;
 
     /// Adds a component type to the checksum generation pipeline.
     fn checksum_component<Type>(&mut self, hasher: for<'a> fn(&'a Type) -> u64) -> &mut Self
@@ -149,7 +149,7 @@ impl RollbackApp for App {
 
     fn rollback_resource_with_reflect<Type>(&mut self) -> &mut Self
     where
-        Type: Resource + Reflect + FromWorld,
+        Type: Resource<Mutability = Mutable> + Reflect + FromWorld,
     {
         self.add_plugins(ResourceSnapshotPlugin::<ReflectStrategy<Type>>::default())
     }
@@ -170,7 +170,7 @@ impl RollbackApp for App {
 
     fn rollback_resource_with_copy<Type>(&mut self) -> &mut Self
     where
-        Type: Resource + Copy,
+        Type: Resource<Mutability = Mutable> + Copy,
     {
         self.add_plugins(ResourceSnapshotPlugin::<CopyStrategy<Type>>::default())
     }
@@ -191,7 +191,7 @@ impl RollbackApp for App {
 
     fn rollback_resource_with_clone<Type>(&mut self) -> &mut Self
     where
-        Type: Resource + Clone,
+        Type: Resource<Mutability = Mutable> + Clone,
     {
         self.add_plugins(ResourceSnapshotPlugin::<CloneStrategy<Type>>::default())
     }
@@ -219,7 +219,7 @@ impl RollbackApp for App {
 
     fn update_resource_with_map_entities<Type>(&mut self) -> &mut Self
     where
-        Type: Resource + MapEntities,
+        Type: Resource<Mutability = Mutable> + MapEntities,
     {
         self.add_plugins(ResourceMapEntitiesPlugin::<Type>::default())
     }

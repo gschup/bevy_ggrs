@@ -10,7 +10,8 @@ use crate::snapshot::{AdvanceWorld, LoadWorld, SaveWorld};
 
 /// Set for ordering systems during the [`LoadWorld`] schedule.
 /// The most common option is [`LoadWorldSystems::Data`], which is where [`Component`]
-/// and [`Resource`] snapshots are loaded and applied to the [`World`].
+/// and [`Resource`] snapshots are loaded and applied to the [`World`]. [`Resource`]
+/// snapshots are applied again in [`LoadWorldSystems::ResourceData`].
 #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone)]
 pub enum LoadWorldSystems {
     /// Removes any despawn markers if the loaded frame is before they were marked.
@@ -24,15 +25,32 @@ pub enum LoadWorldSystems {
     Entity,
     /// Flush any deferred operations
     EntityFlush,
-    /// Recreate the stored information as it was during the frame to be rolled back to.
-    /// When this set is complete, all [`Components`](`Component`) and [`Resources`](`Resource`)
-    /// will be rolled back to their exact state during the snapshot.
+    /// Recreate the stored [`Components`](`Component`) and [`Resources`](`Resource`) as they
+    /// were during the frame to be rolled back to. Once [`LoadWorldSystems::DataFlush`] is
+    /// complete, they are in their exact state during the snapshot, except for anything the
+    /// hooks and observers there wrote to a resource, which
+    /// [`LoadWorldSystems::ResourceData`] restores.
     ///
     /// NOTE: At this point, [`Entity`] relationships may be broken, see [`LoadWorldSystems::Mapping`]
     /// for when those relationships are fixed.
     Data,
-    /// Flush any deferred operations
+    /// Flush any deferred operations. Components and resources the load inserts or removes
+    /// land here, and their hooks and observers run: those of a respawned entity's
+    /// components, and those of an immutable component, which a load re-inserts. They read
+    /// resources as the snapshot has them.
+    ///
+    /// What they write to a resource is restored in [`LoadWorldSystems::ResourceData`].
+    /// What they write to a component is not restored again.
     DataFlush,
+    /// Recreate the stored [`Resources`](`Resource`) a second time. When this set is
+    /// complete, all [`Resources`](`Resource`) are in their exact state during the snapshot.
+    ///
+    /// Runs after [`LoadWorldSystems::DataFlush`] so that anything the hooks and observers
+    /// there wrote to a rolled-back resource is overwritten, such as an insert hook that
+    /// takes an id from a counter resource.
+    ResourceData,
+    /// Flush any deferred operations
+    ResourceDataFlush,
     /// Update all [`Components`](`Component`) and [`Resources`](`Resource`) to reflect the modified
     /// state of the rollback when compared to the original snapshot. For example, [`Entities`](`Entity`)
     /// which had to be recreated could not use the same ID, so any data referring to that ID is now invalid.
@@ -97,6 +115,8 @@ impl Plugin for SnapshotSetPlugin {
                 LoadWorldSystems::EntityFlush,
                 LoadWorldSystems::Data,
                 LoadWorldSystems::DataFlush,
+                LoadWorldSystems::ResourceData,
+                LoadWorldSystems::ResourceDataFlush,
                 LoadWorldSystems::Mapping,
             )
                 .chain(),
@@ -120,6 +140,10 @@ impl Plugin for SnapshotSetPlugin {
             ApplyDeferred.in_set(LoadWorldSystems::EntityFlush),
         )
         .add_systems(LoadWorld, ApplyDeferred.in_set(LoadWorldSystems::DataFlush))
+        .add_systems(
+            LoadWorld,
+            ApplyDeferred.in_set(LoadWorldSystems::ResourceDataFlush),
+        )
         .add_systems(
             AdvanceWorld,
             ApplyDeferred

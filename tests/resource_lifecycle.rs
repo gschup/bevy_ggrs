@@ -173,3 +173,129 @@ fn resource_map_entities_remaps_after_rollback() {
         "Target entity reference should still be valid after all rollbacks"
     );
 }
+
+/// Verifies that a resource a component hook writes while a rollback respawns an entity
+/// ends up at its snapshot value.
+///
+/// `Ticket`'s insert hook takes a number from the rolled-back `Issued` counter, the way
+/// an id allocator does. The entity is despawned at frame 3, so with `check_distance = 4`
+/// every rollback across that frame respawns it, and the restore inserts `Ticket` again.
+/// Resources are restored after that insert, so the hook's increment is overwritten; were
+/// they restored first, `Issued` would gain one per respawn and `SyncTestMismatch` fires.
+#[test]
+fn resource_written_by_a_hook_during_respawn_rolls_back() {
+    use bevy::ecs::lifecycle::HookContext;
+    use bevy::ecs::world::DeferredWorld;
+
+    #[derive(Component, Copy, Clone, Hash)]
+    #[component(on_insert = take_ticket)]
+    struct Ticket;
+
+    #[derive(Resource, Copy, Clone, Hash, Default)]
+    struct Issued(u32);
+
+    fn take_ticket(mut world: DeferredWorld, _: HookContext) {
+        world.resource_mut::<Issued>().0 += 1;
+    }
+
+    fn despawn_at_frame_3(
+        mut commands: Commands,
+        frame: Res<RollbackFrameCount>,
+        tickets: Query<Entity, With<Ticket>>,
+    ) {
+        if frame.0 == 3 {
+            for entity in &tickets {
+                commands.entity(entity).despawn();
+            }
+        }
+    }
+
+    let mut app = base_synctest_app(4);
+    app.init_resource::<Issued>()
+        .rollback_component_with_copy::<Ticket>()
+        .rollback_resource_with_copy::<Issued>()
+        .checksum_resource_with_hash::<Issued>()
+        .add_systems(GgrsSchedule, despawn_at_frame_3);
+    app.world_mut().spawn((Ticket, Rollback));
+
+    app.world_mut().add_observer(|_: On<SyncTestMismatch>| {
+        panic!("SyncTestMismatch: a hook's write to Issued survived the rollback");
+    });
+
+    for _ in 0..20 {
+        app.update();
+    }
+
+    assert!(app.world().resource::<RollbackFrameCount>().0 > 7);
+    assert_eq!(
+        app.world().resource::<Issued>().0,
+        1,
+        "one Ticket was ever inserted outside a rollback"
+    );
+}
+
+/// Verifies that a component hook that runs while a rollback respawns an entity reads a
+/// rolled-back resource as the snapshot has it.
+///
+/// `Clock` holds the frame it was last advanced on. `Probe`'s insert hook records
+/// `(RollbackFrameCount, Clock)` in a resource nothing rolls back. The entity is despawned at
+/// frame 3, so with `check_distance = 4` every rollback across that frame respawns it. Each
+/// record from a respawn must pair the loaded frame with that frame's `Clock`; a resource
+/// restored only after the hooks would show the `Clock` of the frame the rollback started from.
+#[test]
+fn a_hook_during_respawn_reads_resources_as_the_snapshot_has_them() {
+    use bevy::ecs::lifecycle::HookContext;
+    use bevy::ecs::world::DeferredWorld;
+
+    #[derive(Component, Copy, Clone, Hash)]
+    #[component(on_insert = record_clock)]
+    struct Probe;
+
+    #[derive(Resource, Copy, Clone, Hash, Default)]
+    struct Clock(i32);
+
+    #[derive(Resource, Default)]
+    struct Records(Vec<(i32, i32)>);
+
+    fn record_clock(mut world: DeferredWorld, _: HookContext) {
+        let frame = world.resource::<RollbackFrameCount>().0;
+        let clock = world.resource::<Clock>().0;
+        world.resource_mut::<Records>().0.push((frame, clock));
+    }
+
+    fn advance_clock(mut clock: ResMut<Clock>, frame: Res<RollbackFrameCount>) {
+        clock.0 = frame.0;
+    }
+
+    fn despawn_at_frame_3(
+        mut commands: Commands,
+        frame: Res<RollbackFrameCount>,
+        probes: Query<Entity, With<Probe>>,
+    ) {
+        if frame.0 == 3 {
+            for entity in &probes {
+                commands.entity(entity).despawn();
+            }
+        }
+    }
+
+    let mut app = base_synctest_app(4);
+    app.init_resource::<Clock>()
+        .init_resource::<Records>()
+        .rollback_component_with_copy::<Probe>()
+        .rollback_resource_with_copy::<Clock>()
+        .add_systems(GgrsSchedule, (advance_clock, despawn_at_frame_3).chain());
+    app.world_mut().spawn((Probe, Rollback));
+
+    for _ in 0..20 {
+        app.update();
+    }
+
+    let records = &app.world().resource::<Records>().0;
+    assert!(records.len() > 1, "the rollbacks respawned the entity");
+    let stale: Vec<_> = records.iter().filter(|(f, c)| f != c).collect();
+    assert!(
+        stale.is_empty(),
+        "a hook read Clock from another frame than the one loaded: {records:?}"
+    );
+}

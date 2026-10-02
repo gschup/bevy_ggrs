@@ -33,8 +33,10 @@ PreUpdate
    ├─ LoadWorld          (restore to rollback frame, if needed)
    │  ├─ LoadWorldSystems::Entity     (reconcile entity set, build RollbackEntityMap)
    │  ├─ LoadWorldSystems::EntityFlush
-   │  ├─ LoadWorldSystems::Data       (restore component/resource values)
-   │  ├─ LoadWorldSystems::DataFlush
+   │  ├─ LoadWorldSystems::Data       (restore component and resource values)
+   │  ├─ LoadWorldSystems::DataFlush  (inserts and removals land, hooks run)
+   │  ├─ LoadWorldSystems::ResourceData (restore resource values again, over any hook writes)
+   │  ├─ LoadWorldSystems::ResourceDataFlush
    │  └─ LoadWorldSystems::Mapping    (remap stale Entity references via MapEntities)
    │
    └─ AdvanceWorld       (run one frame of game logic)

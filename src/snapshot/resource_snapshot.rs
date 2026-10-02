@@ -117,6 +117,14 @@ where
                     .chain()
                     .in_set(SaveWorldSystems::Snapshot),
             )
-            .add_systems(LoadWorld, Self::load.in_set(LoadWorldSystems::Data));
+            // Restored before the component flush, so the hooks that run there read the
+            // snapshot, and again after it, over whatever those hooks wrote.
+            .add_systems(
+                LoadWorld,
+                (
+                    Self::load.in_set(LoadWorldSystems::Data),
+                    Self::load.in_set(LoadWorldSystems::ResourceData),
+                ),
+            );
     }
 }

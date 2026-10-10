@@ -27,20 +27,20 @@ fn advance_and_save(app: &mut App) {
 }
 
 fn increment_foos(mut foos: Query<&mut Foo>) {
-    for mut foo in &mut foos {
-        foo.0 += 1;
+    for mut component in &mut foos {
+        component.0 += 1;
     }
 }
 
 fn decrement_bars(mut bars: Query<&mut Bar>) {
-    for mut bar in &mut bars {
-        bar.0 -= 1;
+    for mut component in &mut bars {
+        component.0 -= 1;
     }
 }
 
 fn increment_bazs(mut bazs: Query<&mut Baz>) {
-    for mut baz in &mut bazs {
-        baz.0 += 1;
+    for mut component in &mut bazs {
+        component.0 += 1;
     }
 }
 

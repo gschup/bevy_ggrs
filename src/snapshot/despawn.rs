@@ -77,7 +77,7 @@ fn resurrect_entities(
         .filter_map(|(entity, despawned_frame)| {
             // During a world load, entities marked with the current rollback frame were marked
             // for despawn during that frame, so we only want to resurrect entities despawned after.
-            Some(entity).filter(|_e| despawned_frame > rollback_frame)
+            (despawned_frame > rollback_frame).then_some(entity)
         })
         .collect::<Vec<_>>()
         .into_iter()
@@ -102,7 +102,7 @@ fn despawn_confirmed_entities(
         .filter_map(|(entity, despawned_frame)| {
             // Entities marked as despawned on the confirmed frame or earlier can be immediately
             // despawned.
-            Some(entity).filter(|_e| despawned_frame <= confirmed_frame)
+            (despawned_frame <= confirmed_frame).then_some(entity)
         })
         .collect::<Vec<_>>()
         .into_iter()

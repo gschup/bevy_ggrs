@@ -81,6 +81,15 @@ impl EntitySnapshotPlugin {
                     commands.entity(current_entity).despawn();
                 }
                 (None, Some(old_entity)) => {
+                    // A respawn is bare: it gets the components registered for rollback and
+                    // nothing else the entity had. A rollback entity despawned outright
+                    // while a snapshot still holds it ends here; `despawn_rollback` marks it
+                    // instead, and the mark lifts whole.
+                    warn!(
+                        "respawning {rollback:?} bare: it was despawned while frame {} still \
+                         held it; despawn_rollback keeps every component",
+                        frame.0
+                    );
                     let current_entity = commands.spawn((rollback, Rollback)).id();
                     entity_map.insert(old_entity, current_entity);
                 }

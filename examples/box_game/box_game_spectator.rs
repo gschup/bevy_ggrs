@@ -86,16 +86,16 @@ fn print_network_stats_system(
     p2p_session: Option<Res<Session<BoxConfig>>>,
 ) {
     // print only when timer runs out
-    if timer.0.tick(time.delta()).just_finished() {
-        if let Some(sess) = p2p_session {
-            match sess.as_ref() {
-                Session::Spectator(s) => {
-                    if let Ok(stats) = s.network_stats() {
-                        println!("NetworkStats : {:?}", stats);
-                    }
+    if timer.0.tick(time.delta()).just_finished()
+        && let Some(sess) = p2p_session
+    {
+        match sess.as_ref() {
+            Session::Spectator(s) => {
+                if let Ok(stats) = s.network_stats() {
+                    println!("NetworkStats : {:?}", stats);
                 }
-                _ => panic!("This example focuses on spectators."),
             }
+            _ => panic!("This example focuses on spectators."),
         }
     }
 }

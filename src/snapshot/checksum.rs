@@ -99,6 +99,18 @@ impl ChecksumPlugin {
     }
 }
 
+impl Plugin for ChecksumPlugin {
+    /// Registers the [`Checksum`] resource and the system that folds [`ChecksumPart`]s into it.
+    fn build(&self, app: &mut App) {
+        app.init_resource::<Checksum>().add_systems(
+            SaveWorld,
+            Self::update
+                .after(SaveWorldSystems::Checksum)
+                .before(SaveWorldSystems::Snapshot),
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::ChecksumPart;
@@ -110,17 +122,5 @@ mod tests {
         let a = ChecksumPart::from_value(&42u32);
         let b = ChecksumPart::from_value(&42u32);
         assert_eq!(a.0, b.0);
-    }
-}
-
-impl Plugin for ChecksumPlugin {
-    /// Registers the [`Checksum`] resource and the system that folds [`ChecksumPart`]s into it.
-    fn build(&self, app: &mut App) {
-        app.init_resource::<Checksum>().add_systems(
-            SaveWorld,
-            Self::update
-                .after(SaveWorldSystems::Checksum)
-                .before(SaveWorldSystems::Snapshot),
-        );
     }
 }

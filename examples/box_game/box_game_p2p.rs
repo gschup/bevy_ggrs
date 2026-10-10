@@ -124,19 +124,19 @@ fn print_network_stats_system(
     p2p_session: Option<Res<Session<BoxConfig>>>,
 ) {
     // print only when timer runs out
-    if timer.0.tick(time.delta()).just_finished() {
-        if let Some(sess) = p2p_session {
-            match sess.as_ref() {
-                Session::P2P(s) => {
-                    let num_players = s.num_players();
-                    for i in 0..num_players {
-                        if let Ok(stats) = s.network_stats(i) {
-                            println!("NetworkStats for player {}: {:?}", i, stats);
-                        }
+    if timer.0.tick(time.delta()).just_finished()
+        && let Some(sess) = p2p_session
+    {
+        match sess.as_ref() {
+            Session::P2P(s) => {
+                let num_players = s.num_players();
+                for i in 0..num_players {
+                    if let Ok(stats) = s.network_stats(i) {
+                        println!("NetworkStats for player {}: {:?}", i, stats);
                     }
                 }
-                _ => panic!("This examples focuses on p2p."),
             }
+            _ => panic!("This examples focuses on p2p."),
         }
     }
 }

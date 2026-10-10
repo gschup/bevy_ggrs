@@ -36,14 +36,14 @@ fn move_players(
 }
 ```
 
-## Events
+## Messages
 
-Bevy's `Events<T>` resource is **not snapshotted**. Events fired during a frame that gets rolled back will not be re-fired during resimulation, and events from the resimulated frames will not be visible to systems outside `GgrsSchedule`.
+Bevy's `Messages<T>` resource is **not snapshotted**. Messages written during a frame that later gets rolled back are not retracted, and resimulating that frame writes them again, so readers see duplicates and messages from mispredicted frames.
 
-**Do not use `EventWriter` / `EventReader` inside `GgrsSchedule`.** Instead:
+**Do not use `MessageWriter` / `MessageReader` inside `GgrsSchedule`.** Instead:
 
 - Use a component or resource to communicate state changes between rollback systems.
-- Only fire Bevy events from systems outside `GgrsSchedule` (e.g. in `Update`) based on snapshotted state.
+- Only write Bevy messages from systems outside `GgrsSchedule` (e.g. in `Update`) based on snapshotted state.
 
 ## `Local<T>` in Rollback Systems
 

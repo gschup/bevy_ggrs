@@ -4,7 +4,7 @@
 //! [`Strategy`]) and restores it during rollback. Resources that are absent from the world
 //! are snapshotted as `None` and removed on restore.
 //!
-//! Note: only mutable resources are supported (Bevy 0.19's default). Immutable resources
+//! Note: only mutable resources are supported (the default). Immutable resources
 //! (`Mutability = Immutable`) would need a separate restore path that removes and re-inserts
 //! rather than updating in place; that is left as future work.
 

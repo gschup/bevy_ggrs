@@ -165,7 +165,7 @@ pub fn move_cube_system(
     //
     // If your systems compute aggregates or have entities that affect each other (e.g.
     // collision resolution), sort by a stable key first:
-    //   query.iter_mut().sort_by_key(|(_, _, p)| p.handle)
+    //   query.iter_mut().sort_by_key::<&Player, _>(|p| p.handle)
     // or use RollbackOrdered for entities without a natural sort key.
     for (mut t, mut v, p) in query.iter_mut() {
         let input = inputs[p.handle].0.0;

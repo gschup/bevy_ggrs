@@ -92,7 +92,10 @@ impl<T: Reflect + FromWorld> Strategy for ReflectStrategy<T> {
 
     #[inline(always)]
     fn store(target: &Self::Target) -> Self::Stored {
-        target.as_reflect().to_dynamic()
+        target
+            .as_reflect()
+            .to_dynamic()
+            .expect("failed to convert reflected value to its dynamic equivalent")
     }
 
     #[inline(always)]

@@ -267,6 +267,11 @@ impl SnapshotFrames {
     pub fn discarded(&self) -> &[i32] {
         &self.discard
     }
+
+    /// The newest held frame before `frame`, if any.
+    pub fn newest_before(&self, frame: i32) -> Option<i32> {
+        self.saved.range(..frame).next_back().copied()
+    }
 }
 
 /// Decides which frames every snapshot store discards this [`SaveWorld`], and

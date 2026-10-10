@@ -7,7 +7,7 @@
 //! despawned while a snapshot that holds it can still be loaded. It is marked with the disabling
 //! component [`RollbackDespawned`] instead, which hides it from every default query, and keeps
 //! every component on it. [`LoadWorld`] lifts the mark where the loaded frame still had the
-//! entity, and the mark becomes a despawn once the frame it names is confirmed.
+//! entity, and the mark becomes a despawn once no saved snapshot holds the entity.
 //!
 //! # Examples
 //! ```rust
@@ -32,8 +32,8 @@
 //! component, so they will appear as though they are despawned to normal system queries.
 
 use crate::{
-    AdvanceWorld, AdvanceWorldSystems, ConfirmedFrameCount, LoadWorld, LoadWorldSystems,
-    RollbackFrameCount,
+    ConfirmedFrameCount, GgrsComponentSnapshots, LoadWorld, LoadWorldSystems, RollbackFrameCount,
+    RollbackId, SaveWorld, SaveWorldSystems, SnapshotFrames,
 };
 use bevy::app::{App, Plugin};
 use bevy::ecs::world::EntityWorldMut;
@@ -44,13 +44,14 @@ use std::cmp::Ordering;
 /// Marks an entity as despawned. Holds the first frame whose snapshot lacks the entity.
 ///
 /// A [`LoadWorld`] of a frame before it lifts the mark; a load of that frame or a later one
-/// keeps it. Once that frame is confirmed, no loadable snapshot holds the entity and it is
-/// despawned for good. A second mark on an entity keeps the earlier frame: it says nothing new
+/// keeps it. Once no saved snapshot holds the entity (its frames confirmed away, evicted, or
+/// cleared by a session reset) it is despawned for good, at the end of the next [`SaveWorld`].
+/// A second mark on an entity keeps the earlier frame: it says nothing new
 /// about which snapshots hold the entity, and a later one would let a load between the two lift
 /// the mark, after which the entity snapshot despawns the entity, since the frame lacks it.
 ///
 /// [`despawn_rollback`](RollbackDespawnCommandExtension::despawn_rollback) reads the frame off
-/// [`RollbackFrameCount`], which during [`AdvanceWorld`] names the frame being produced, the
+/// [`RollbackFrameCount`], which during [`AdvanceWorld`](crate::AdvanceWorld) names the frame being produced, the
 /// first one whose snapshot lacks what the frame despawns. A runner whose counter means
 /// something else passes the frame itself with
 /// [`despawn_rollback_since`](RollbackDespawnCommandExtension::despawn_rollback_since).
@@ -77,7 +78,8 @@ impl RollbackDespawned {
 /// Plugin that enables rollback-safe despawning via [`RollbackDespawned`].
 ///
 /// Registers [`RollbackDespawned`] as a disabling component and installs the systems that
-/// resurrect entities during rollback and permanently despawn them once their frame is confirmed.
+/// resurrect entities during rollback and permanently despawn them once no saved snapshot holds
+/// them.
 pub struct RollbackDespawnPlugin;
 
 impl Plugin for RollbackDespawnPlugin {
@@ -89,8 +91,8 @@ impl Plugin for RollbackDespawnPlugin {
             resurrect_entities.in_set(LoadWorldSystems::EntityResurrect),
         )
         .add_systems(
-            AdvanceWorld,
-            despawn_confirmed_entities.in_set(AdvanceWorldSystems::DespawnConfirmed),
+            SaveWorld,
+            despawn_unheld_entities.after(SaveWorldSystems::Snapshot),
         );
     }
 }
@@ -115,33 +117,36 @@ fn resurrect_entities(
         });
 }
 
-fn despawn_confirmed_entities(
+/// Despawn every marked rollback entity no saved snapshot holds.
+///
+/// After the save, so the frames discarded this [`SaveWorld`] (confirmed away, beyond the
+/// depth, or cleared by a session reset) count as gone. A mark names the first frame whose
+/// snapshot lacks the entity, and the entity is in every frame from its spawn up to that one,
+/// so the newest saved frame before the mark holds it or no saved frame does: one lookup per
+/// mark. A marked entity without a [`RollbackId`] is a descendant marked with its rollback
+/// ancestor and goes with it.
+fn despawn_unheld_entities(
     world: &mut World,
-    despawn_query: &mut QueryState<(Entity, &RollbackDespawned)>,
-    mut local: Local<ConfirmedFrameCount>,
+    marked: &mut QueryState<(Entity, &RollbackId, &RollbackDespawned)>,
 ) {
-    // `ConfirmedFrameCount` is absent between a session reset (which removes it) and the
-    // first confirmed frame of the new session. Nothing to despawn in that window.
-    let Some(confirmed_frame) = world.get_resource::<ConfirmedFrameCount>().copied() else {
-        return;
-    };
-    if confirmed_frame == *local {
-        return; // No work necessary
-    }
-    *local = confirmed_frame;
-
-    despawn_query
+    let frames = world.resource::<SnapshotFrames>();
+    let entities = world.resource::<GgrsComponentSnapshots<Entity>>();
+    let unheld: Vec<Entity> = marked
         .iter(world)
-        .filter_map(|(entity, despawned_frame)| {
-            // Entities marked as despawned on the confirmed frame or earlier can be immediately
-            // despawned.
-            Some(entity).filter(|_e| despawned_frame <= &confirmed_frame)
+        .filter(|(_, rollback, mark)| {
+            !frames
+                .newest_before(mark.frame())
+                .and_then(|frame| entities.peek(frame))
+                .is_some_and(|snapshot| snapshot.get(rollback).is_some())
         })
-        .collect::<Vec<_>>()
-        .into_iter()
-        .for_each(|entity| {
-            world.despawn(entity);
-        });
+        .map(|(entity, _, _)| entity)
+        .collect();
+    for entity in unheld {
+        // A descendant may have gone with its ancestor already.
+        if let Ok(entity) = world.get_entity_mut(entity) {
+            entity.despawn();
+        }
+    }
 }
 
 /// Extension trait for [`EntityCommands`] that adds rollback-safe despawn methods.
@@ -149,7 +154,8 @@ pub trait RollbackDespawnCommandExtension {
     /// Despawns this entity and its children recursively using the [`RollbackDespawned`]
     /// component, such that they can be resurrected following a rollback.
     ///
-    /// The mark names the current [`RollbackFrameCount`], which during [`AdvanceWorld`] is the
+    /// The mark names the current [`RollbackFrameCount`], which during
+    /// [`AdvanceWorld`](crate::AdvanceWorld) is the
     /// frame being produced: the first frame whose snapshot lacks the entity.
     ///
     /// NOTE: This does not yet support [`RelationshipTarget`] with linked spawn mode.
@@ -232,7 +238,7 @@ newtype_partial_ord!(RollbackDespawned, ConfirmedFrameCount);
 mod tests {
     use super::*;
     use crate::snapshot::{
-        Rollback, RollbackId, SnapshotPlugin,
+        PinnedFrames, Rollback, RollbackId, SnapshotPlugin,
         tests::{advance_frame, load_world, save_world},
     };
     use bevy::ecs::query::Allow;
@@ -345,20 +351,46 @@ mod tests {
     }
 
     #[test]
-    fn a_confirmed_frame_despawns_for_good() {
+    fn a_mark_no_saved_snapshot_holds_is_despawned() {
         let mut app = app();
         let (entity, child) = marked_at_two(&mut app);
         let world = app.world_mut();
         world.insert_resource(ConfirmedFrameCount(1));
         advance_frame(world);
-        assert!(
-            world.get_entity(entity).is_ok(),
-            "frame 2 is not confirmed yet"
-        );
+        save_world(world); // frame 3; frame 0 confirmed away, frame 1 still holds it
+        assert!(world.get_entity(entity).is_ok(), "frame 1 holds it");
         world.insert_resource(ConfirmedFrameCount(2));
         advance_frame(world);
+        save_world(world); // frame 4; frame 1 confirmed away
         assert!(world.get_entity(entity).is_err());
         assert!(world.get_entity(child).is_err());
+    }
+
+    #[test]
+    fn a_pinned_frame_that_holds_it_keeps_the_mark() {
+        let mut app = app();
+        let (entity, _) = marked_at_two(&mut app);
+        let world = app.world_mut();
+        world.resource_mut::<PinnedFrames>().insert(1);
+        world.insert_resource(ConfirmedFrameCount(2));
+        advance_frame(world);
+        save_world(world); // frames 0 confirmed away; 1 pinned
+        assert!(world.get_entity(entity).is_ok(), "pinned frame 1 holds it");
+        assert_eq!(
+            world.get::<RollbackDespawned>(entity),
+            Some(&RollbackDespawned::since(2))
+        );
+    }
+
+    #[test]
+    fn a_session_reset_despawns_every_mark() {
+        let mut app = app();
+        let (entity, _) = marked_at_two(&mut app);
+        let world = app.world_mut();
+        world.trigger(crate::ClearSnapshots);
+        world.resource_mut::<RollbackFrameCount>().0 = 0;
+        save_world(world);
+        assert!(world.get_entity(entity).is_err());
     }
 
     #[test]

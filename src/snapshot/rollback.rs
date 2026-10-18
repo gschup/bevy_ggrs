@@ -32,7 +32,7 @@ pub struct Rollback;
 /// onto a clone. `RollbackId` is an identity, not a value to share. A clone
 /// instead receives a fresh `RollbackId` from `Rollback`'s `on_add` hook
 /// firing on the new entity.
-#[derive(Component, Hash, PartialEq, Eq, Clone, Copy, Debug)]
+#[derive(Component, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
 #[component(immutable, clone_behavior = Ignore)]
 pub struct RollbackId(Entity);
 

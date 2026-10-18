@@ -6,7 +6,9 @@
 
 use bevy::prelude::*;
 
-use crate::snapshot::{AdvanceWorld, LoadWorld, SaveWorld};
+use crate::snapshot::{
+    AdvanceWorld, LoadWorld, SaveWorld, StagedInserts, insert_staged_components,
+};
 
 /// Set for ordering systems during the [`LoadWorld`] schedule.
 /// The most common option is [`LoadWorldSystems::ComponentData`], which is where [`Component`]
@@ -32,8 +34,9 @@ pub enum LoadWorldSystems {
     /// NOTE: At this point, [`Entity`] relationships may be broken, see [`LoadWorldSystems::Mapping`]
     /// for when those relationships are fixed.
     ComponentData,
-    /// Flush any deferred operations. Components inserted on a respawned entity land here,
-    /// and their hooks and observers run.
+    /// Flush any deferred operations, then insert the components the load systems staged,
+    /// one insert per entity ([`insert_staged_components`]). A respawned entity's components
+    /// land here, all at once, and their hooks and observers run.
     ComponentDataFlush,
     /// Recreate the stored [`Resources`](`Resource`) as they were during the frame to be
     /// rolled back to. When this set is complete, all [`Resources`](`Resource`) are in their
@@ -101,6 +104,7 @@ impl Plugin for SnapshotSetPlugin {
     /// Configures the system sets for [`LoadWorld`], [`SaveWorld`], and [`AdvanceWorld`]
     /// and inserts [`ApplyDeferred`] barriers between each adjacent pair.
     fn build(&self, app: &mut App) {
+        app.init_resource::<StagedInserts>();
         app.configure_sets(
             LoadWorld,
             (
@@ -135,7 +139,9 @@ impl Plugin for SnapshotSetPlugin {
         )
         .add_systems(
             LoadWorld,
-            ApplyDeferred.in_set(LoadWorldSystems::ComponentDataFlush),
+            (ApplyDeferred, insert_staged_components)
+                .chain()
+                .in_set(LoadWorldSystems::ComponentDataFlush),
         )
         .add_systems(
             LoadWorld,

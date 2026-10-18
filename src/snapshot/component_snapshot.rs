@@ -7,7 +7,7 @@
 
 use crate::{
     ClearSnapshots, GgrsComponentSnapshot, GgrsComponentSnapshots, LoadWorld, LoadWorldSystems,
-    RollbackFrameCount, RollbackId, SaveWorld, SaveWorldSystems, Strategy,
+    RollbackFrameCount, RollbackId, SaveWorld, SaveWorldSystems, Strategy, stage_insert,
 };
 use bevy::{
     ecs::component::{Immutable, Mutable},
@@ -91,7 +91,9 @@ where
     S::Stored: Send + Sync + 'static,
 {
     /// System that restores the component to its snapshotted state for the target frame,
-    /// inserting or removing it as required.
+    /// removing it or staging it for insertion as required. A component the entity lacks is
+    /// inserted by [`insert_staged_components`](crate::insert_staged_components), together
+    /// with the rest of the entity's staged components.
     pub fn load(
         mut commands: Commands,
         mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,
@@ -109,7 +111,7 @@ where
                     commands.entity(entity).remove::<S::Target>();
                 }
                 (None, Some(snapshot)) => {
-                    commands.entity(entity).insert(S::load(snapshot));
+                    commands.queue(stage_insert(entity, *rollback, S::load(snapshot)));
                 }
                 (None, None) => {}
             }
@@ -230,7 +232,9 @@ where
     S::Stored: Send + Sync + 'static,
 {
     /// System that restores this immutable component to its snapshotted state for the target frame,
-    /// re-inserting it (triggering hooks) or removing it as required.
+    /// re-inserting it (triggering hooks) or removing it as required. A component the entity
+    /// lacks is inserted by [`insert_staged_components`](crate::insert_staged_components),
+    /// together with the rest of the entity's staged components.
     pub fn load(
         mut commands: Commands,
         mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,
@@ -246,8 +250,11 @@ where
                 (true, None) => {
                     commands.entity(entity).remove::<S::Target>();
                 }
-                (_, Some(snapshot)) => {
+                (true, Some(snapshot)) => {
                     commands.entity(entity).insert(S::load(snapshot));
+                }
+                (false, Some(snapshot)) => {
+                    commands.queue(stage_insert(entity, *rollback, S::load(snapshot)));
                 }
                 (false, None) => {}
             }

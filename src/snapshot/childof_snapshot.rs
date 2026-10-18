@@ -6,7 +6,7 @@
 
 use crate::{
     ClearSnapshots, GgrsComponentSnapshots, LoadWorld, LoadWorldSystems, RollbackFrameCount,
-    SaveWorld, SaveWorldSystems,
+    SaveWorld, SaveWorldSystems, stage_insert,
 };
 use bevy::{ecs::hierarchy::ChildOf, prelude::*};
 
@@ -72,7 +72,9 @@ impl ChildOfSnapshotPlugin {
     }
 
     /// System that restores the [`ChildOf`] component for the target frame, remapping parent
-    /// entities through [`RollbackEntityMap`] to account for any ID changes.
+    /// entities through [`RollbackEntityMap`] to account for any ID changes. An entity without
+    /// one gets it from [`insert_staged_components`](crate::insert_staged_components), together
+    /// with the rest of its staged components.
     pub fn load(
         mut commands: Commands,
         mut snapshots: ResMut<GgrsComponentSnapshots<ChildOf, ChildOf>>,
@@ -89,9 +91,13 @@ impl ChildOfSnapshotPlugin {
                 (Some(_), None) => {
                     commands.entity(entity).remove::<ChildOf>();
                 }
-                (_, Some(snapshot)) => {
+                (component, Some(snapshot)) => {
                     if let Some(parent) = map.get(snapshot.0) {
-                        commands.entity(entity).insert(ChildOf(parent));
+                        if component.is_some() {
+                            commands.entity(entity).insert(ChildOf(parent));
+                        } else {
+                            commands.queue(stage_insert(entity, *rollback, ChildOf(parent)));
+                        }
                     } else {
                         warn!("Parent entity not found in rollback map: {:?}", snapshot);
                     }

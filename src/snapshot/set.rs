@@ -43,8 +43,8 @@ pub enum LoadWorldSystems {
     /// exact state during the snapshot.
     ///
     /// Runs after [`LoadWorldSystems::ComponentDataFlush`] so that anything the component hooks
-    /// wrote to a rolled-back resource there is overwritten: a `#[require]`d default
-    /// inserted ahead of its snapshot value can take an id from a counter, for example.
+    /// wrote to a rolled-back resource there is overwritten: a hook that takes an id from a
+    /// counter on every insert fires once per respawn, on the snapshot value.
     ResourceData,
     /// Flush any deferred operations
     ResourceDataFlush,

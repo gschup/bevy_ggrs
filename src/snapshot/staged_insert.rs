@@ -91,9 +91,20 @@ impl StagedEntity {
     fn insert_into(self, entity: &mut EntityWorldMut) {
         let mut components = self.components;
         // A sorted id list is what the bundle cache keys on. A duplicate id would panic in the
-        // bundle, so of two values for one type the later one is dropped here instead.
+        // bundle, so of two values for one type the later one is dropped here instead, with a
+        // warning: a type two snapshot plugins load is a registration mistake.
         components.sort_by_key(|(id, _)| *id);
-        components.dedup_by_key(|(id, _)| *id);
+        components.dedup_by(|later, earlier| {
+            let duplicate = later.0 == earlier.0;
+            if duplicate {
+                warn!(
+                    "{:?} staged twice for {:?}: two snapshot plugins load it; keeping the first",
+                    entity.world().components().get_name(earlier.0),
+                    self.rollback
+                );
+            }
+            duplicate
+        });
         let ids: Vec<ComponentId> = components.iter().map(|(id, _)| *id).collect();
         let values: Vec<(NonNull<u8>, Layout)> = components
             .into_iter()
@@ -158,7 +169,8 @@ mod tests {
         assert!(world.resource::<StagedInserts>().entities.is_empty());
     }
 
-    /// Two values staged for one type on one entity do not panic the bundle: the first lands.
+    /// Two values staged for one type on one entity do not panic the bundle: the first lands,
+    /// and a warning names the type.
     #[test]
     fn a_type_staged_twice_lands_once() {
         #[derive(Component, Debug, PartialEq)]

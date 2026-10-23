@@ -146,7 +146,12 @@ where
             let snapshot = snapshot.get(rollback);
 
             match (component, snapshot) {
-                (Some(mut component), Some(snapshot)) => S::update(component.as_mut(), snapshot),
+                // Read without marking it changed; written only when it differs.
+                (Some(mut component), Some(snapshot)) => {
+                    if !S::equals(&component, snapshot) {
+                        S::update(component.as_mut(), snapshot);
+                    }
+                }
                 (Some(_), None) => {
                     commands.entity(entity).remove::<S::Target>();
                 }
@@ -317,7 +322,9 @@ where
                     commands.entity(entity).remove::<S::Target>();
                 }
                 (true, Some(snapshot)) => {
-                    commands.entity(entity).insert(S::load(snapshot));
+                    if !component.is_some_and(|component| S::equals(&component, snapshot)) {
+                        commands.entity(entity).insert(S::load(snapshot));
+                    }
                 }
                 (false, Some(snapshot)) => {
                     commands.queue(stage_insert(entity, *rollback, S::load(snapshot)));

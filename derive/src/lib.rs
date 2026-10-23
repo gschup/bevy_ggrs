@@ -18,6 +18,8 @@ use syn::{DeriveInput, meta::ParseNestedMeta, parse_macro_input};
 /// - `immutable` — Register as an immutable component
 ///
 /// ## Extras (optional)
+/// - `eq` — With `copy` or `clone` on a component that implements `RollbackEq`:
+///   a load leaves a component already holding the snapshot's bits alone
 /// - `marker` — Also register entity tracking (equivalent to `rollback_entities_with`)
 /// - `checksum` — Also register hash-based checksum generation
 ///
@@ -57,6 +59,7 @@ struct RollbackAttrs {
     immutable: bool,
     marker: bool,
     checksum: bool,
+    eq: bool,
 }
 
 enum Strategy {
@@ -81,6 +84,8 @@ impl RollbackAttrs {
             self.marker = true;
         } else if meta.path.is_ident("checksum") {
             self.checksum = true;
+        } else if meta.path.is_ident("eq") {
+            self.eq = true;
         } else {
             return Err(meta.error("unknown rollback attribute"));
         }
@@ -121,24 +126,51 @@ fn derive_rollback_impl(input: DeriveInput) -> syn::Result<proc_macro2::TokenStr
         ));
     }
 
-    let snapshot_call = match (&strategy, attrs.resource, attrs.immutable) {
-        (Strategy::Copy, true, _) => quote! { app.rollback_resource_with_copy::<Self>(); },
-        (Strategy::Clone, true, _) => quote! { app.rollback_resource_with_clone::<Self>(); },
-        (Strategy::Reflect, true, _) => quote! { app.rollback_resource_with_reflect::<Self>(); },
-        (Strategy::Copy, false, true) => {
-            quote! { app.rollback_immutable_component_with_copy::<Self>(); }
+    if attrs.eq && (attrs.resource || matches!(strategy, Strategy::Reflect)) {
+        return Err(syn::Error::new_spanned(
+            &input.ident,
+            "#[rollback(eq)] is for components with `copy` or `clone`",
+        ));
+    }
+
+    let snapshot_call = match (&strategy, attrs.resource, attrs.immutable, attrs.eq) {
+        (Strategy::Copy, false, false, true) => {
+            quote! { app.rollback_component_with_copy_eq::<Self>(); }
         }
-        (Strategy::Clone, false, true) => {
-            quote! { app.rollback_immutable_component_with_clone::<Self>(); }
+        (Strategy::Clone, false, false, true) => {
+            quote! { app.rollback_component_with_clone_eq::<Self>(); }
         }
-        (Strategy::Reflect, false, true) => {
-            quote! { app.rollback_immutable_component_with_reflect::<Self>(); }
+        (Strategy::Copy, false, true, true) => {
+            quote! { app.rollback_immutable_component_with_copy_eq::<Self>(); }
         }
-        (Strategy::Copy, false, false) => quote! { app.rollback_component_with_copy::<Self>(); },
-        (Strategy::Clone, false, false) => quote! { app.rollback_component_with_clone::<Self>(); },
-        (Strategy::Reflect, false, false) => {
-            quote! { app.rollback_component_with_reflect::<Self>(); }
+        (Strategy::Clone, false, true, true) => {
+            quote! { app.rollback_immutable_component_with_clone_eq::<Self>(); }
         }
+        (strategy, resource, immutable, _) => match (strategy, resource, immutable) {
+            (Strategy::Copy, true, _) => quote! { app.rollback_resource_with_copy::<Self>(); },
+            (Strategy::Clone, true, _) => quote! { app.rollback_resource_with_clone::<Self>(); },
+            (Strategy::Reflect, true, _) => {
+                quote! { app.rollback_resource_with_reflect::<Self>(); }
+            }
+            (Strategy::Copy, false, true) => {
+                quote! { app.rollback_immutable_component_with_copy::<Self>(); }
+            }
+            (Strategy::Clone, false, true) => {
+                quote! { app.rollback_immutable_component_with_clone::<Self>(); }
+            }
+            (Strategy::Reflect, false, true) => {
+                quote! { app.rollback_immutable_component_with_reflect::<Self>(); }
+            }
+            (Strategy::Copy, false, false) => {
+                quote! { app.rollback_component_with_copy::<Self>(); }
+            }
+            (Strategy::Clone, false, false) => {
+                quote! { app.rollback_component_with_clone::<Self>(); }
+            }
+            (Strategy::Reflect, false, false) => {
+                quote! { app.rollback_component_with_reflect::<Self>(); }
+            }
+        },
     };
 
     let marker_call = if attrs.marker {

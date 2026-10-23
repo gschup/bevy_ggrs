@@ -24,8 +24,9 @@ use bevy::{
 use std::hash::Hash;
 
 use super::{
-    CopyStrategy, ImmutableComponentSnapshotPlugin, ReflectStrategy, ResourceMapEntitiesPlugin,
-    RollbackEntitiesPlugin, RollbackRegistration, SkipAutoRegistration,
+    CloneEqStrategy, CopyEqStrategy, CopyStrategy, ImmutableComponentSnapshotPlugin,
+    ReflectStrategy, ResourceMapEntitiesPlugin, RollbackEntitiesPlugin, RollbackEq,
+    RollbackRegistration, SkipAutoRegistration,
 };
 
 /// Extension trait to ergonomically add rollback plugins to Bevy Apps
@@ -53,6 +54,33 @@ pub trait RollbackApp {
     fn rollback_component_with_clone<Type>(&mut self) -> &mut Self
     where
         Type: Component<Mutability = Mutable> + Clone;
+
+    /// [`rollback_component_with_copy`](Self::rollback_component_with_copy) for
+    /// a [`RollbackEq`] type: a load leaves a component that already holds the
+    /// snapshot's bits alone, so it is not marked changed.
+    fn rollback_component_with_copy_eq<Type>(&mut self) -> &mut Self
+    where
+        Type: Component<Mutability = Mutable> + Copy + RollbackEq;
+
+    /// [`rollback_component_with_clone`](Self::rollback_component_with_clone)
+    /// for a [`RollbackEq`] type, as
+    /// [`rollback_component_with_copy_eq`](Self::rollback_component_with_copy_eq).
+    fn rollback_component_with_clone_eq<Type>(&mut self) -> &mut Self
+    where
+        Type: Component<Mutability = Mutable> + Clone + RollbackEq;
+
+    /// An immutable component for a [`RollbackEq`] type: a load does not
+    /// re-insert, and fires no hook for, a component that already holds the
+    /// snapshot's bits.
+    fn rollback_immutable_component_with_copy_eq<Type>(&mut self) -> &mut Self
+    where
+        Type: Component<Mutability = Immutable> + Copy + RollbackEq;
+
+    /// As [`rollback_immutable_component_with_copy_eq`](Self::rollback_immutable_component_with_copy_eq),
+    /// with [`Clone`].
+    fn rollback_immutable_component_with_clone_eq<Type>(&mut self) -> &mut Self
+    where
+        Type: Component<Mutability = Immutable> + Clone + RollbackEq;
 
     /// Registers a component type for saving and loading from the world. This
     /// uses [`Clone`] based snapshots for rollback.
@@ -207,6 +235,34 @@ impl RollbackApp for App {
         Type: Component<Mutability = Immutable> + Clone,
     {
         self.add_plugins(ImmutableComponentSnapshotPlugin::<CloneStrategy<Type>>::default())
+    }
+
+    fn rollback_component_with_copy_eq<Type>(&mut self) -> &mut Self
+    where
+        Type: Component<Mutability = Mutable> + Copy + RollbackEq,
+    {
+        self.add_plugins(ComponentSnapshotPlugin::<CopyEqStrategy<Type>>::default())
+    }
+
+    fn rollback_component_with_clone_eq<Type>(&mut self) -> &mut Self
+    where
+        Type: Component<Mutability = Mutable> + Clone + RollbackEq,
+    {
+        self.add_plugins(ComponentSnapshotPlugin::<CloneEqStrategy<Type>>::default())
+    }
+
+    fn rollback_immutable_component_with_copy_eq<Type>(&mut self) -> &mut Self
+    where
+        Type: Component<Mutability = Immutable> + Copy + RollbackEq,
+    {
+        self.add_plugins(ImmutableComponentSnapshotPlugin::<CopyEqStrategy<Type>>::default())
+    }
+
+    fn rollback_immutable_component_with_clone_eq<Type>(&mut self) -> &mut Self
+    where
+        Type: Component<Mutability = Immutable> + Clone + RollbackEq,
+    {
+        self.add_plugins(ImmutableComponentSnapshotPlugin::<CloneEqStrategy<Type>>::default())
     }
 
     fn rollback_resource_with_clone<Type>(&mut self) -> &mut Self

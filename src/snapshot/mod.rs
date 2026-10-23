@@ -11,13 +11,14 @@
 
 use crate::DEFAULT_FPS;
 use bevy::{
-    ecs::reflect::AppTypeRegistry,
     ecs::schedule::ScheduleLabel,
+    ecs::{change_detection::Tick, reflect::AppTypeRegistry},
     platform::collections::{HashMap, HashSet},
     prelude::*,
 };
 use seahash::SeaHasher;
-use std::{collections::BTreeSet, marker::PhantomData};
+
+use std::{collections::BTreeSet, marker::PhantomData, sync::Arc};
 
 mod checksum;
 mod checksum_diagnostics;
@@ -300,8 +301,13 @@ pub fn plan_snapshot_discards(
 }
 
 /// A storage type suitable for per-[`Entity`] snapshots, such as [`Component`] types.
+///
+/// The data is shared: cloning a snapshot is an `Arc` clone. A save that finds
+/// nothing of its type changed since the snapshot the world holds pushes that
+/// snapshot again rather than copying every component
+/// ([`HeldComponentSnapshot`]).
 pub struct GgrsComponentSnapshot<For, As = For> {
-    snapshot: HashMap<RollbackId, As>,
+    snapshot: Arc<HashMap<RollbackId, As>>,
     _phantom: PhantomData<For>,
 }
 
@@ -314,19 +320,22 @@ impl<For, As> Default for GgrsComponentSnapshot<For, As> {
     }
 }
 
+impl<For, As> Clone for GgrsComponentSnapshot<For, As> {
+    fn clone(&self) -> Self {
+        Self {
+            snapshot: self.snapshot.clone(),
+            _phantom: default(),
+        }
+    }
+}
+
 impl<For, As> GgrsComponentSnapshot<For, As> {
     /// Create a new snapshot from a list of [`Rollback`] flags and stored [`Component`] types.
     pub fn new(components: impl IntoIterator<Item = (RollbackId, As)>) -> Self {
         Self {
-            snapshot: components.into_iter().collect(),
+            snapshot: Arc::new(components.into_iter().collect()),
             ..default()
         }
-    }
-
-    /// Insert a single snapshot for the provided [`Rollback`].
-    pub fn insert(&mut self, entity: RollbackId, snapshot: As) -> &mut Self {
-        self.snapshot.insert(entity, snapshot);
-        self
     }
 
     /// Get a single snapshot for the provided [`Rollback`].
@@ -337,6 +346,81 @@ impl<For, As> GgrsComponentSnapshot<For, As> {
     /// Iterate over all stored snapshots.
     pub fn iter(&self) -> impl Iterator<Item = (&RollbackId, &As)> + '_ {
         self.snapshot.iter()
+    }
+
+    /// How many entities the snapshot holds.
+    pub fn len(&self) -> usize {
+        self.snapshot.len()
+    }
+
+    /// Whether the snapshot holds no entity.
+    pub fn is_empty(&self) -> bool {
+        self.snapshot.is_empty()
+    }
+
+    /// Whether `self` and `other` are the same snapshot, shared, not two
+    /// that happen to hold equal data.
+    pub fn same(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.snapshot, &other.snapshot)
+    }
+}
+
+impl<For, As: Clone> GgrsComponentSnapshot<For, As> {
+    /// Insert a single snapshot for the provided [`Rollback`]. Copies the
+    /// data first if another snapshot shares it.
+    pub fn insert(&mut self, entity: RollbackId, snapshot: As) -> &mut Self {
+        Arc::make_mut(&mut self.snapshot).insert(entity, snapshot);
+        self
+    }
+}
+
+/// The snapshot of `For` the world's components equal, and the tick from
+/// which that holds: the last save, or the last load that wrote them.
+///
+/// A save or load checks it first. With every component of the type no newer
+/// than `tick`, and as many of them as the snapshot holds (so none was
+/// removed, none added), the world still equals it: the save pushes it again
+/// instead of copying, and a load of a frame that shares it writes nothing.
+/// A load that wrote nothing leaves no change behind, so the ticks it
+/// resimulates share too.
+#[derive(Resource)]
+pub struct HeldComponentSnapshot<For, As = For> {
+    held: Option<(GgrsComponentSnapshot<For, As>, Tick)>,
+}
+
+impl<For, As> Default for HeldComponentSnapshot<For, As> {
+    fn default() -> Self {
+        Self { held: None }
+    }
+}
+
+impl<For, As> HeldComponentSnapshot<For, As> {
+    /// The held snapshot, if the world still equals it: `last_changed` is the
+    /// change tick of every component of the type the world holds.
+    pub fn unchanged(
+        &self,
+        last_changed: impl Iterator<Item = Tick>,
+        this_run: Tick,
+    ) -> Option<&GgrsComponentSnapshot<For, As>> {
+        let (snapshot, tick) = self.held.as_ref()?;
+        let mut count = 0;
+        for changed in last_changed {
+            if changed.is_newer_than(*tick, this_run) {
+                return None;
+            }
+            count += 1;
+        }
+        (count == snapshot.len()).then_some(snapshot)
+    }
+
+    /// The world equals `snapshot` from `tick` on.
+    pub fn set(&mut self, snapshot: GgrsComponentSnapshot<For, As>, tick: Tick) {
+        self.held = Some((snapshot, tick));
+    }
+
+    /// Forget the held snapshot: the next save copies.
+    pub fn clear(&mut self) {
+        self.held = None;
     }
 }
 

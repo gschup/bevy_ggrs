@@ -6,11 +6,15 @@
 //! marked `#[component(immutable)]`, which must be re-inserted rather than mutated in place.
 
 use crate::{
-    ClearSnapshots, GgrsComponentSnapshot, GgrsComponentSnapshots, LoadWorld, LoadWorldSystems,
-    RollbackFrameCount, RollbackId, SaveWorld, SaveWorldSystems, Strategy, stage_insert,
+    ClearSnapshots, GgrsComponentSnapshot, GgrsComponentSnapshots, HeldComponentSnapshot,
+    LoadWorld, LoadWorldSystems, RollbackFrameCount, RollbackId, SaveWorld, SaveWorldSystems,
+    Strategy, stage_insert,
 };
 use bevy::{
-    ecs::component::{Immutable, Mutable},
+    ecs::{
+        component::{Immutable, Mutable},
+        system::SystemChangeTick,
+    },
     prelude::*,
 };
 use std::marker::PhantomData;
@@ -63,23 +67,42 @@ where
     S::Stored: Send + Sync + 'static,
 {
     /// System that snapshots all instances of the component on rollback entities for this frame.
+    ///
+    /// When none has changed since the snapshot the world holds
+    /// ([`HeldComponentSnapshot`]), that snapshot is pushed again, shared,
+    /// rather than every component copied.
     pub fn save(
         mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,
+        mut held: ResMut<HeldComponentSnapshot<S::Target, S::Stored>>,
         frame: Res<RollbackFrameCount>,
-        query: Query<(&RollbackId, &S::Target)>,
+        query: Query<(&RollbackId, Ref<S::Target>)>,
+        ticks: SystemChangeTick,
     ) {
+        let last_changed = query.iter().map(|(_, component)| component.last_changed());
+        if let Some(snapshot) = held.unchanged(last_changed, ticks.this_run()) {
+            let snapshot = snapshot.clone();
+            trace!(
+                "Snapshot {} {} component(s), unchanged",
+                snapshot.len(),
+                disqualified::ShortName::of::<S::Target>()
+            );
+            snapshots.push(frame.0, snapshot);
+            return;
+        }
+
         let components = query
             .iter()
-            .map(|(&rollback, component)| (rollback, S::store(component)));
+            .map(|(&rollback, component)| (rollback, S::store(&component)));
 
         let snapshot = GgrsComponentSnapshot::new(components);
 
         trace!(
             "Snapshot {} {} component(s)",
-            snapshot.iter().count(),
+            snapshot.len(),
             disqualified::ShortName::of::<S::Target>()
         );
 
+        held.set(snapshot.clone(), ticks.this_run());
         snapshots.push(frame.0, snapshot);
     }
 }
@@ -94,13 +117,30 @@ where
     /// removing it or staging it for insertion as required. A component the entity lacks is
     /// inserted by [`insert_staged_components`](crate::insert_staged_components), together
     /// with the rest of the entity's staged components.
+    ///
+    /// A frame whose snapshot is the one the world still holds
+    /// ([`HeldComponentSnapshot`]) is skipped: nothing is written, so nothing
+    /// is marked changed, and the saves of the resimulated frames share it.
     pub fn load(
         mut commands: Commands,
         mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,
+        mut held: ResMut<HeldComponentSnapshot<S::Target, S::Stored>>,
         frame: Res<RollbackFrameCount>,
-        mut query: Query<(Entity, &RollbackId, Option<&mut S::Target>)>,
+        mut query: Query<(Entity, &RollbackId, Option<Mut<S::Target>>)>,
+        ticks: SystemChangeTick,
     ) {
         let snapshot = snapshots.rollback(frame.0).get();
+
+        let last_changed = query
+            .iter()
+            .filter_map(|(_, _, component)| component.map(|c| c.last_changed()));
+        if held
+            .unchanged(last_changed, ticks.this_run())
+            .is_some_and(|world| world.same(snapshot))
+        {
+            return;
+        }
+        held.set(snapshot.clone(), ticks.this_run());
 
         for (entity, rollback, component) in query.iter_mut() {
             let snapshot = snapshot.get(rollback);
@@ -134,6 +174,7 @@ where
     /// Registers snapshot storage and the save/load systems for this component type.
     fn build(&self, app: &mut App) {
         app.init_resource::<GgrsComponentSnapshots<S::Target, S::Stored>>()
+            .init_resource::<HeldComponentSnapshot<S::Target, S::Stored>>()
             .add_systems(
                 SaveWorld,
                 (
@@ -149,8 +190,10 @@ where
         );
         app.add_observer(
             |_trigger: On<ClearSnapshots>,
-             mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>| {
+             mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,
+             mut held: ResMut<HeldComponentSnapshot<S::Target, S::Stored>>| {
                 snapshots.clear();
+                held.clear();
             },
         );
     }
@@ -203,6 +246,7 @@ where
     /// Registers snapshot storage and the save/load systems for this immutable component type.
     fn build(&self, app: &mut App) {
         app.init_resource::<GgrsComponentSnapshots<S::Target, S::Stored>>()
+            .init_resource::<HeldComponentSnapshot<S::Target, S::Stored>>()
             .add_systems(
                 SaveWorld,
                 (
@@ -218,8 +262,10 @@ where
             );
         app.add_observer(
             |_trigger: On<ClearSnapshots>,
-             mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>| {
+             mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,
+             mut held: ResMut<HeldComponentSnapshot<S::Target, S::Stored>>| {
                 snapshots.clear();
+                held.clear();
             },
         );
     }
@@ -235,15 +281,35 @@ where
     /// re-inserting it (triggering hooks) or removing it as required. A component the entity
     /// lacks is inserted by [`insert_staged_components`](crate::insert_staged_components),
     /// together with the rest of the entity's staged components.
+    ///
+    /// Skipped, as the mutable one is, when the frame's snapshot is the one the
+    /// world still holds: no component is re-inserted and no hook fires.
     pub fn load(
         mut commands: Commands,
         mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,
+        mut held: ResMut<HeldComponentSnapshot<S::Target, S::Stored>>,
         frame: Res<RollbackFrameCount>,
-        mut query: Query<(Entity, &RollbackId, Has<S::Target>)>,
+        query: Query<(Entity, &RollbackId, Option<Ref<S::Target>>)>,
+        ticks: SystemChangeTick,
     ) {
         let snapshot = snapshots.rollback(frame.0).get();
 
-        for (entity, rollback, has_component) in query.iter_mut() {
+        let last_changed = query
+            .iter()
+            .filter_map(|(_, _, component)| component.map(|c| c.last_changed()));
+        if held
+            .unchanged(last_changed, ticks.this_run())
+            .is_some_and(|world| world.same(snapshot))
+        {
+            return;
+        }
+        // Re-inserting is a command, applied after this system: the inserts
+        // are newer than this tick, so the next save copies. Correct, and no
+        // worse than before.
+        held.set(snapshot.clone(), ticks.this_run());
+
+        for (entity, rollback, component) in query.iter() {
+            let has_component = component.is_some();
             let snapshot = snapshot.get(rollback);
 
             match (has_component, snapshot) {

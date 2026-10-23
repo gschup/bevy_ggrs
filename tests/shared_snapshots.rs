@@ -1,0 +1,156 @@
+//! A component type nothing changed since the last save shares that save's
+//! snapshot instead of copying every component, and a load of a frame that
+//! shares the snapshot the world holds writes nothing ([`HeldComponentSnapshot`]).
+//!
+//! The SyncTest sessions roll back every frame and compare checksums, so a
+//! share that missed a change, an add or a removal fails them with a
+//! `SyncTestMismatch`.
+
+#[allow(dead_code)]
+mod common;
+use bevy::prelude::*;
+use bevy_ggrs::{prelude::*, *};
+use common::base_synctest_app;
+
+/// Never changes after spawn.
+#[derive(Component, Clone, Copy, Hash, Debug, PartialEq)]
+struct Still(u32);
+
+/// Changes every fifth frame.
+#[derive(Component, Clone, Copy, Hash, Debug, PartialEq)]
+struct Sometimes(u32);
+
+/// Moves from one entity to another at frame 12, so the type keeps its count.
+#[derive(Component, Clone, Copy, Hash, Debug, PartialEq)]
+struct Swapped(u32);
+
+#[derive(Component)]
+struct First;
+
+#[derive(Component)]
+struct Second;
+
+fn spawn(mut commands: Commands) {
+    commands.spawn((Still(7), Sometimes(0), Swapped(1), First, Rollback));
+    commands.spawn((Still(8), Second, Rollback));
+}
+
+fn advance(
+    mut commands: Commands,
+    frame: Res<RollbackFrameCount>,
+    mut sometimes: Query<&mut Sometimes>,
+    first: Query<Entity, With<First>>,
+    second: Query<Entity, With<Second>>,
+) {
+    if frame.0 % 5 == 0 {
+        for mut value in &mut sometimes {
+            value.0 += 1;
+        }
+    }
+    if frame.0 == 12 {
+        commands.entity(first.single().unwrap()).remove::<Swapped>();
+        commands.entity(second.single().unwrap()).insert(Swapped(2));
+    }
+}
+
+fn app() -> App {
+    let mut app = base_synctest_app(3);
+    app.add_systems(Startup, spawn)
+        .rollback_component_with_copy::<Still>()
+        .rollback_component_with_copy::<Sometimes>()
+        .rollback_component_with_copy::<Swapped>()
+        .checksum_component_with_hash::<Still>()
+        .checksum_component_with_hash::<Sometimes>()
+        .checksum_component_with_hash::<Swapped>()
+        .add_systems(GgrsSchedule, advance);
+    app.world_mut().add_observer(|_: On<SyncTestMismatch>| {
+        panic!("SyncTestMismatch: a shared snapshot parted from the world");
+    });
+    app
+}
+
+/// The newest saved snapshot of `T`.
+fn newest<T: Component>(app: &App) -> GgrsComponentSnapshot<T> {
+    let frame = app
+        .world()
+        .resource::<SnapshotFrames>()
+        .saved()
+        .last()
+        .unwrap();
+    app.world()
+        .resource::<GgrsComponentSnapshots<T>>()
+        .peek(frame)
+        .unwrap()
+        .clone()
+}
+
+#[test]
+fn an_unchanged_type_shares_one_snapshot_through_rollbacks() {
+    let mut app = app();
+    // The first update runs Startup; the first save is the second's.
+    app.update();
+    app.update();
+    let (first_still, mut still_copies, mut sometimes_copies) = (newest::<Still>(&app), 0, 0);
+    let mut last = (first_still.clone(), newest::<Sometimes>(&app));
+    for _ in 0..30 {
+        app.update();
+        let now = (newest::<Still>(&app), newest::<Sometimes>(&app));
+        still_copies += !now.0.same(&last.0) as u32;
+        sometimes_copies += !now.1.same(&last.1) as u32;
+        last = now;
+    }
+    assert_eq!(still_copies, 0, "Still never changes");
+    assert!(last.0.same(&first_still));
+    assert_eq!(last.0.len(), 2);
+    assert!(
+        (5..30).contains(&sometimes_copies),
+        "Sometimes changes every fifth frame, and is shared between: {sometimes_copies} copies"
+    );
+}
+
+#[test]
+fn a_change_an_add_and_a_removal_are_each_saved() {
+    let mut app = app();
+    for _ in 0..30 {
+        app.update();
+    }
+    let world = app.world_mut();
+    let frame = world.resource::<RollbackFrameCount>().0 as u32;
+    let sometimes = world.query::<&Sometimes>().single(world).unwrap().0;
+    let advanced_on_a_fifth: u32 = (1..=frame).filter(|f| f % 5 == 0).count() as u32;
+    assert_eq!(
+        sometimes, advanced_on_a_fifth,
+        "Sometimes counts every fifth frame"
+    );
+    let swapped: Vec<(bool, u32)> = world
+        .query::<(Has<Second>, &Swapped)>()
+        .iter(world)
+        .map(|(second, value)| (second, value.0))
+        .collect();
+    assert_eq!(
+        swapped,
+        vec![(true, 2)],
+        "Swapped moved to the second entity"
+    );
+}
+
+/// A load that shares the held snapshot writes nothing, so it leaves the
+/// component unchanged in Bevy's change detection.
+#[test]
+fn a_load_onto_the_held_snapshot_marks_nothing_changed() {
+    #[derive(Resource, Default)]
+    struct StillChanges(u32);
+
+    let mut app = app();
+    app.init_resource::<StillChanges>().add_systems(
+        Update,
+        |still: Query<Ref<Still>>, mut changes: ResMut<StillChanges>| {
+            changes.0 += still.iter().filter(|s| s.is_changed()).count() as u32;
+        },
+    );
+    for _ in 0..30 {
+        app.update();
+    }
+    // Two at spawn, seen once; none from the rollbacks after.
+    assert_eq!(app.world().resource::<StillChanges>().0, 2);
+}

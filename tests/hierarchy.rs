@@ -180,3 +180,48 @@ fn hierarchy() {
         "Parent doesn't exist"
     );
 }
+
+/// A load leaves a child that already has the snapshot's parent alone: no
+/// `ChildOf` re-insert, so no relationship hook and no change, however many
+/// rollbacks pass over it.
+#[test]
+fn an_unchanged_child_of_is_not_reinserted_by_a_load() {
+    #[derive(Resource, Default)]
+    struct ChildOfChanges(u32);
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
+            1.0 / 60.0,
+        )))
+        .add_plugins(TransformPlugin)
+        .init_resource::<FrameCounter>()
+        .init_resource::<ChildOfChanges>()
+        .insert_resource(synctest_session(2))
+        .add_plugins(GgrsPlugin::<GgrsConfig>::default())
+        .add_systems(ReadInputs, common::input_system)
+        .rollback_component_with_reflect::<ParentEntity>()
+        .rollback_component_with_reflect::<ChildEntity>()
+        .rollback_resource_with_reflect::<FrameCounter>()
+        .add_systems(Startup, |mut commands: Commands| {
+            commands.spawn((ParentEntity, Rollback)).with_children(|p| {
+                p.spawn((ChildEntity, Rollback));
+            });
+        })
+        .add_systems(GgrsSchedule, frame_counter)
+        .add_systems(
+            Update,
+            |links: Query<Ref<ChildOf>>, mut changes: ResMut<ChildOfChanges>| {
+                changes.0 += links.iter().filter(|l| l.is_changed()).count() as u32;
+            },
+        );
+
+    for _ in 0..20 {
+        app.update();
+    }
+    assert_eq!(
+        app.world().resource::<ChildOfChanges>().0,
+        1,
+        "the child's ChildOf, set once at spawn"
+    );
+}

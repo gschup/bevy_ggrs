@@ -127,14 +127,15 @@ where
         mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,
         mut held: ResMut<HeldComponentSnapshot<S::Target, S::Stored>>,
         frame: Res<RollbackFrameCount>,
-        mut query: Query<(Entity, &RollbackId, Option<Mut<S::Target>>)>,
+        mut with: Query<(Entity, &RollbackId, Mut<S::Target>)>,
+        without: Query<(Entity, &RollbackId), Without<S::Target>>,
         ticks: SystemChangeTick,
     ) {
         let snapshot = snapshots.rollback(frame.0).get();
 
-        let last_changed = query
+        let last_changed = with
             .iter()
-            .filter_map(|(_, _, component)| component.map(|c| c.last_changed()));
+            .map(|(_, _, component)| component.last_changed());
         if held
             .unchanged(last_changed, ticks.this_run())
             .is_some_and(|world| world.same(snapshot))
@@ -143,23 +144,29 @@ where
         }
         held.set(snapshot.clone(), ticks.this_run());
 
-        for (entity, rollback, component) in query.iter_mut() {
-            let snapshot = snapshot.get(rollback);
-
-            match (component, snapshot) {
+        // The entities holding the type, then, only when the snapshot holds
+        // some they do not, the rest: a type on a few entities walks those
+        // few, not every rollback entity.
+        let mut matched = 0;
+        for (entity, rollback, mut component) in with.iter_mut() {
+            match snapshot.get(rollback) {
                 // Read without marking it changed; written only when it differs.
-                (Some(mut component), Some(snapshot)) => {
+                Some(snapshot) => {
+                    matched += 1;
                     if !S::equals(&component, snapshot) {
                         S::update(component.as_mut(), snapshot);
                     }
                 }
-                (Some(_), None) => {
+                None => {
                     commands.entity(entity).remove::<S::Target>();
                 }
-                (None, Some(snapshot)) => {
+            }
+        }
+        if matched < snapshot.len() {
+            for (entity, rollback) in &without {
+                if let Some(snapshot) = snapshot.get(rollback) {
                     commands.queue(stage_insert(entity, *rollback, S::load(snapshot)));
                 }
-                (None, None) => {}
             }
         }
 
@@ -307,14 +314,15 @@ where
         mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,
         mut held: ResMut<HeldComponentSnapshot<S::Target, S::Stored>>,
         frame: Res<RollbackFrameCount>,
-        query: Query<(Entity, &RollbackId, Option<Ref<S::Target>>)>,
+        with: Query<(Entity, &RollbackId, Ref<S::Target>)>,
+        without: Query<(Entity, &RollbackId), Without<S::Target>>,
         ticks: SystemChangeTick,
     ) {
         let snapshot = snapshots.rollback(frame.0).get();
 
-        let last_changed = query
+        let last_changed = with
             .iter()
-            .filter_map(|(_, _, component)| component.map(|c| c.last_changed()));
+            .map(|(_, _, component)| component.last_changed());
         if held
             .unchanged(last_changed, ticks.this_run())
             .is_some_and(|world| world.same(snapshot))
@@ -326,23 +334,26 @@ where
         // worse than before.
         held.set(snapshot.clone(), ticks.this_run());
 
-        for (entity, rollback, component) in query.iter() {
-            let has_component = component.is_some();
-            let snapshot = snapshot.get(rollback);
-
-            match (has_component, snapshot) {
-                (true, None) => {
-                    commands.entity(entity).remove::<S::Target>();
-                }
-                (true, Some(snapshot)) => {
-                    if !component.is_some_and(|component| S::equals(&component, snapshot)) {
+        // As the mutable load: the holders, then the rest only when needed.
+        let mut matched = 0;
+        for (entity, rollback, component) in &with {
+            match snapshot.get(rollback) {
+                Some(snapshot) => {
+                    matched += 1;
+                    if !S::equals(&component, snapshot) {
                         commands.entity(entity).insert(S::load(snapshot));
                     }
                 }
-                (false, Some(snapshot)) => {
+                None => {
+                    commands.entity(entity).remove::<S::Target>();
+                }
+            }
+        }
+        if matched < snapshot.len() {
+            for (entity, rollback) in &without {
+                if let Some(snapshot) = snapshot.get(rollback) {
                     commands.queue(stage_insert(entity, *rollback, S::load(snapshot)));
                 }
-                (false, None) => {}
             }
         }
 

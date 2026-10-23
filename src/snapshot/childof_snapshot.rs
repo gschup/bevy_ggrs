@@ -93,6 +93,12 @@ impl ChildOfSnapshotPlugin {
                 }
                 (component, Some(snapshot)) => {
                     if let Some(parent) = map.get(snapshot.0) {
+                        // Already the child of that parent: nothing to do. A
+                        // re-insert fires the relationship hooks and rebuilds
+                        // the parent's `Children`, for every child, every load.
+                        if component.is_some_and(|c| c.parent() == parent) {
+                            continue;
+                        }
                         if component.is_some() {
                             commands.entity(entity).insert(ChildOf(parent));
                         } else {

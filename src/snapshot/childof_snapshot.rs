@@ -79,36 +79,44 @@ impl ChildOfSnapshotPlugin {
         mut commands: Commands,
         mut snapshots: ResMut<GgrsComponentSnapshots<ChildOf, ChildOf>>,
         frame: Res<RollbackFrameCount>,
-        mut query: Query<(Entity, &RollbackId, Option<&ChildOf>)>,
+        with: Query<(Entity, &RollbackId, &ChildOf)>,
+        without: Query<(Entity, &RollbackId), Without<ChildOf>>,
         map: Res<RollbackEntityMap>,
     ) {
         let snapshot = snapshots.rollback(frame.0).get();
 
-        for (entity, rollback, component) in query.iter_mut() {
-            let snapshot = snapshot.get(rollback);
-
-            match (component, snapshot) {
-                (Some(_), None) => {
-                    commands.entity(entity).remove::<ChildOf>();
-                }
-                (component, Some(snapshot)) => {
-                    if let Some(parent) = map.get(snapshot.0) {
-                        // Already the child of that parent: nothing to do. A
-                        // re-insert fires the relationship hooks and rebuilds
-                        // the parent's `Children`, for every child, every load.
-                        if component.is_some_and(|c| c.parent() == parent) {
-                            continue;
-                        }
-                        if component.is_some() {
-                            commands.entity(entity).insert(ChildOf(parent));
-                        } else {
-                            commands.queue(stage_insert(entity, *rollback, ChildOf(parent)));
-                        }
-                    } else {
-                        warn!("Parent entity not found in rollback map: {:?}", snapshot);
+        // The children first, then, only when the snapshot holds some the
+        // world does not, the rest: as the component loads, so a load walks
+        // the entities with a parent, not every rollback entity.
+        let mut matched = 0;
+        for (entity, rollback, child_of) in &with {
+            let Some(stored) = snapshot.get(rollback) else {
+                commands.entity(entity).remove::<ChildOf>();
+                continue;
+            };
+            matched += 1;
+            let Some(parent) = map.get(stored.0) else {
+                warn!("Parent entity not found in rollback map: {:?}", stored);
+                continue;
+            };
+            // Already the child of that parent: nothing to do. A re-insert
+            // fires the relationship hooks and rebuilds the parent's
+            // `Children`, for every child, every load.
+            if child_of.parent() != parent {
+                commands.entity(entity).insert(ChildOf(parent));
+            }
+        }
+        if matched < snapshot.len() {
+            for (entity, rollback) in &without {
+                let Some(stored) = snapshot.get(rollback) else {
+                    continue;
+                };
+                match map.get(stored.0) {
+                    Some(parent) => {
+                        commands.queue(stage_insert(entity, *rollback, ChildOf(parent)));
                     }
+                    None => warn!("Parent entity not found in rollback map: {:?}", stored),
                 }
-                (None, None) => {}
             }
         }
 

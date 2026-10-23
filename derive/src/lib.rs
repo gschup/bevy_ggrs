@@ -198,3 +198,49 @@ fn derive_rollback_impl(input: DeriveInput) -> syn::Result<proc_macro2::TokenStr
         }
     })
 }
+
+/// Derive macro for `RollbackEq`: equal when every field is, each compared
+/// with its own `RollbackEq` (the same bits for floats). Every field takes
+/// part, so a field added later cannot be left out of the comparison and
+/// skipped by a rollback load. Structs only.
+///
+/// ```rust,ignore
+/// #[derive(Component, Clone, Copy, RollbackEq)]
+/// struct Velocity(Vec2);
+/// ```
+#[proc_macro_derive(RollbackEq)]
+pub fn derive_rollback_eq(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = &input.ident;
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    let syn::Data::Struct(data) = &input.data else {
+        return syn::Error::new_spanned(&input.ident, "#[derive(RollbackEq)] is for structs")
+            .to_compile_error()
+            .into();
+    };
+    let fields: Vec<proc_macro2::TokenStream> = match &data.fields {
+        syn::Fields::Named(named) => named
+            .named
+            .iter()
+            .map(|f| {
+                let ident = f.ident.as_ref().unwrap();
+                quote! { bevy_ggrs::RollbackEq::rollback_eq(&self.#ident, &other.#ident) }
+            })
+            .collect(),
+        syn::Fields::Unnamed(unnamed) => (0..unnamed.unnamed.len())
+            .map(|i| {
+                let index = syn::Index::from(i);
+                quote! { bevy_ggrs::RollbackEq::rollback_eq(&self.#index, &other.#index) }
+            })
+            .collect(),
+        syn::Fields::Unit => Vec::new(),
+    };
+    quote! {
+        impl #impl_generics bevy_ggrs::RollbackEq for #name #ty_generics #where_clause {
+            fn rollback_eq(&self, other: &Self) -> bool {
+                true #(&& #fields)*
+            }
+        }
+    }
+    .into()
+}

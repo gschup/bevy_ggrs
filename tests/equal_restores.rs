@@ -9,13 +9,32 @@ use bevy::prelude::*;
 use bevy_ggrs::{prelude::*, *};
 use common::base_synctest_app;
 
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
+#[derive(Component, Clone, Copy, Debug, PartialEq, RollbackEq)]
 struct Value(f32);
 
-impl RollbackEq for Value {
-    fn rollback_eq(&self, other: &Self) -> bool {
-        self.0.rollback_eq(&other.0)
-    }
+/// Every field takes part in a derived `RollbackEq`, compared by bits.
+#[derive(RollbackEq)]
+struct Named {
+    a: f32,
+    b: bevy::math::Vec2,
+}
+
+#[test]
+fn a_derived_rollback_eq_compares_every_field_by_bits() {
+    let named = |a: f32, b: f32| Named {
+        a,
+        b: bevy::math::Vec2::new(1.0, b),
+    };
+    assert!(named(1.0, 2.0).rollback_eq(&named(1.0, 2.0)));
+    assert!(
+        !named(1.0, 2.0).rollback_eq(&named(1.0, 3.0)),
+        "the second field"
+    );
+    assert!(
+        !named(0.0, 2.0).rollback_eq(&named(-0.0, 2.0)),
+        "bits, not =="
+    );
+    assert!(Value(0.5).rollback_eq(&Value(0.5)));
 }
 
 impl std::hash::Hash for Value {
@@ -38,7 +57,11 @@ struct Seen {
 /// `PartialEq`, different by bits.
 fn flip(mut moving: Query<&mut Value, With<Moves>>) {
     for mut value in &mut moving {
-        value.0 = if value.0.is_sign_negative() { 0.0 } else { -0.0 };
+        value.0 = if value.0.is_sign_negative() {
+            0.0
+        } else {
+            -0.0
+        };
     }
 }
 
@@ -75,5 +98,9 @@ fn a_load_writes_only_what_differs_by_bits() {
     }
     let seen = app.world().resource::<Seen>();
     assert_eq!(seen.still, 1, "the still one changed at spawn only");
-    assert!(seen.moving > 20, "the flipping one is written: {}", seen.moving);
+    assert!(
+        seen.moving > 20,
+        "the flipping one is written: {}",
+        seen.moving
+    );
 }

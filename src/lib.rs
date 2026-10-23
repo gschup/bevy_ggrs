@@ -20,7 +20,7 @@ use ggrs::{Config, InputStatus, P2PSession, PlayerHandle, SpectatorSession, Sync
 use serde::{Deserialize, Serialize};
 use std::{fmt::Debug, hash::Hash, marker::PhantomData, net::SocketAddr};
 
-pub use bevy_ggrs_derive::Rollback;
+pub use bevy_ggrs_derive::{Rollback, RollbackEq};
 pub use snapshot::*;
 pub use time::*;
 

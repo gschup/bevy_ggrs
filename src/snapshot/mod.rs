@@ -12,7 +12,10 @@
 use crate::DEFAULT_FPS;
 use bevy::{
     ecs::schedule::ScheduleLabel,
-    ecs::{change_detection::Tick, reflect::AppTypeRegistry},
+    ecs::{
+        change_detection::{CheckChangeTicks, Tick},
+        reflect::AppTypeRegistry,
+    },
     platform::collections::{HashMap, HashSet},
     prelude::*,
 };
@@ -421,6 +424,16 @@ impl<For, As> HeldComponentSnapshot<For, As> {
     /// Forget the held snapshot: the next save copies.
     pub fn clear(&mut self) {
         self.held = None;
+    }
+
+    /// Keep the held tick comparable as the world's change tick wraps: a
+    /// `Tick` stored outside a component is not kept by Bevy, and after
+    /// about 2^32 ticks a change would read as older than it. Bevy triggers
+    /// [`CheckChangeTicks`] for this; the snapshot plugins observe it.
+    pub fn check_change_ticks(&mut self, check: CheckChangeTicks) {
+        if let Some((_, tick)) = &mut self.held {
+            tick.check_tick(check);
+        }
     }
 }
 

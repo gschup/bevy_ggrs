@@ -12,6 +12,7 @@ use crate::{
 };
 use bevy::{
     ecs::{
+        change_detection::CheckChangeTicks,
         component::{Immutable, Mutable},
         system::SystemChangeTick,
     },
@@ -201,6 +202,12 @@ where
                 held.clear();
             },
         );
+        app.add_observer(
+            |check: On<CheckChangeTicks>,
+             mut held: ResMut<HeldComponentSnapshot<S::Target, S::Stored>>| {
+                held.check_change_ticks(*check);
+            },
+        );
     }
 }
 
@@ -271,6 +278,12 @@ where
              mut held: ResMut<HeldComponentSnapshot<S::Target, S::Stored>>| {
                 snapshots.clear();
                 held.clear();
+            },
+        );
+        app.add_observer(
+            |check: On<CheckChangeTicks>,
+             mut held: ResMut<HeldComponentSnapshot<S::Target, S::Stored>>| {
+                held.check_change_ticks(*check);
             },
         );
     }

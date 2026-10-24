@@ -14,11 +14,7 @@
 
 use std::hash::{Hash, Hasher};
 
-use bevy::{
-    ecs::{change_detection::Tick, system::SystemChangeTick},
-    platform::collections::HashMap,
-    prelude::*,
-};
+use bevy::{platform::collections::HashMap, prelude::*};
 
 use crate::{
     ChecksumDiagnostics, ChecksumFlag, ChecksumPart, RollbackId, RollbackOrdered, SaveWorld,
@@ -53,13 +49,20 @@ use crate::{
 /// ```
 pub struct ComponentChecksumPlugin<C: Component>(pub for<'a> fn(&'a C) -> u64);
 
-/// A type's checksum as it was last taken: each entity's order and hash, by
-/// [`RollbackId`], their XOR, and the tick it was taken at.
+/// A type's checksum as it was last taken: each entity's hash, by
+/// [`RollbackId`], their XOR, and a count of the passes taken.
 #[derive(Default)]
 struct HeldChecksum {
-    tick: Tick,
-    hashes: HashMap<RollbackId, (u64, u64)>,
+    hashes: HashMap<RollbackId, EntityHash>,
     xor: u64,
+    pass: u32,
+}
+
+/// One entity's part of a [`HeldChecksum`], and the pass that last found it.
+struct EntityHash {
+    order: u64,
+    hash: u64,
+    seen: u32,
 }
 
 fn default_hasher<C: Component + Hash>(component: &C) -> u64 {
@@ -96,52 +99,59 @@ where
             (Without<RollbackId>, With<ChecksumFlag<C>>),
         >,
                            diagnostics: Option<Res<ChecksumDiagnostics>>,
-                           mut held: Local<HeldChecksum>,
-                           ticks: SystemChangeTick| {
+                           mut held: Local<HeldChecksum>| {
             let type_name = std::any::type_name::<C>();
-            let this_run = ticks.this_run();
+            let held = &mut *held;
+            held.pass = held.pass.wrapping_add(1);
+            let pass = held.pass;
 
-            // Rehash what changed since the last checksum, XORing its old hash
-            // out and its new one in. An entry for an entity that no longer has
-            // the component cannot be found that way: then start over.
-            for pass in 0..2 {
-                if pass == 1 {
-                    held.hashes.clear();
-                    held.xor = 0;
+            // Rehash what changed since the last checksum (this system runs on
+            // every save, so its last run is that checksum), XORing its old hash
+            // out and its new one in.
+            let mut count = 0;
+            for (&rollback, component) in components.iter() {
+                count += 1;
+                if let Some(entry) = held.hashes.get_mut(&rollback)
+                    && !component.is_changed()
+                {
+                    entry.seen = pass;
+                    continue;
                 }
-                let mut count = 0;
-                for (&rollback, component) in components.iter() {
-                    count += 1;
-                    let known = held.hashes.get(&rollback).map(|&(_, hash)| hash);
-                    if known.is_some()
-                        && !component.last_changed().is_newer_than(held.tick, this_run)
-                    {
-                        continue;
-                    }
-                    let mut hasher = checksum_hasher();
-                    // Hashing the rollback index ensures this hash is unique and stable
-                    let order = rollback_ordered.order(rollback);
-                    order.hash(&mut hasher);
-                    custom_hasher(&component).hash(&mut hasher);
-                    let entity_hash = hasher.finish();
-                    // XOR chosen over addition or multiplication as it is closed on u64 and
-                    // commutative, and is its own inverse, so a changed entity's old hash
-                    // comes back out
-                    if let Some(old) = known {
-                        held.xor ^= old;
-                    }
-                    held.xor ^= entity_hash;
-                    held.hashes.insert(rollback, (order, entity_hash));
+                let mut hasher = checksum_hasher();
+                // Hashing the rollback index ensures this hash is unique and stable
+                let order = rollback_ordered.order(rollback);
+                order.hash(&mut hasher);
+                custom_hasher(&component).hash(&mut hasher);
+                let hash = hasher.finish();
+                // XOR chosen over addition or multiplication as it is closed on u64 and
+                // commutative, and is its own inverse, so a changed entity's old hash
+                // comes back out
+                let entry = EntityHash {
+                    order,
+                    hash,
+                    seen: pass,
+                };
+                if let Some(old) = held.hashes.insert(rollback, entry) {
+                    held.xor ^= old.hash;
                 }
-                if held.hashes.len() == count {
-                    break;
-                }
+                held.xor ^= hash;
             }
-            held.tick = this_run;
+            // An entity that no longer has the component: this pass did not find
+            // it, and its hash comes back out.
+            if held.hashes.len() != count {
+                let xor = &mut held.xor;
+                held.hashes.retain(|_, entry| {
+                    let kept = entry.seen == pass;
+                    if !kept {
+                        *xor ^= entry.hash;
+                    }
+                    kept
+                });
+            }
 
             if let Some(ref diag) = diagnostics {
-                for &(order, entity_hash) in held.hashes.values() {
-                    diag.record_entity_hash(type_name, order, entity_hash);
+                for entry in held.hashes.values() {
+                    diag.record_entity_hash(type_name, entry.order, entry.hash);
                 }
             }
 

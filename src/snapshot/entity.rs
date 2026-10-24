@@ -78,7 +78,9 @@ impl EntitySnapshotPlugin {
                     entity_map.insert(current_entity, old_entity);
                 }
                 (Some(current_entity), None) => {
-                    commands.entity(current_entity).despawn();
+                    // A child the frame lacks along with its parent is gone
+                    // already when the parent's despawn came first.
+                    commands.entity(current_entity).try_despawn();
                 }
                 (None, Some(old_entity)) => {
                     // A respawn is bare: it gets the components registered for rollback and
@@ -131,3 +133,4 @@ impl Plugin for EntitySnapshotPlugin {
         );
     }
 }
+

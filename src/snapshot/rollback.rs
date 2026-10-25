@@ -5,6 +5,8 @@
 //! [`RollbackId`] and registers the entity in [`RollbackOrdered`], which provides a
 //! deterministic iteration order across peers.
 
+use std::sync::Arc;
+
 use bevy::{
     ecs::{lifecycle::HookContext, world::DeferredWorld},
     platform::collections::HashMap,
@@ -41,6 +43,12 @@ impl RollbackId {
     pub(crate) fn new(entity: Entity) -> Self {
         Self(entity)
     }
+
+    /// The index of the entity the id was made from.
+    #[inline(always)]
+    pub(crate) fn index(&self) -> u32 {
+        self.0.index_u32()
+    }
 }
 
 fn on_rollback_added(mut world: DeferredWorld, ctx: HookContext) {
@@ -60,10 +68,13 @@ fn on_rollback_added(mut world: DeferredWorld, ctx: HookContext) {
 }
 
 /// A [`Resource`] which provides methods for stable ordering of [`RollbackId`] components.
+///
+/// Snapshotted every frame and changed only by a spawn, so a clone shares the
+/// data and a [`push`](Self::push) copies it.
 #[derive(Resource, Default, Clone)]
 pub struct RollbackOrdered {
-    order: HashMap<RollbackId, u64>,
-    sorted: Vec<RollbackId>,
+    order: Arc<HashMap<RollbackId, u64>>,
+    sorted: Arc<Vec<RollbackId>>,
 }
 
 impl RollbackOrdered {
@@ -73,8 +84,9 @@ impl RollbackOrdered {
         if self.order.contains_key(&rollback) {
             return self;
         }
-        self.sorted.push(rollback);
-        self.order.insert(rollback, self.sorted.len() as u64 - 1);
+        let sorted = Arc::make_mut(&mut self.sorted);
+        sorted.push(rollback);
+        Arc::make_mut(&mut self.order).insert(rollback, sorted.len() as u64 - 1);
 
         self
     }

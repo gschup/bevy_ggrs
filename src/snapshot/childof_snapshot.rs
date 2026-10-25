@@ -5,12 +5,15 @@
 //! [`RollbackEntityMap`] after the entity graph is reconstructed.
 
 use crate::{
-    ClearSnapshots, GgrsComponentSnapshots, LoadWorld, LoadWorldSystems, RollbackFrameCount,
-    SaveWorld, SaveWorldSystems, stage_insert,
+    ClearSnapshots, GgrsComponentSnapshots, HeldComponentSnapshot, LoadWorld, LoadWorldSystems,
+    Restore, RollbackFrameCount, SaveWorld, SaveWorldSystems, stage_insert,
 };
-use bevy::{ecs::hierarchy::ChildOf, prelude::*};
+use bevy::{
+    ecs::{change_detection::CheckChangeTicks, hierarchy::ChildOf, system::SystemChangeTick},
+    prelude::*,
+};
 
-use super::{GgrsComponentSnapshot, RollbackEntityMap, RollbackId};
+use super::{RollbackEntityMap, RollbackId};
 
 /// Specialized snapshotting plugin for [`ChildOf`] components.
 ///
@@ -27,6 +30,7 @@ impl Plugin for ChildOfSnapshotPlugin {
     /// Registers [`ChildOf`] snapshot storage and the save/load systems.
     fn build(&self, app: &mut App) {
         app.init_resource::<GgrsComponentSnapshots<ChildOf, ChildOf>>()
+            .init_resource::<HeldComponentSnapshot<ChildOf, ChildOf>>()
             .add_systems(
                 SaveWorld,
                 (
@@ -42,8 +46,16 @@ impl Plugin for ChildOfSnapshotPlugin {
             );
         app.add_observer(
             |_trigger: On<ClearSnapshots>,
-             mut snapshots: ResMut<GgrsComponentSnapshots<ChildOf, ChildOf>>| {
+             mut snapshots: ResMut<GgrsComponentSnapshots<ChildOf, ChildOf>>,
+             mut held: ResMut<HeldComponentSnapshot<ChildOf, ChildOf>>| {
                 snapshots.clear();
+                held.clear();
+            },
+        );
+        app.add_observer(
+            |check: On<CheckChangeTicks>,
+             mut held: ResMut<HeldComponentSnapshot<ChildOf, ChildOf>>| {
+                held.check_change_ticks(*check);
             },
         );
     }
@@ -51,20 +63,31 @@ impl Plugin for ChildOfSnapshotPlugin {
 
 impl ChildOfSnapshotPlugin {
     /// System that snapshots the [`ChildOf`] component on all rollback entities for this frame.
+    /// [`ChildOf`] is immutable, so only the chunks where one was inserted or
+    /// removed are copied ([`HeldComponentSnapshot`]).
     pub fn save(
         mut snapshots: ResMut<GgrsComponentSnapshots<ChildOf, ChildOf>>,
+        mut held: ResMut<HeldComponentSnapshot<ChildOf, ChildOf>>,
         frame: Res<RollbackFrameCount>,
-        query: Query<(&RollbackId, &ChildOf)>,
+        query: Query<(&RollbackId, Ref<ChildOf>)>,
+        changed: Query<Ref<ChildOf>, With<RollbackId>>,
+        ticks: SystemChangeTick,
     ) {
-        let components = query
-            .iter()
-            .map(|(&rollback, component)| (rollback, component.clone()));
-
-        let snapshot = GgrsComponentSnapshot::new(components);
+        let snapshot = held.save(
+            changed.iter().map(|child_of| child_of.last_changed()),
+            query
+                .iter()
+                .map(|(&rollback, child_of)| (rollback, child_of.last_changed())),
+            query
+                .iter()
+                .map(|(&rollback, child_of)| (rollback, child_of)),
+            |child_of| ChildOf::clone(&child_of),
+            ticks.this_run(),
+        );
 
         trace!(
             "Snapshot {} {} component(s)",
-            snapshot.iter().count(),
+            snapshot.len(),
             disqualified::ShortName::of::<ChildOf>()
         );
 
@@ -75,16 +98,32 @@ impl ChildOfSnapshotPlugin {
     /// entities through [`RollbackEntityMap`] to account for any ID changes. An entity without
     /// one gets it from [`insert_staged_components`](crate::insert_staged_components), together
     /// with the rest of its staged components.
+    ///
+    /// A chunk that is the one the world holds is skipped: its children have
+    /// the parents the snapshot names, which are alive, so no map entry names
+    /// them.
+    #[allow(clippy::too_many_arguments)]
     pub fn load(
         mut commands: Commands,
         mut snapshots: ResMut<GgrsComponentSnapshots<ChildOf, ChildOf>>,
+        mut held: ResMut<HeldComponentSnapshot<ChildOf, ChildOf>>,
         frame: Res<RollbackFrameCount>,
-        with: Query<(Entity, &RollbackId, &ChildOf)>,
+        with: Query<(Entity, &RollbackId, Ref<ChildOf>)>,
         without: Query<(Entity, &RollbackId), Without<ChildOf>>,
         rollback_entities: Query<(), With<RollbackId>>,
         map: Res<RollbackEntityMap>,
+        ticks: SystemChangeTick,
     ) {
         let snapshot = snapshots.rollback(frame.0).get();
+        let Some(plan) = held.load(
+            snapshot,
+            with.iter().map(|(_, _, child_of)| child_of.last_changed()),
+            with.iter()
+                .map(|(_, &rollback, child_of)| (rollback, child_of.last_changed())),
+            ticks.this_run(),
+        ) else {
+            return;
+        };
         // The stored parent under the ID it has now.
         let parent_of = |stored: &ChildOf| map.get(stored.0).unwrap_or(stored.0);
         let is_rollback = |parent: Entity| {
@@ -100,9 +139,13 @@ impl ChildOfSnapshotPlugin {
         // the entities with a parent, not every rollback entity.
         let mut matched = 0;
         for (entity, rollback, child_of) in &with {
-            let Some(stored) = snapshot.get(rollback) else {
-                commands.entity(entity).remove::<ChildOf>();
-                continue;
+            let stored = match plan.restore(rollback) {
+                Restore::Shared => continue,
+                Restore::Absent => {
+                    commands.entity(entity).remove::<ChildOf>();
+                    continue;
+                }
+                Restore::Stored(stored) => stored,
             };
             matched += 1;
             // Already the child of that parent: nothing to do. A re-insert
@@ -113,9 +156,9 @@ impl ChildOfSnapshotPlugin {
                 commands.entity(entity).insert(ChildOf(parent));
             }
         }
-        if matched < snapshot.len() {
+        if plan.holds_more(matched) {
             for (entity, rollback) in &without {
-                let Some(stored) = snapshot.get(rollback) else {
+                let Some(stored) = plan.missing(rollback) else {
                     continue;
                 };
                 let parent = parent_of(stored);

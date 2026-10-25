@@ -154,3 +154,110 @@ fn a_load_onto_the_held_snapshot_marks_nothing_changed() {
     // Two at spawn, seen once; none from the rollbacks after.
     assert_eq!(app.world().resource::<StillChanges>().0, 2);
 }
+
+/// One of many entities, picked by the frame.
+#[derive(Component, Clone, Copy, Hash, Debug, PartialEq)]
+struct Many(u32);
+
+/// Where an entity of `Many` sits, to pick it by.
+#[derive(Component)]
+struct Slot(u32);
+
+const MANY: u32 = 200;
+
+fn many_app() -> App {
+    let mut app = base_synctest_app(3);
+    app.add_systems(Startup, |mut commands: Commands| {
+        for slot in 0..MANY {
+            commands.spawn((Many(0), Slot(slot), Rollback));
+        }
+    })
+    .rollback_component_with_copy::<Many>()
+    .checksum_component_with_hash::<Many>()
+    .add_systems(
+        GgrsSchedule,
+        |mut commands: Commands,
+         frame: Res<RollbackFrameCount>,
+         mut many: Query<(Entity, &Slot, &mut Many)>| {
+            let picked = frame.0 as u32 % MANY;
+            for (entity, slot, mut value) in &mut many {
+                if slot.0 == picked {
+                    value.0 += 1;
+                }
+                // Every seventh frame one entity goes and another comes, so
+                // the entity set and the type's count change too.
+                if frame.0 % 7 == 0 && slot.0 == (picked + 100) % MANY {
+                    commands.entity(entity).despawn_rollback();
+                    commands.spawn((Many(frame.0 as u32), Slot(slot.0), Rollback));
+                }
+                // Every eleventh frame one entity loses the type, a removal
+                // that leaves no change tick behind.
+                if frame.0 % 11 == 0 && slot.0 == (picked + 50) % MANY {
+                    commands.entity(entity).remove::<Many>();
+                }
+            }
+        },
+    );
+    app.world_mut().add_observer(|_: On<SyncTestMismatch>| {
+        panic!("SyncTestMismatch: a shared chunk parted from the world");
+    });
+    app
+}
+
+/// The newest saved snapshot of `T` and the one before it.
+fn newest_two<T: Send + Sync + 'static>(
+    app: &App,
+) -> (GgrsComponentSnapshot<T>, GgrsComponentSnapshot<T>) {
+    let frames: Vec<i32> = app.world().resource::<SnapshotFrames>().saved().collect();
+    let store = app.world().resource::<GgrsComponentSnapshots<T>>();
+    let [.., before, last] = frames[..] else {
+        panic!("two frames saved")
+    };
+    (
+        store.peek(last).unwrap().clone(),
+        store.peek(before).unwrap().clone(),
+    )
+}
+
+/// A frame that changes one entity of many copies that entity's chunk and
+/// shares every other with the frame before, through the SyncTest's
+/// rollbacks; spawns, despawns and removals copy their chunks and match the
+/// checksums.
+#[test]
+fn a_change_to_one_entity_copies_only_its_chunk() {
+    let mut app = many_app();
+    app.update();
+    app.update();
+    let mut checked = 0;
+    for _ in 0..60 {
+        app.update();
+        let frame = app.world().resource::<RollbackFrameCount>().0;
+        let (last, before) = newest_two::<Many>(&app);
+        let (shared, chunks) = last.chunks_shared_with(&before);
+        // A frame that spawned, despawned or removed copies up to four chunks.
+        let copied = chunks - shared;
+        assert!(
+            (1..=4).contains(&copied),
+            "frame {frame}: {copied} of {chunks} chunks copied"
+        );
+        checked += (copied == 1) as u32;
+
+        let (last, before) = newest_two::<Entity>(&app);
+        let (shared, chunks) = last.chunks_shared_with(&before);
+        assert!(
+            chunks - shared <= 3,
+            "frame {frame}: entities copied {}",
+            chunks - shared
+        );
+    }
+    assert!(checked > 40, "most frames copy one chunk: {checked}");
+    let world = app.world_mut();
+    let frame = world.resource::<RollbackFrameCount>().0;
+    let removed = (1..frame).filter(|f| f % 11 == 0).count();
+    let count = world.query::<&Many>().iter(world).count();
+    assert_eq!(
+        count,
+        MANY as usize - removed,
+        "one removed every eleventh frame"
+    );
+}

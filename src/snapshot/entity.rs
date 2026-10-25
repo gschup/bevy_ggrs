@@ -6,10 +6,15 @@
 //! [`RollbackEntityMap`] so that subsequent plugins can fix up stale entity references.
 
 use crate::{
-    ClearSnapshots, GgrsComponentSnapshot, GgrsComponentSnapshots, LoadWorld, LoadWorldSystems,
-    Rollback, RollbackEntityMap, RollbackFrameCount, RollbackId, SaveWorld, SaveWorldSystems,
+    ClearSnapshots, GgrsComponentSnapshots, HeldComponentSnapshot, LoadWorld, LoadWorldSystems,
+    Restore, Rollback, RollbackEntityMap, RollbackFrameCount, RollbackId, SaveWorld,
+    SaveWorldSystems,
 };
-use bevy::{ecs::entity::EntityHashMap, platform::collections::HashSet, prelude::*};
+use bevy::{
+    ecs::{change_detection::CheckChangeTicks, entity::EntityHashMap, system::SystemChangeTick},
+    platform::collections::HashSet,
+    prelude::*,
+};
 
 /// A [`Plugin`] which manages the rollback for [`Entities`](`Entity`). This will ensure
 /// all [`Entities`](`Entity`) match the state of the desired frame, or can be mapped using a
@@ -36,16 +41,28 @@ pub struct EntitySnapshotPlugin;
 
 impl EntitySnapshotPlugin {
     /// System that records the current [`RollbackId`] → [`Entity`] mapping for this frame.
+    ///
+    /// An id's entity changes only with its [`RollbackId`], which is
+    /// immutable: only the chunks where one was inserted, or an entity went,
+    /// are copied ([`HeldComponentSnapshot`]).
     pub fn save(
         mut snapshots: ResMut<GgrsComponentSnapshots<Entity>>,
+        mut held: ResMut<HeldComponentSnapshot<Entity>>,
         frame: Res<RollbackFrameCount>,
-        query: Query<(&RollbackId, Entity)>,
+        query: Query<(Ref<RollbackId>, Entity)>,
+        ticks: SystemChangeTick,
     ) {
-        let entities = query.iter().map(|(&rollback, entity)| (rollback, entity));
+        let snapshot = held.save(
+            query.iter().map(|(rollback, _)| rollback.last_changed()),
+            query
+                .iter()
+                .map(|(rollback, _)| (*rollback, rollback.last_changed())),
+            query.iter().map(|(rollback, entity)| (*rollback, entity)),
+            |entity| entity,
+            ticks.this_run(),
+        );
 
-        let snapshot = GgrsComponentSnapshot::new(entities);
-
-        trace!("Snapshot {} entity(s)", snapshot.iter().count());
+        trace!("Snapshot {} entity(s)", snapshot.len());
 
         snapshots.push(frame.0, snapshot);
     }
@@ -56,28 +73,42 @@ impl EntitySnapshotPlugin {
     /// The live entities first, each looked up in the snapshot; then, only when the
     /// snapshot holds some the world does not, the snapshot, for those to respawn. A load
     /// that respawned nothing and found every entity under its own ID leaves the map
-    /// empty.
+    /// empty. A chunk of entities that is the one the world holds is skipped.
     pub fn load(
         mut commands: Commands,
         mut snapshots: ResMut<GgrsComponentSnapshots<Entity>>,
+        mut held: ResMut<HeldComponentSnapshot<Entity>>,
         mut map: ResMut<RollbackEntityMap>,
         frame: Res<RollbackFrameCount>,
-        query: Query<(&RollbackId, Entity)>,
+        query: Query<(Ref<RollbackId>, Entity)>,
+        ticks: SystemChangeTick,
     ) {
         let mut entity_map = EntityHashMap::<Entity>::default();
 
         let snapshot = snapshots.rollback(frame.0).get();
+        let Some(plan) = held.load(
+            snapshot,
+            query.iter().map(|(rollback, _)| rollback.last_changed()),
+            query
+                .iter()
+                .map(|(rollback, _)| (*rollback, rollback.last_changed())),
+            ticks.this_run(),
+        ) else {
+            *map = entity_map.into();
+            return;
+        };
 
         let mut matched = 0;
         for (rollback, current_entity) in &query {
-            match snapshot.get(rollback) {
-                Some(&old_entity) => {
+            match plan.restore(&rollback) {
+                Restore::Shared => {}
+                Restore::Stored(&old_entity) => {
                     matched += 1;
                     if old_entity != current_entity {
                         entity_map.insert(old_entity, current_entity);
                     }
                 }
-                None => {
+                Restore::Absent => {
                     // A child the frame lacks along with its parent is gone
                     // already when the parent's despawn came first.
                     commands.entity(current_entity).try_despawn();
@@ -85,10 +116,10 @@ impl EntitySnapshotPlugin {
             }
         }
 
-        if matched < snapshot.len() {
-            let alive: HashSet<RollbackId> = query.iter().map(|(&rollback, _)| rollback).collect();
+        if plan.holds_more(matched) {
+            let alive: HashSet<RollbackId> = query.iter().map(|(rollback, _)| *rollback).collect();
             for (&rollback, &old_entity) in snapshot.iter() {
-                if alive.contains(&rollback) {
+                if alive.contains(&rollback) || plan.missing(&rollback).is_none() {
                     continue;
                 }
                 // A respawn is bare: it gets the components registered for rollback and
@@ -115,6 +146,7 @@ impl Plugin for EntitySnapshotPlugin {
     /// Registers entity snapshot storage, [`RollbackEntityMap`], and the save/load systems.
     fn build(&self, app: &mut App) {
         app.init_resource::<GgrsComponentSnapshots<Entity>>()
+            .init_resource::<HeldComponentSnapshot<Entity>>()
             .init_resource::<RollbackEntityMap>()
             .add_systems(
                 SaveWorld,
@@ -128,8 +160,15 @@ impl Plugin for EntitySnapshotPlugin {
             .add_systems(LoadWorld, Self::load.in_set(LoadWorldSystems::Entity));
         app.add_observer(
             |_trigger: On<ClearSnapshots>,
-             mut snapshots: ResMut<GgrsComponentSnapshots<Entity>>| {
+             mut snapshots: ResMut<GgrsComponentSnapshots<Entity>>,
+             mut held: ResMut<HeldComponentSnapshot<Entity>>| {
                 snapshots.clear();
+                held.clear();
+            },
+        );
+        app.add_observer(
+            |check: On<CheckChangeTicks>, mut held: ResMut<HeldComponentSnapshot<Entity>>| {
+                held.check_change_ticks(*check);
             },
         );
     }

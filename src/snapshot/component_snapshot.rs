@@ -6,9 +6,8 @@
 //! marked `#[component(immutable)]`, which must be re-inserted rather than mutated in place.
 
 use crate::{
-    ClearSnapshots, GgrsComponentSnapshot, GgrsComponentSnapshots, HeldComponentSnapshot,
-    LoadWorld, LoadWorldSystems, RollbackFrameCount, RollbackId, SaveWorld, SaveWorldSystems,
-    Strategy, stage_insert,
+    ClearSnapshots, GgrsComponentSnapshots, HeldComponentSnapshot, LoadWorld, LoadWorldSystems,
+    Restore, RollbackFrameCount, RollbackId, SaveWorld, SaveWorldSystems, Strategy, stage_insert,
 };
 use bevy::{
     ecs::{
@@ -69,33 +68,28 @@ where
 {
     /// System that snapshots all instances of the component on rollback entities for this frame.
     ///
-    /// When none has changed since the snapshot the world holds
-    /// ([`HeldComponentSnapshot`]), that snapshot is pushed again, shared,
-    /// rather than every component copied.
+    /// Only the chunks of entities holding a component changed, added or
+    /// removed since the snapshot the world holds ([`HeldComponentSnapshot`])
+    /// are copied; the rest are shared with it.
     pub fn save(
         mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,
         mut held: ResMut<HeldComponentSnapshot<S::Target, S::Stored>>,
         frame: Res<RollbackFrameCount>,
         query: Query<(&RollbackId, Ref<S::Target>)>,
+        changed: Query<Ref<S::Target>, With<RollbackId>>,
         ticks: SystemChangeTick,
     ) {
-        let last_changed = query.iter().map(|(_, component)| component.last_changed());
-        if let Some(snapshot) = held.unchanged(last_changed, ticks.this_run()) {
-            let snapshot = snapshot.clone();
-            trace!(
-                "Snapshot {} {} component(s), unchanged",
-                snapshot.len(),
-                disqualified::ShortName::of::<S::Target>()
-            );
-            snapshots.push(frame.0, snapshot);
-            return;
-        }
-
-        let components = query
-            .iter()
-            .map(|(&rollback, component)| (rollback, S::store(&component)));
-
-        let snapshot = GgrsComponentSnapshot::new(components);
+        let snapshot = held.save(
+            changed.iter().map(|component| component.last_changed()),
+            query
+                .iter()
+                .map(|(&rollback, component)| (rollback, component.last_changed())),
+            query
+                .iter()
+                .map(|(&rollback, component)| (rollback, component)),
+            |component| S::store(&component),
+            ticks.this_run(),
+        );
 
         trace!(
             "Snapshot {} {} component(s)",
@@ -103,7 +97,6 @@ where
             disqualified::ShortName::of::<S::Target>()
         );
 
-        held.set(snapshot.clone(), ticks.this_run());
         snapshots.push(frame.0, snapshot);
     }
 }
@@ -119,9 +112,10 @@ where
     /// inserted by [`insert_staged_components`](crate::insert_staged_components), together
     /// with the rest of the entity's staged components.
     ///
-    /// A frame whose snapshot is the one the world still holds
-    /// ([`HeldComponentSnapshot`]) is skipped: nothing is written, so nothing
-    /// is marked changed, and the saves of the resimulated frames share it.
+    /// A chunk of the frame's snapshot that is the one the world still holds
+    /// ([`HeldComponentSnapshot`]) is skipped: nothing there is written, so
+    /// nothing is marked changed, and the saves of the resimulated frames share
+    /// it.
     pub fn load(
         mut commands: Commands,
         mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,
@@ -132,39 +126,40 @@ where
         ticks: SystemChangeTick,
     ) {
         let snapshot = snapshots.rollback(frame.0).get();
-
-        let last_changed = with
-            .iter()
-            .map(|(_, _, component)| component.last_changed());
-        if held
-            .unchanged(last_changed, ticks.this_run())
-            .is_some_and(|world| world.same(snapshot))
-        {
+        let Some(plan) = held.load(
+            snapshot,
+            with.iter()
+                .map(|(_, _, component)| component.last_changed()),
+            with.iter()
+                .map(|(_, &rollback, component)| (rollback, component.last_changed())),
+            ticks.this_run(),
+        ) else {
             return;
-        }
-        held.set(snapshot.clone(), ticks.this_run());
+        };
 
         // The entities holding the type, then, only when the snapshot holds
         // some they do not, the rest: a type on a few entities walks those
         // few, not every rollback entity.
         let mut matched = 0;
-        for (entity, rollback, mut component) in with.iter_mut() {
-            match snapshot.get(rollback) {
-                // Read without marking it changed; written only when it differs.
-                Some(snapshot) => {
-                    matched += 1;
-                    if !S::equals(&component, snapshot) {
-                        S::update(component.as_mut(), snapshot);
+        with.iter_mut()
+            .for_each(
+                |(entity, rollback, mut component)| match plan.restore(rollback) {
+                    Restore::Shared => {}
+                    // Read without marking it changed; written only when it differs.
+                    Restore::Stored(snapshot) => {
+                        matched += 1;
+                        if !S::equals(&component, snapshot) {
+                            S::update(component.as_mut(), snapshot);
+                        }
                     }
-                }
-                None => {
-                    commands.entity(entity).remove::<S::Target>();
-                }
-            }
-        }
-        if matched < snapshot.len() {
+                    Restore::Absent => {
+                        commands.entity(entity).remove::<S::Target>();
+                    }
+                },
+            );
+        if plan.holds_more(matched) {
             for (entity, rollback) in &without {
-                if let Some(snapshot) = snapshot.get(rollback) {
+                if let Some(snapshot) = plan.missing(rollback) {
                     commands.queue(stage_insert(entity, *rollback, S::load(snapshot)));
                 }
             }
@@ -307,8 +302,9 @@ where
     /// lacks is inserted by [`insert_staged_components`](crate::insert_staged_components),
     /// together with the rest of the entity's staged components.
     ///
-    /// Skipped, as the mutable one is, when the frame's snapshot is the one the
-    /// world still holds: no component is re-inserted and no hook fires.
+    /// Chunks are skipped as the mutable one skips them: where the frame's
+    /// snapshot is the one the world still holds, no component is re-inserted
+    /// and no hook fires.
     pub fn load(
         mut commands: Commands,
         mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,
@@ -319,39 +315,39 @@ where
         ticks: SystemChangeTick,
     ) {
         let snapshot = snapshots.rollback(frame.0).get();
-
-        let last_changed = with
-            .iter()
-            .map(|(_, _, component)| component.last_changed());
-        if held
-            .unchanged(last_changed, ticks.this_run())
-            .is_some_and(|world| world.same(snapshot))
-        {
-            return;
-        }
         // Re-inserting is a command, applied after this system: the inserts
-        // are newer than this tick, so the next save copies. Correct, and no
-        // worse than before.
-        held.set(snapshot.clone(), ticks.this_run());
+        // are newer than this tick, so the next save copies their chunks.
+        // Correct, and no worse than before.
+        let Some(plan) = held.load(
+            snapshot,
+            with.iter()
+                .map(|(_, _, component)| component.last_changed()),
+            with.iter()
+                .map(|(_, &rollback, component)| (rollback, component.last_changed())),
+            ticks.this_run(),
+        ) else {
+            return;
+        };
 
         // As the mutable load: the holders, then the rest only when needed.
         let mut matched = 0;
         for (entity, rollback, component) in &with {
-            match snapshot.get(rollback) {
-                Some(snapshot) => {
+            match plan.restore(rollback) {
+                Restore::Shared => {}
+                Restore::Stored(snapshot) => {
                     matched += 1;
                     if !S::equals(&component, snapshot) {
                         commands.entity(entity).insert(S::load(snapshot));
                     }
                 }
-                None => {
+                Restore::Absent => {
                     commands.entity(entity).remove::<S::Target>();
                 }
             }
         }
-        if matched < snapshot.len() {
+        if plan.holds_more(matched) {
             for (entity, rollback) in &without {
-                if let Some(snapshot) = snapshot.get(rollback) {
+                if let Some(snapshot) = plan.missing(rollback) {
                     commands.queue(stage_insert(entity, *rollback, S::load(snapshot)));
                 }
             }

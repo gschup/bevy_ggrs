@@ -1,7 +1,7 @@
 //! Snapshots of per-entity data, shared per entity between frames.
 //!
 //! A type's snapshot ([`GgrsComponentSnapshot`]) is split into chunks by
-//! [`RollbackId`]: the ids made from one run of [`CHUNK`] entity indices share
+//! [`RollbackId`]: the ids made from one run of 16 entity indices share
 //! a chunk, and each chunk sits behind its own `Arc`. A save copies only the
 //! chunks holding a component that changed, came or went since the snapshot
 //! the world holds ([`HeldComponentSnapshot`]), and shares every other chunk
@@ -11,15 +11,15 @@
 
 use std::{marker::PhantomData, sync::Arc};
 
-use bevy::ecs::change_detection::{CheckChangeTicks, Tick};
+use bevy::ecs::{
+    change_detection::{CheckChangeTicks, Tick},
+    system::{Res, ResMut, SystemChangeTick, SystemParam},
+};
 
-use crate::RollbackId;
+use crate::{GgrsComponentSnapshots, RollbackFrameCount, RollbackId};
 
 /// How many entity indices a chunk spans, as a power of two.
 const CHUNK_BITS: u32 = 4;
-
-/// How many entity indices a chunk spans.
-pub const CHUNK: usize = 1 << CHUNK_BITS;
 
 /// The chunk `id` falls in. Entity indices are handed out densely, so the
 /// chunk indices of a world are too.
@@ -176,7 +176,8 @@ impl<For, As> GgrsComponentSnapshot<For, As> {
     }
 
     /// How many of `self`'s chunks are shared with `other`, and how many
-    /// chunks `self` holds.
+    /// chunks `self` holds. For tests of the sharing.
+    #[doc(hidden)]
     pub fn chunks_shared_with(&self, other: &Self) -> (usize, usize) {
         let ours = self.snapshot.chunks.iter().flatten().count();
         let shared = self
@@ -312,6 +313,11 @@ impl<'a, For, As> LoadPlan<'a, For, As> {
         }
     }
 
+    /// The snapshot being loaded.
+    pub fn snapshot(&self) -> &'a GgrsComponentSnapshot<For, As> {
+        self.snapshot
+    }
+
     /// Whether, with `matched` of the world's components found in the
     /// snapshot, it holds some for entities that have none: they then need
     /// [`missing`](Self::missing) for each entity without one.
@@ -320,7 +326,7 @@ impl<'a, For, As> LoadPlan<'a, For, As> {
     }
 
     /// How many entries of the snapshot the load writes or checks.
-    pub fn to_write(&self) -> usize {
+    pub(crate) fn to_write(&self) -> usize {
         self.to_write
     }
 }
@@ -490,11 +496,6 @@ impl<For, As> HeldComponentSnapshot<For, As> {
         })
     }
 
-    /// The world equals `snapshot` from `tick` on.
-    pub fn set(&mut self, snapshot: GgrsComponentSnapshot<For, As>, tick: Tick) {
-        self.held = Some((snapshot, tick));
-    }
-
     /// Forget the held snapshot: the next save copies.
     pub fn clear(&mut self) {
         self.held = None;
@@ -508,6 +509,51 @@ impl<For, As> HeldComponentSnapshot<For, As> {
         if let Some((_, tick)) = &mut self.held {
             tick.check_tick(check);
         }
+    }
+}
+
+/// What a save or a load of a per-entity type works on: its snapshot store,
+/// the snapshot the world holds, the frame, and this run's tick.
+#[derive(SystemParam)]
+pub struct SharedSnapshots<'w, For: Send + Sync + 'static, As: Send + Sync + 'static> {
+    snapshots: ResMut<'w, GgrsComponentSnapshots<For, As>>,
+    held: ResMut<'w, HeldComponentSnapshot<For, As>>,
+    frame: Res<'w, RollbackFrameCount>,
+    ticks: SystemChangeTick,
+}
+
+impl<For: Send + Sync + 'static, As: Send + Sync + 'static> SharedSnapshots<'_, For, As> {
+    /// The frame saved or loaded.
+    pub fn frame(&self) -> i32 {
+        self.frame.0
+    }
+
+    /// Save the frame's snapshot of the world's components
+    /// ([`HeldComponentSnapshot::save`]), and return how many it holds.
+    pub fn save<R>(
+        &mut self,
+        changed: impl Iterator<Item = Tick>,
+        ticks: impl Iterator<Item = (RollbackId, Tick)>,
+        values: impl Iterator<Item = (RollbackId, R)>,
+        store: impl Fn(R) -> As,
+    ) -> usize {
+        let snapshot = self
+            .held
+            .save(changed, ticks, values, store, self.ticks.this_run());
+        let len = snapshot.len();
+        self.snapshots.push(self.frame.0, snapshot);
+        len
+    }
+
+    /// Plan a load of the frame's snapshot ([`HeldComponentSnapshot::load`]).
+    pub fn load(
+        &mut self,
+        changed: impl Iterator<Item = Tick>,
+        ticks: impl Iterator<Item = (RollbackId, Tick)>,
+    ) -> Option<LoadPlan<'_, For, As>> {
+        let snapshot = self.snapshots.rollback(self.frame.0).get();
+        self.held
+            .load(snapshot, changed, ticks, self.ticks.this_run())
     }
 }
 

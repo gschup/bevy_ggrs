@@ -6,10 +6,10 @@
 
 use crate::{
     ClearSnapshots, GgrsComponentSnapshots, HeldComponentSnapshot, LoadWorld, LoadWorldSystems,
-    Restore, RollbackFrameCount, SaveWorld, SaveWorldSystems, stage_insert,
+    Restore, SaveWorld, SaveWorldSystems, SharedSnapshots, stage_insert,
 };
 use bevy::{
-    ecs::{change_detection::CheckChangeTicks, hierarchy::ChildOf, system::SystemChangeTick},
+    ecs::{change_detection::CheckChangeTicks, hierarchy::ChildOf},
     prelude::*,
 };
 
@@ -66,14 +66,11 @@ impl ChildOfSnapshotPlugin {
     /// [`ChildOf`] is immutable, so only the chunks where one was inserted or
     /// removed are copied ([`HeldComponentSnapshot`]).
     pub fn save(
-        mut snapshots: ResMut<GgrsComponentSnapshots<ChildOf, ChildOf>>,
-        mut held: ResMut<HeldComponentSnapshot<ChildOf, ChildOf>>,
-        frame: Res<RollbackFrameCount>,
+        mut store: SharedSnapshots<ChildOf, ChildOf>,
         query: Query<(&RollbackId, Ref<ChildOf>)>,
         changed: Query<Ref<ChildOf>, With<RollbackId>>,
-        ticks: SystemChangeTick,
     ) {
-        let snapshot = held.save(
+        let len = store.save(
             changed.iter().map(|child_of| child_of.last_changed()),
             query
                 .iter()
@@ -82,16 +79,13 @@ impl ChildOfSnapshotPlugin {
                 .iter()
                 .map(|(&rollback, child_of)| (rollback, child_of)),
             |child_of| ChildOf::clone(&child_of),
-            ticks.this_run(),
         );
 
         trace!(
             "Snapshot {} {} component(s)",
-            snapshot.len(),
+            len,
             disqualified::ShortName::of::<ChildOf>()
         );
-
-        snapshots.push(frame.0, snapshot);
     }
 
     /// System that restores the [`ChildOf`] component for the target frame, remapping parent
@@ -102,25 +96,18 @@ impl ChildOfSnapshotPlugin {
     /// A chunk that is the one the world holds is skipped: its children have
     /// the parents the snapshot names, which are alive, so no map entry names
     /// them.
-    #[allow(clippy::too_many_arguments)]
     pub fn load(
         mut commands: Commands,
-        mut snapshots: ResMut<GgrsComponentSnapshots<ChildOf, ChildOf>>,
-        mut held: ResMut<HeldComponentSnapshot<ChildOf, ChildOf>>,
-        frame: Res<RollbackFrameCount>,
+        mut store: SharedSnapshots<ChildOf, ChildOf>,
         with: Query<(Entity, &RollbackId, Ref<ChildOf>)>,
         without: Query<(Entity, &RollbackId), Without<ChildOf>>,
         rollback_entities: Query<(), With<RollbackId>>,
         map: Res<RollbackEntityMap>,
-        ticks: SystemChangeTick,
     ) {
-        let snapshot = snapshots.rollback(frame.0).get();
-        let Some(plan) = held.load(
-            snapshot,
+        let Some(plan) = store.load(
             with.iter().map(|(_, _, child_of)| child_of.last_changed()),
             with.iter()
                 .map(|(_, &rollback, child_of)| (rollback, child_of.last_changed())),
-            ticks.this_run(),
         ) else {
             return;
         };
@@ -170,7 +157,7 @@ impl ChildOfSnapshotPlugin {
 
         trace!(
             "Rolled back {} {} component(s)",
-            snapshot.iter().count(),
+            plan.to_write(),
             disqualified::ShortName::of::<ChildOf>()
         );
     }

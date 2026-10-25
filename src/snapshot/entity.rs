@@ -7,11 +7,10 @@
 
 use crate::{
     ClearSnapshots, GgrsComponentSnapshots, HeldComponentSnapshot, LoadWorld, LoadWorldSystems,
-    Restore, Rollback, RollbackEntityMap, RollbackFrameCount, RollbackId, SaveWorld,
-    SaveWorldSystems,
+    Restore, Rollback, RollbackEntityMap, RollbackId, SaveWorld, SaveWorldSystems, SharedSnapshots,
 };
 use bevy::{
-    ecs::{change_detection::CheckChangeTicks, entity::EntityHashMap, system::SystemChangeTick},
+    ecs::{change_detection::CheckChangeTicks, entity::EntityHashMap},
     platform::collections::HashSet,
     prelude::*,
 };
@@ -46,25 +45,19 @@ impl EntitySnapshotPlugin {
     /// immutable: only the chunks where one was inserted, or an entity went,
     /// are copied ([`HeldComponentSnapshot`]).
     pub fn save(
-        mut snapshots: ResMut<GgrsComponentSnapshots<Entity>>,
-        mut held: ResMut<HeldComponentSnapshot<Entity>>,
-        frame: Res<RollbackFrameCount>,
+        mut store: SharedSnapshots<Entity, Entity>,
         query: Query<(Ref<RollbackId>, Entity)>,
-        ticks: SystemChangeTick,
     ) {
-        let snapshot = held.save(
+        let len = store.save(
             query.iter().map(|(rollback, _)| rollback.last_changed()),
             query
                 .iter()
                 .map(|(rollback, _)| (*rollback, rollback.last_changed())),
             query.iter().map(|(rollback, entity)| (*rollback, entity)),
             |entity| entity,
-            ticks.this_run(),
         );
 
-        trace!("Snapshot {} entity(s)", snapshot.len());
-
-        snapshots.push(frame.0, snapshot);
+        trace!("Snapshot {} entity(s)", len);
     }
 
     /// System that reconciles live entities against the snapshot for the target frame,
@@ -76,28 +69,24 @@ impl EntitySnapshotPlugin {
     /// empty. A chunk of entities that is the one the world holds is skipped.
     pub fn load(
         mut commands: Commands,
-        mut snapshots: ResMut<GgrsComponentSnapshots<Entity>>,
-        mut held: ResMut<HeldComponentSnapshot<Entity>>,
+        mut store: SharedSnapshots<Entity, Entity>,
         mut map: ResMut<RollbackEntityMap>,
-        frame: Res<RollbackFrameCount>,
         query: Query<(Ref<RollbackId>, Entity)>,
-        ticks: SystemChangeTick,
     ) {
         let mut entity_map = EntityHashMap::<Entity>::default();
 
-        let snapshot = snapshots.rollback(frame.0).get();
-        let Some(plan) = held.load(
-            snapshot,
+        let frame = store.frame();
+        let Some(plan) = store.load(
             query.iter().map(|(rollback, _)| rollback.last_changed()),
             query
                 .iter()
                 .map(|(rollback, _)| (*rollback, rollback.last_changed())),
-            ticks.this_run(),
         ) else {
             *map = entity_map.into();
             return;
         };
 
+        let snapshot = plan.snapshot();
         let mut matched = 0;
         for (rollback, current_entity) in &query {
             match plan.restore(&rollback) {
@@ -129,7 +118,7 @@ impl EntitySnapshotPlugin {
                 warn!(
                     "respawning {rollback:?} bare: it was despawned while frame {} still \
                      held it; despawn_rollback keeps every component",
-                    frame.0
+                    frame
                 );
                 let current_entity = commands.spawn((rollback, Rollback)).id();
                 entity_map.insert(old_entity, current_entity);

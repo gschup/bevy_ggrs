@@ -7,13 +7,12 @@
 
 use crate::{
     ClearSnapshots, GgrsComponentSnapshots, HeldComponentSnapshot, LoadWorld, LoadWorldSystems,
-    Restore, RollbackFrameCount, RollbackId, SaveWorld, SaveWorldSystems, Strategy, stage_insert,
+    Restore, RollbackId, SaveWorld, SaveWorldSystems, SharedSnapshots, Strategy, stage_insert,
 };
 use bevy::{
     ecs::{
         change_detection::CheckChangeTicks,
         component::{Immutable, Mutable},
-        system::SystemChangeTick,
     },
     prelude::*,
 };
@@ -72,14 +71,11 @@ where
     /// removed since the snapshot the world holds ([`HeldComponentSnapshot`])
     /// are copied; the rest are shared with it.
     pub fn save(
-        mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,
-        mut held: ResMut<HeldComponentSnapshot<S::Target, S::Stored>>,
-        frame: Res<RollbackFrameCount>,
+        mut store: SharedSnapshots<S::Target, S::Stored>,
         query: Query<(&RollbackId, Ref<S::Target>)>,
         changed: Query<Ref<S::Target>, With<RollbackId>>,
-        ticks: SystemChangeTick,
     ) {
-        let snapshot = held.save(
+        let len = store.save(
             changed.iter().map(|component| component.last_changed()),
             query
                 .iter()
@@ -88,16 +84,13 @@ where
                 .iter()
                 .map(|(&rollback, component)| (rollback, component)),
             |component| S::store(&component),
-            ticks.this_run(),
         );
 
         trace!(
             "Snapshot {} {} component(s)",
-            snapshot.len(),
+            len,
             disqualified::ShortName::of::<S::Target>()
         );
-
-        snapshots.push(frame.0, snapshot);
     }
 }
 
@@ -118,21 +111,15 @@ where
     /// it.
     pub fn load(
         mut commands: Commands,
-        mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,
-        mut held: ResMut<HeldComponentSnapshot<S::Target, S::Stored>>,
-        frame: Res<RollbackFrameCount>,
+        mut store: SharedSnapshots<S::Target, S::Stored>,
         mut with: Query<(Entity, &RollbackId, Mut<S::Target>)>,
         without: Query<(Entity, &RollbackId), Without<S::Target>>,
-        ticks: SystemChangeTick,
     ) {
-        let snapshot = snapshots.rollback(frame.0).get();
-        let Some(plan) = held.load(
-            snapshot,
+        let Some(plan) = store.load(
             with.iter()
                 .map(|(_, _, component)| component.last_changed()),
             with.iter()
                 .map(|(_, &rollback, component)| (rollback, component.last_changed())),
-            ticks.this_run(),
         ) else {
             return;
         };
@@ -167,7 +154,7 @@ where
 
         trace!(
             "Rolled back {} {} component(s)",
-            snapshot.iter().count(),
+            plan.to_write(),
             disqualified::ShortName::of::<S::Target>()
         );
     }
@@ -307,24 +294,18 @@ where
     /// and no hook fires.
     pub fn load(
         mut commands: Commands,
-        mut snapshots: ResMut<GgrsComponentSnapshots<S::Target, S::Stored>>,
-        mut held: ResMut<HeldComponentSnapshot<S::Target, S::Stored>>,
-        frame: Res<RollbackFrameCount>,
+        mut store: SharedSnapshots<S::Target, S::Stored>,
         with: Query<(Entity, &RollbackId, Ref<S::Target>)>,
         without: Query<(Entity, &RollbackId), Without<S::Target>>,
-        ticks: SystemChangeTick,
     ) {
-        let snapshot = snapshots.rollback(frame.0).get();
         // Re-inserting is a command, applied after this system: the inserts
         // are newer than this tick, so the next save copies their chunks.
         // Correct, and no worse than before.
-        let Some(plan) = held.load(
-            snapshot,
+        let Some(plan) = store.load(
             with.iter()
                 .map(|(_, _, component)| component.last_changed()),
             with.iter()
                 .map(|(_, &rollback, component)| (rollback, component.last_changed())),
-            ticks.this_run(),
         ) else {
             return;
         };
@@ -355,7 +336,7 @@ where
 
         trace!(
             "Rolled back {} {} component(s)",
-            snapshot.iter().count(),
+            plan.to_write(),
             disqualified::ShortName::of::<S::Target>()
         );
     }

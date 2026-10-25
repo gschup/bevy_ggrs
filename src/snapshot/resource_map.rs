@@ -11,7 +11,10 @@ use bevy::{
     prelude::*,
 };
 
-use crate::{LoadWorld, LoadWorldSystems, RollbackEntityMap};
+use crate::{
+    LoadWorld, LoadWorldSystems, RollbackEntityMap,
+    snapshot::rollback_entity_map::map_changed_entities,
+};
 
 /// A [`Plugin`] which updates the state of a post-rollback [`Resource`] `R` using [`MapEntities`].
 ///
@@ -66,23 +69,19 @@ impl<R> ResourceMapEntitiesPlugin<R>
 where
     R: Resource<Mutability = Mutable> + MapEntities,
 {
-    /// Exclusive system which will apply a [`RollbackEntityMap`] to the [`Resource`] `R`, provided it implements [`MapEntities`].
-    pub fn update(world: &mut World) {
-        world.resource_scope(|world: &mut World, map: Mut<RollbackEntityMap>| {
-            apply_rollback_map_to_resource_inner::<R>(world, map);
-        });
-    }
-}
+    /// System which will apply a [`RollbackEntityMap`] to the [`Resource`] `R`, provided it
+    /// implements [`MapEntities`]. With no entity ID changed it does nothing, and it marks
+    /// the resource changed only when it remapped it.
+    pub fn update(map: Res<RollbackEntityMap>, resource: Option<ResMut<R>>) {
+        if map.is_empty() {
+            return;
+        }
+        if let Some(resource) = resource {
+            map_changed_entities(resource, &map);
+        }
 
-fn apply_rollback_map_to_resource_inner<R>(world: &mut World, map: Mut<RollbackEntityMap>)
-where
-    R: Resource<Mutability = Mutable> + MapEntities,
-{
-    if let Some(mut resource) = world.get_resource_mut::<R>() {
-        resource.map_entities(&mut map.as_ref());
+        trace!("Mapped {}", disqualified::ShortName::of::<R>());
     }
-
-    trace!("Mapped {}", disqualified::ShortName::of::<R>());
 }
 
 impl<R> Plugin for ResourceMapEntitiesPlugin<R>
@@ -92,5 +91,56 @@ where
     /// Registers the entity-mapping system for this resource type in [`LoadWorldSystems::Mapping`].
     fn build(&self, app: &mut App) {
         app.add_systems(LoadWorld, Self::update.in_set(LoadWorldSystems::Mapping));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy::ecs::entity::MapEntities;
+
+    use crate::snapshot::{
+        Rollback, RollbackApp, SnapshotPlugin,
+        tests::{load_world, save_world},
+    };
+
+    use super::*;
+
+    #[derive(Resource, MapEntities, Clone, Copy)]
+    struct Target(#[entities] Entity);
+
+    #[derive(Component, Clone, Copy)]
+    #[require(Rollback)]
+    struct Tracked;
+
+    fn mapping_app() -> App {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(SnapshotPlugin);
+        app.rollback_component_with_copy::<Tracked>();
+        app.rollback_resource_with_copy::<Target>();
+        app.update_resource_with_map_entities::<Target>();
+        app.update();
+        app
+    }
+
+    /// A load that respawned the entity a resource refers to points it at the respawn.
+    #[test]
+    fn a_respawn_is_mapped_into_the_resource() {
+        let mut app = mapping_app();
+        let world = app.world_mut();
+        let tracked = world.spawn(Tracked).id();
+        world.insert_resource(Target(tracked));
+        world.flush();
+
+        save_world(world);
+        world.despawn(tracked);
+        load_world(world, 0);
+
+        let respawned = world
+            .query_filtered::<Entity, With<Tracked>>()
+            .single(world)
+            .unwrap();
+        assert_ne!(respawned, tracked);
+        assert_eq!(world.resource::<Target>().0, respawned);
     }
 }

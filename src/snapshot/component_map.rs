@@ -11,7 +11,10 @@ use bevy::{
     prelude::*,
 };
 
-use crate::{LoadWorld, LoadWorldSystems, RollbackEntityMap};
+use crate::{
+    LoadWorld, LoadWorldSystems, RollbackEntityMap, RollbackId,
+    snapshot::rollback_entity_map::map_changed_entities,
+};
 
 /// A [`Plugin`] which updates the state of a post-rollback [`Component`] `C` using [`MapEntities`].
 ///
@@ -66,25 +69,19 @@ impl<C> ComponentMapEntitiesPlugin<C>
 where
     C: Component<Mutability = Mutable> + MapEntities,
 {
-    /// Exclusive system which will apply a [`RollbackEntityMap`] to the [`Component`] `C`, provided it implements [`MapEntities`].
-    pub fn update(world: &mut World) {
-        world.resource_scope(|world: &mut World, map: Mut<RollbackEntityMap>| {
-            apply_rollback_map_to_component_inner::<C>(world, map);
-        });
-    }
-}
-
-fn apply_rollback_map_to_component_inner<C>(world: &mut World, map: Mut<RollbackEntityMap>)
-where
-    C: Component<Mutability = Mutable> + MapEntities,
-{
-    for (original, _new) in map.iter() {
-        if let Some(mut component) = world.get_mut::<C>(original) {
-            component.map_entities(&mut map.as_ref());
+    /// System which will apply a [`RollbackEntityMap`] to the [`Component`] `C` of every
+    /// rollback entity, provided it implements [`MapEntities`]. With no entity ID changed
+    /// it does nothing, and it marks changed only the components it remapped.
+    pub fn update(map: Res<RollbackEntityMap>, mut query: Query<&mut C, With<RollbackId>>) {
+        if map.is_empty() {
+            return;
         }
-    }
+        for component in &mut query {
+            map_changed_entities(component, &map);
+        }
 
-    trace!("Mapped {}", disqualified::ShortName::of::<C>());
+        trace!("Mapped {}", disqualified::ShortName::of::<C>());
+    }
 }
 
 impl<C> Plugin for ComponentMapEntitiesPlugin<C>
@@ -276,5 +273,92 @@ mod tests {
             assert_ne!(friend_entity, initial_friend_entity);
             assert_ne!(liked_entity, initial_liked_entity);
         }
+    }
+
+    #[derive(Component, Clone, Copy)]
+    #[require(Rollback)]
+    struct Tag(u8);
+
+    fn mapping_app() -> App {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_plugins(SnapshotPlugin);
+        app.rollback_component_with_copy::<Tag>();
+        app.rollback_component_with_copy::<Likes>();
+        app.update_component_with_map_entities::<Likes>();
+        app.update();
+        app
+    }
+
+    fn tagged(world: &mut World, tag: u8) -> Entity {
+        world
+            .query::<(Entity, &Tag)>()
+            .iter(world)
+            .find(|(_, t)| t.0 == tag)
+            .map(|(entity, _)| entity)
+            .expect("an entity with that tag")
+    }
+
+    /// A load that despawned and respawned nothing maps no entity, and leaves every
+    /// mapped component as unchanged as the component load left it.
+    #[test]
+    fn a_load_that_respawns_nothing_maps_nothing() {
+        let mut app = mapping_app();
+        let world = app.world_mut();
+        let friend = world.spawn(Tag(1)).id();
+        let player = world.spawn((Tag(0), Likes(friend))).id();
+        world.flush();
+
+        save_world(world);
+        let before = world.entity(player).get_change_ticks::<Likes>().unwrap();
+        load_world(world, 0);
+
+        assert!(world.resource::<RollbackEntityMap>().is_empty());
+        let after = world.entity(player).get_change_ticks::<Likes>().unwrap();
+        assert_eq!(after.changed, before.changed, "Likes marked changed");
+        assert_eq!(world.get::<Likes>(player).unwrap().0, friend);
+    }
+
+    /// Respawned entities that refer to each other refer to each other's new IDs.
+    #[test]
+    fn a_respawned_entity_s_own_references_are_mapped() {
+        let mut app = mapping_app();
+        let world = app.world_mut();
+        let a = world.spawn(Tag(1)).id();
+        let b = world.spawn((Tag(2), Likes(a))).id();
+        world.entity_mut(a).insert(Likes(b));
+        world.flush();
+
+        save_world(world);
+        world.despawn(a);
+        world.despawn(b);
+        load_world(world, 0);
+
+        let (a, b) = (tagged(world, 1), tagged(world, 2));
+        assert_eq!(world.get::<Likes>(a).unwrap().0, b);
+        assert_eq!(world.get::<Likes>(b).unwrap().0, a);
+    }
+
+    /// An entity respawned by one load is alive under a new ID when a second load goes
+    /// back to the same frame, whose snapshot holds its old one: references to the old
+    /// ID map to the live one.
+    #[test]
+    fn a_second_load_maps_the_id_a_first_load_respawned_under() {
+        let mut app = mapping_app();
+        let world = app.world_mut();
+        let friend = world.spawn(Tag(1)).id();
+        let player = world.spawn((Tag(0), Likes(friend))).id();
+        world.flush();
+
+        save_world(world);
+        world.despawn(friend);
+        load_world(world, 0);
+        let respawned = tagged(world, 1);
+        assert_ne!(respawned, friend);
+        assert_eq!(world.get::<Likes>(player).unwrap().0, respawned);
+
+        load_world(world, 0);
+        assert_eq!(tagged(world, 1), respawned);
+        assert_eq!(world.get::<Likes>(player).unwrap().0, respawned);
     }
 }

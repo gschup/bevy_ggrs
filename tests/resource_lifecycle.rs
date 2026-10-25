@@ -116,16 +116,17 @@ fn resource_removed_mid_session_rolls_back() {
     );
 }
 
-/// Verifies that `update_resource_with_map_entities` is correctly wired into the rollback
-/// pipeline: the system runs on every rollback restore and the entity reference in the
-/// resource remains valid (not stale) throughout the session.
+/// Verifies that `update_resource_with_map_entities` costs a rollback nothing when no
+/// entity was respawned, and the entity reference in the resource stays valid throughout
+/// the session.
 ///
 /// A `Target(Entity)` resource holds a reference to a long-lived rollback entity. An
 /// `AtomicBool` inside the `MapEntities` implementation records whether the mapping system
-/// was ever invoked. After enough updates to trigger multiple rollbacks the entity reference
-/// must still point to a valid entity, confirming the mapping is applied correctly.
+/// was ever invoked. The entity keeps its ID through every rollback, so there is nothing to
+/// map, and after enough updates to trigger multiple rollbacks the reference must still
+/// point to a valid entity. A respawn's remap is covered in `resource_map.rs`.
 #[test]
-fn resource_map_entities_remaps_after_rollback() {
+fn resource_map_entities_skips_a_rollback_that_respawned_nothing() {
     use std::sync::atomic::{AtomicBool, Ordering};
 
     static MAP_ENTITIES_CALLED: AtomicBool = AtomicBool::new(false);
@@ -163,8 +164,8 @@ fn resource_map_entities_remaps_after_rollback() {
     }
 
     assert!(
-        MAP_ENTITIES_CALLED.load(Ordering::SeqCst),
-        "MapEntities should have been called at least once during rollback"
+        !MAP_ENTITIES_CALLED.load(Ordering::SeqCst),
+        "MapEntities was called though no entity changed ID"
     );
 
     let target_entity = app.world().resource::<Target>().0;

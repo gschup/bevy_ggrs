@@ -9,7 +9,7 @@ use crate::{
     ClearSnapshots, GgrsComponentSnapshot, GgrsComponentSnapshots, LoadWorld, LoadWorldSystems,
     Rollback, RollbackEntityMap, RollbackFrameCount, RollbackId, SaveWorld, SaveWorldSystems,
 };
-use bevy::{ecs::entity::EntityHashMap, platform::collections::HashMap, prelude::*};
+use bevy::{ecs::entity::EntityHashMap, platform::collections::HashSet, prelude::*};
 
 /// A [`Plugin`] which manages the rollback for [`Entities`](`Entity`). This will ensure
 /// all [`Entities`](`Entity`) match the state of the desired frame, or can be mapped using a
@@ -52,6 +52,11 @@ impl EntitySnapshotPlugin {
 
     /// System that reconciles live entities against the snapshot for the target frame,
     /// spawning or despawning as needed and populating [`RollbackEntityMap`] with any ID changes.
+    ///
+    /// The live entities first, each looked up in the snapshot; then, only when the
+    /// snapshot holds some the world does not, the snapshot, for those to respawn. A load
+    /// that respawned nothing and found every entity under its own ID leaves the map
+    /// empty.
     pub fn load(
         mut commands: Commands,
         mut snapshots: ResMut<GgrsComponentSnapshots<Entity>>,
@@ -59,54 +64,50 @@ impl EntitySnapshotPlugin {
         frame: Res<RollbackFrameCount>,
         query: Query<(&RollbackId, Entity)>,
     ) {
-        let mut entity_map = HashMap::<Entity, Entity>::default();
-        let mut rollback_mapping = HashMap::new();
+        let mut entity_map = EntityHashMap::<Entity>::default();
 
         let snapshot = snapshots.rollback(frame.0).get();
 
-        for (&rollback, &old_entity) in snapshot.iter() {
-            rollback_mapping.insert(rollback, (None, Some(old_entity)));
-        }
-
-        for (&rollback, current_entity) in query.iter() {
-            rollback_mapping.entry(rollback).or_insert((None, None)).0 = Some(current_entity);
-        }
-
-        for (rollback, (current_entity, old_entity)) in rollback_mapping {
-            match (current_entity, old_entity) {
-                (Some(current_entity), Some(old_entity)) => {
-                    entity_map.insert(current_entity, old_entity);
+        let mut matched = 0;
+        for (rollback, current_entity) in &query {
+            match snapshot.get(rollback) {
+                Some(&old_entity) => {
+                    matched += 1;
+                    if old_entity != current_entity {
+                        entity_map.insert(old_entity, current_entity);
+                    }
                 }
-                (Some(current_entity), None) => {
+                None => {
                     // A child the frame lacks along with its parent is gone
                     // already when the parent's despawn came first.
                     commands.entity(current_entity).try_despawn();
                 }
-                (None, Some(old_entity)) => {
-                    // A respawn is bare: it gets the components registered for rollback and
-                    // nothing else the entity had. A rollback entity despawned outright
-                    // while a snapshot still holds it ends here; `despawn_rollback` marks it
-                    // instead, and the mark lifts whole.
-                    warn!(
-                        "respawning {rollback:?} bare: it was despawned while frame {} still \
-                         held it; despawn_rollback keeps every component",
-                        frame.0
-                    );
-                    let current_entity = commands.spawn((rollback, Rollback)).id();
-                    entity_map.insert(old_entity, current_entity);
-                }
-                (None, None) => unreachable!(
-                    "Rollback keys could only be added if they had an old or current Entity"
-                ),
             }
         }
 
-        trace!("Rolled back {} entity(s)", snapshot.iter().count());
+        if matched < snapshot.len() {
+            let alive: HashSet<RollbackId> = query.iter().map(|(&rollback, _)| rollback).collect();
+            for (&rollback, &old_entity) in snapshot.iter() {
+                if alive.contains(&rollback) {
+                    continue;
+                }
+                // A respawn is bare: it gets the components registered for rollback and
+                // nothing else the entity had. A rollback entity despawned outright
+                // while a snapshot still holds it ends here; `despawn_rollback` marks it
+                // instead, and the mark lifts whole.
+                warn!(
+                    "respawning {rollback:?} bare: it was despawned while frame {} still \
+                     held it; despawn_rollback keeps every component",
+                    frame.0
+                );
+                let current_entity = commands.spawn((rollback, Rollback)).id();
+                entity_map.insert(old_entity, current_entity);
+            }
+        }
 
-        *map = entity_map
-            .into_iter()
-            .collect::<EntityHashMap<Entity>>()
-            .into();
+        trace!("Rolled back {} entity(s)", snapshot.len());
+
+        *map = entity_map.into();
     }
 }
 
@@ -133,4 +134,3 @@ impl Plugin for EntitySnapshotPlugin {
         );
     }
 }
-

@@ -81,9 +81,19 @@ impl ChildOfSnapshotPlugin {
         frame: Res<RollbackFrameCount>,
         with: Query<(Entity, &RollbackId, &ChildOf)>,
         without: Query<(Entity, &RollbackId), Without<ChildOf>>,
+        rollback_entities: Query<(), With<RollbackId>>,
         map: Res<RollbackEntityMap>,
     ) {
         let snapshot = snapshots.rollback(frame.0).get();
+        // The stored parent under the ID it has now.
+        let parent_of = |stored: &ChildOf| map.get(stored.0).unwrap_or(stored.0);
+        let is_rollback = |parent: Entity| {
+            let found = rollback_entities.contains(parent);
+            if !found {
+                warn!("Parent entity is not a rollback entity: {parent:?}");
+            }
+            found
+        };
 
         // The children first, then, only when the snapshot holds some the
         // world does not, the rest: as the component loads, so a load walks
@@ -95,14 +105,11 @@ impl ChildOfSnapshotPlugin {
                 continue;
             };
             matched += 1;
-            let Some(parent) = map.get(stored.0) else {
-                warn!("Parent entity not found in rollback map: {:?}", stored);
-                continue;
-            };
             // Already the child of that parent: nothing to do. A re-insert
             // fires the relationship hooks and rebuilds the parent's
             // `Children`, for every child, every load.
-            if child_of.parent() != parent {
+            let parent = parent_of(stored);
+            if child_of.parent() != parent && is_rollback(parent) {
                 commands.entity(entity).insert(ChildOf(parent));
             }
         }
@@ -111,11 +118,9 @@ impl ChildOfSnapshotPlugin {
                 let Some(stored) = snapshot.get(rollback) else {
                     continue;
                 };
-                match map.get(stored.0) {
-                    Some(parent) => {
-                        commands.queue(stage_insert(entity, *rollback, ChildOf(parent)));
-                    }
-                    None => warn!("Parent entity not found in rollback map: {:?}", stored),
+                let parent = parent_of(stored);
+                if is_rollback(parent) {
+                    commands.queue(stage_insert(entity, *rollback, ChildOf(parent)));
                 }
             }
         }

@@ -71,6 +71,13 @@ pub trait RollbackApp {
     /// NOTE: Unlike previous versions of `bevy_ggrs`, this will no longer automatically
     /// apply entity mapping through the [`MapEntities`](`bevy::ecs::entity::MapEntities`) trait.
     /// If you require this behavior, see [`ComponentMapEntitiesPlugin`].
+    ///
+    /// # Panics
+    ///
+    /// Taking a snapshot panics if a value of `Type` can't be converted to its dynamic
+    /// representation (see [`ReflectStrategy`]). Types that derive [`Reflect`] always convert;
+    /// this only happens with a hand-written opaque [`PartialReflect`](`bevy::reflect::PartialReflect`)
+    /// implementation that overrides neither `to_dynamic` nor `reflect_clone`.
     fn rollback_component_with_reflect<Type>(&mut self) -> &mut Self
     where
         Type: Component<Mutability = Mutable> + Reflect + FromWorld;
@@ -81,6 +88,13 @@ pub trait RollbackApp {
     /// NOTE: Unlike previous versions of `bevy_ggrs`, this will no longer automatically
     /// apply entity mapping through the [`MapEntities`](`bevy::ecs::entity::MapEntities`) trait.
     /// If you require this behavior, see [`ComponentMapEntitiesPlugin`].
+    ///
+    /// # Panics
+    ///
+    /// Taking a snapshot panics if a value of `Type` can't be converted to its dynamic
+    /// representation (see [`ReflectStrategy`]). Types that derive [`Reflect`] always convert;
+    /// this only happens with a hand-written opaque [`PartialReflect`](`bevy::reflect::PartialReflect`)
+    /// implementation that overrides neither `to_dynamic` nor `reflect_clone`.
     fn rollback_immutable_component_with_reflect<Type>(&mut self) -> &mut Self
     where
         Type: Component<Mutability = Immutable> + Reflect + FromWorld;
@@ -91,6 +105,13 @@ pub trait RollbackApp {
     /// NOTE: Unlike previous versions of `bevy_ggrs`, this will no longer automatically
     /// apply entity mapping through the [`MapEntities`](`bevy::ecs::entity::MapEntities`) trait.
     /// If you require this behavior, see [`ComponentMapEntitiesPlugin`].
+    ///
+    /// # Panics
+    ///
+    /// Taking a snapshot panics if a value of `Type` can't be converted to its dynamic
+    /// representation (see [`ReflectStrategy`]). Types that derive [`Reflect`] always convert;
+    /// this only happens with a hand-written opaque [`PartialReflect`](`bevy::reflect::PartialReflect`)
+    /// implementation that overrides neither `to_dynamic` nor `reflect_clone`.
     fn rollback_resource_with_reflect<Type>(&mut self) -> &mut Self
     where
         Type: Resource<Mutability = Mutable> + Reflect + FromWorld;

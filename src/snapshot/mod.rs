@@ -151,11 +151,7 @@ impl<For, As> GgrsSnapshots<For, As> {
             "Snapshot and Frame queues must always be in sync"
         );
 
-        loop {
-            let Some(&current) = self.frames.front() else {
-                break;
-            };
-
+        while let Some(&current) = self.frames.front() {
             // Handle the possibility of wrapping i32
             let wrapped = current.abs_diff(frame) > u32::MAX / 2;
             let current_after_frame = current >= frame && !wrapped;

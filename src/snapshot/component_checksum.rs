@@ -52,15 +52,18 @@ pub struct ComponentChecksumPlugin<C: Component>(pub for<'a> fn(&'a C) -> u64);
 /// A type's checksum as it was last taken: each entity's hash, their XOR,
 /// and a count of the passes taken.
 ///
-/// The hashes are held by the entity index of their [`RollbackId`], not in a
-/// map: every pass visits every entity of the type, so the lookup is paid per
-/// entity per tick, and an index into a dense list is several times cheaper
-/// than a hash lookup. Entity indices are handed out densely.
+/// The hashes are a dense list of the type's entities, found through a table
+/// by entity index, not a map: every pass visits every entity of the type, so
+/// the lookup is paid per entity per tick, and two indexed reads are several
+/// times cheaper than a hash lookup. The table holds a `u32` per entity index
+/// up to the highest the type has seen; Bevy reuses a freed index, so that
+/// follows the world's peak entity count. A pass that finds an entity gone
+/// walks the list, the type's own count, never the table.
 #[derive(Default)]
 struct HeldChecksum {
-    hashes: Vec<Option<EntityHash>>,
-    /// How many of `hashes` are held.
-    len: usize,
+    hashes: Vec<EntityHash>,
+    /// By entity index, the entity's position in `hashes` plus one; 0 for none.
+    slots: Vec<u32>,
     xor: u64,
     pass: u32,
 }
@@ -85,16 +88,16 @@ impl HeldChecksum {
     #[inline]
     fn visit(&mut self, id: RollbackId, changed: bool, hash: impl FnOnce() -> (u64, u64)) {
         let index = id.index() as usize;
-        if index >= self.hashes.len() {
-            self.hashes.resize_with(index + 1, || None);
+        if index >= self.slots.len() {
+            self.slots.resize(index + 1, 0);
         }
-        let slot = &mut self.hashes[index];
-        if let Some(entry) = slot
-            && entry.id == id
-            && !changed
-        {
-            entry.seen = self.pass;
-            return;
+        let held = self.slots[index].checked_sub(1).map(|at| at as usize);
+        if let Some(at) = held {
+            let entry = &mut self.hashes[at];
+            if entry.id == id && !changed {
+                entry.seen = self.pass;
+                return;
+            }
         }
         let (order, hash) = hash();
         // XOR chosen over addition or multiplication as it is closed on u64 and
@@ -107,9 +110,15 @@ impl HeldChecksum {
             hash,
             seen: self.pass,
         };
-        match slot.replace(entry) {
-            Some(old) => self.xor ^= old.hash,
-            None => self.len += 1,
+        match held {
+            Some(at) => {
+                self.xor ^= self.hashes[at].hash;
+                self.hashes[at] = entry;
+            }
+            None => {
+                self.hashes.push(entry);
+                self.slots[index] = self.hashes.len() as u32;
+            }
         }
         self.xor ^= hash;
     }
@@ -117,16 +126,20 @@ impl HeldChecksum {
     /// End a pass that found `count` entities: one held that the pass did not
     /// find no longer has the component, and its hash comes back out.
     fn end(&mut self, count: usize) {
-        if self.len == count {
+        if self.hashes.len() == count {
             return;
         }
-        for slot in &mut self.hashes {
-            if let Some(entry) = slot
-                && entry.seen != self.pass
-            {
-                self.xor ^= entry.hash;
-                self.len -= 1;
-                *slot = None;
+        let mut at = 0;
+        while at < self.hashes.len() {
+            if self.hashes[at].seen == self.pass {
+                at += 1;
+                continue;
+            }
+            let gone = self.hashes.swap_remove(at);
+            self.xor ^= gone.hash;
+            self.slots[gone.id.index() as usize] = 0;
+            if let Some(moved) = self.hashes.get(at) {
+                self.slots[moved.id.index() as usize] = at as u32 + 1;
             }
         }
     }
@@ -188,7 +201,7 @@ where
             held.end(count);
 
             if let Some(ref diag) = diagnostics {
-                for entry in held.hashes.iter().flatten() {
+                for entry in &held.hashes {
                     diag.record_entity_hash(type_name, entry.order, entry.hash);
                 }
             }
@@ -259,7 +272,7 @@ mod tests {
         held.visit(id(4, 0), false, || unreachable!("unchanged and held"));
         held.end(2);
 
-        assert_eq!(held.len, 2);
+        assert_eq!(held.hashes.len(), 2);
         assert_eq!(held.xor, fresh(&[(id(3, 1), 0xc), (id(4, 0), 0xb)]));
     }
 
@@ -278,7 +291,42 @@ mod tests {
         held.visit(id(9, 0), false, || (2, 0x9));
         held.end(2);
 
-        assert_eq!(held.len, 2);
+        assert_eq!(held.hashes.len(), 2);
         assert_eq!(held.xor, fresh(&[(id(1, 0), 0x1), (id(9, 0), 0x9)]));
+    }
+
+    /// Two entities gone from the middle of the list: the ones moved into
+    /// their places are still found where they are, not rehashed.
+    #[test]
+    fn a_departure_keeps_the_rest_found() {
+        let mut held = HeldChecksum::default();
+        held.begin();
+        for i in 0..6 {
+            held.visit(id(i * 7, 0), true, || (i as u64, 1 << i));
+        }
+        held.end(6);
+
+        held.begin();
+        for i in [0, 2, 3, 5] {
+            held.visit(id(i * 7, 0), false, || unreachable!("unchanged and held"));
+        }
+        held.end(4);
+
+        held.begin();
+        for i in [0, 2, 3, 5] {
+            held.visit(id(i * 7, 0), false, || unreachable!("found after the swap"));
+        }
+        held.end(4);
+
+        assert_eq!(held.hashes.len(), 4);
+        assert_eq!(
+            held.xor,
+            fresh(&[
+                (id(0, 0), 1),
+                (id(14, 0), 4),
+                (id(21, 0), 8),
+                (id(35, 0), 32)
+            ])
+        );
     }
 }

@@ -4,7 +4,8 @@
 //!
 //! The SyncTest sessions roll back every frame and compare checksums, so a
 //! share that missed a change, an add or a removal fails them with a
-//! `SyncTestMismatch`.
+//! `SyncTestMismatch`. Most of the types here keep a summary tick, so a save
+//! skips their tables where nothing changed ([`TableRows`]).
 
 #[allow(dead_code)]
 mod common;
@@ -14,14 +15,17 @@ use common::base_synctest_app;
 
 /// Never changes after spawn.
 #[derive(Component, Clone, Copy, Hash, Debug, PartialEq)]
+#[component(summary_tick)]
 struct Still(u32);
 
 /// Changes every fifth frame.
 #[derive(Component, Clone, Copy, Hash, Debug, PartialEq)]
+#[component(summary_tick)]
 struct Sometimes(u32);
 
 /// Moves from one entity to another at frame 12, so the type keeps its count.
 #[derive(Component, Clone, Copy, Hash, Debug, PartialEq)]
+#[component(summary_tick)]
 struct Swapped(u32);
 
 #[derive(Component)]
@@ -157,6 +161,7 @@ fn a_load_onto_the_held_snapshot_marks_nothing_changed() {
 
 /// One of many entities, picked by the frame.
 #[derive(Component, Clone, Copy, Hash, Debug, PartialEq)]
+#[component(summary_tick)]
 struct Many(u32);
 
 /// Where an entity of `Many` sits, to pick it by.

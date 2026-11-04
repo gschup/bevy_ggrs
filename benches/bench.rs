@@ -1,4 +1,5 @@
 use bevy::MinimalPlugins;
+use bevy::ecs::component::Mutable;
 use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 use bevy_ggrs::SaveWorld;
@@ -94,5 +95,54 @@ fn foo_bar_baz_1000(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, foo_1000, foo_bar_baz_1000);
+/// Keeps a summary tick per table, so a save skips its tables when they did
+/// not change.
+#[derive(Component, Clone, Copy, Hash)]
+#[component(summary_tick)]
+struct Still(i32);
+
+/// The same without a summary tick: a save reads every change tick.
+#[derive(Component, Clone, Copy, Hash)]
+struct Unmarked(i32);
+
+/// A save of a world where nothing changed, with `n` rollback entities of
+/// `C`, snapshotted and checksummed: with a summary tick its cost should not
+/// follow `n`.
+fn save_unchanged<C: Component<Mutability = Mutable> + Copy + std::hash::Hash>(
+    c: &mut Criterion,
+    name: &str,
+    n: i32,
+    make: fn(i32) -> C,
+) {
+    let mut app = App::new();
+    app.add_plugins((MinimalPlugins, SnapshotPlugin));
+    app.rollback_component_with_copy::<C>();
+    app.checksum_component_with_hash::<C>();
+    app.update();
+    app.world_mut()
+        .run_system_once(move |mut commands: Commands| {
+            for i in 0..n {
+                commands.spawn((make(i), Rollback));
+            }
+        })
+        .unwrap();
+    app.world_mut().run_schedule(SaveWorld);
+    // A frame a save, as the runner saves: the prune of `RollbackOrdered`
+    // then runs every 128 saves, not on each.
+    c.bench_function(&format!("save_unchanged_{name}_{n}"), |b| {
+        b.iter(|| {
+            app.world_mut().resource_mut::<RollbackFrameCount>().0 += 1;
+            app.world_mut().run_schedule(SaveWorld);
+        })
+    });
+}
+
+fn unchanged(c: &mut Criterion) {
+    for n in [0, 4_000, 40_000] {
+        save_unchanged(c, "summary_tick", n, Still);
+        save_unchanged(c, "no_summary_tick", n, Unmarked);
+    }
+}
+
+criterion_group!(benches, foo_1000, foo_bar_baz_1000, unchanged);
 criterion_main!(benches);

@@ -6,7 +6,7 @@
 
 use crate::{
     ClearSnapshots, GgrsComponentSnapshots, HeldComponentSnapshot, LoadWorld, LoadWorldSystems,
-    Restore, SaveWorld, SaveWorldSystems, SharedSnapshots, stage_insert,
+    Restore, SaveWorld, SaveWorldSystems, SharedSnapshots, TableRows, stage_insert,
 };
 use bevy::{
     ecs::{change_detection::CheckChangeTicks, hierarchy::ChildOf},
@@ -67,19 +67,26 @@ impl ChildOfSnapshotPlugin {
     /// removed are copied ([`HeldComponentSnapshot`]).
     pub fn save(
         mut store: SharedSnapshots<ChildOf, ChildOf>,
-        query: Query<(&RollbackId, Ref<ChildOf>)>,
-        changed: Query<Ref<ChildOf>, With<RollbackId>>,
+        query: Query<(Ref<RollbackId>, Ref<ChildOf>)>,
     ) {
-        let len = store.save(
-            changed.iter().map(|child_of| child_of.last_changed()),
-            query
-                .iter()
-                .map(|(&rollback, child_of)| (rollback, child_of.last_changed())),
-            query
-                .iter()
-                .map(|(&rollback, child_of)| (rollback, child_of)),
-            |child_of| ChildOf::clone(&child_of),
-        );
+        let len = match query.contiguous_iter() {
+            Ok(tables) => {
+                let tables: Vec<_> = tables
+                    .map(|(ids, values)| TableRows::new(ids, values))
+                    .collect();
+                store.save_tables(&tables, ChildOf::clone, ChildOf::clone)
+            }
+            Err(_) => store.save(
+                query.iter().map(|(_, child_of)| child_of.last_changed()),
+                query
+                    .iter()
+                    .map(|(rollback, child_of)| (*rollback, child_of.last_changed())),
+                query
+                    .iter()
+                    .map(|(rollback, child_of)| (*rollback, child_of)),
+                |child_of| ChildOf::clone(&child_of),
+            ),
+        };
 
         trace!(
             "Snapshot {} {} component(s)",

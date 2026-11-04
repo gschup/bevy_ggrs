@@ -39,7 +39,12 @@ pub struct Rollback;
 /// nothing in the world carries is never asked for its order, and a snapshot that holds it
 /// holds its own [`RollbackOrdered`] with it.
 #[derive(Component, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
-#[component(immutable, clone_behavior = Ignore, on_remove = on_rollback_id_removed)]
+#[component(
+    immutable,
+    summary_tick,
+    clone_behavior = Ignore,
+    on_remove = on_rollback_id_removed
+)]
 pub struct RollbackId(Entity);
 
 impl RollbackId {

@@ -10,6 +10,7 @@ use bevy_ggrs::{prelude::*, *};
 use common::base_synctest_app;
 
 #[derive(Component, Clone, Copy, Hash, Debug, PartialEq)]
+#[component(summary_tick)]
 struct Value(u32);
 
 /// Which of the three entities this is, so systems can find it.

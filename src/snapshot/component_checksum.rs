@@ -10,15 +10,17 @@
 //! the same. It is the rule the held snapshots go by
 //! ([`HeldComponentSnapshot`](crate::HeldComponentSnapshot)), and it leans on
 //! change detection the same way: a write that does not mark the component
-//! changed is missed by both.
+//! changed is missed by both. It reads only the tables whose summary tick
+//! moved since the last checksum, as the save does
+//! ([`TableRows`](crate::TableRows)).
 
 use std::hash::{Hash, Hasher};
 
-use bevy::prelude::*;
+use bevy::{ecs::system::SystemChangeTick, prelude::*};
 
 use crate::{
     ChecksumDiagnostics, ChecksumFlag, ChecksumPart, RollbackId, RollbackOrdered, SaveWorld,
-    SaveWorldSystems, checksum_hasher,
+    SaveWorldSystems, TableRows, checksum_hasher,
 };
 
 /// A [`Plugin`] which will track the [`Component`] `C` on [`Rollback`](`crate::Rollback`) entities and ensure a
@@ -53,12 +55,12 @@ pub struct ComponentChecksumPlugin<C: Component>(pub for<'a> fn(&'a C) -> u64);
 /// and a count of the passes taken.
 ///
 /// The hashes are a dense list of the type's entities, found through a table
-/// by entity index, not a map: every pass visits every entity of the type, so
-/// the lookup is paid per entity per tick, and two indexed reads are several
-/// times cheaper than a hash lookup. The table holds a `u32` per entity index
-/// up to the highest the type has seen; Bevy reuses a freed index, so that
-/// follows the world's peak entity count. A pass that finds an entity gone
-/// walks the list, the type's own count, never the table.
+/// by entity index, not a map: a pass over every entity of the type pays the
+/// lookup per entity, and two indexed reads are several times cheaper than a
+/// hash lookup. The table holds a `u32` per entity index up to the highest
+/// the type has seen; Bevy reuses a freed index, so that follows the world's
+/// peak entity count. A pass that finds an entity gone walks the list, the
+/// type's own count, never the table.
 #[derive(Default)]
 struct HeldChecksum {
     hashes: Vec<EntityHash>,
@@ -168,66 +170,94 @@ where
     fn build(&self, app: &mut App) {
         let custom_hasher = self.0;
 
-        let update = move |mut commands: Commands,
-                           rollback_ordered: Res<RollbackOrdered>,
-                           components: Query<
-            (&RollbackId, Ref<C>),
-            (With<RollbackId>, Without<ChecksumFlag<C>>),
-        >,
-                           mut checksum: Query<
-            &mut ChecksumPart,
-            (Without<RollbackId>, With<ChecksumFlag<C>>),
-        >,
-                           diagnostics: Option<Res<ChecksumDiagnostics>>,
-                           mut held: Local<HeldChecksum>| {
-            let type_name = std::any::type_name::<C>();
-            let held = &mut *held;
-            held.begin();
-
-            // Rehash what changed since the last checksum (this system runs on
-            // every save, so its last run is that checksum). A fold, not a
-            // loop: a query's fold walks its tables directly.
-            let count = components.iter().fold(0, |count, (&rollback, component)| {
-                held.visit(rollback, component.is_changed(), || {
+        let update =
+            move |mut commands: Commands,
+                  rollback_ordered: Res<RollbackOrdered>,
+                  components: Query<(Ref<RollbackId>, Ref<C>), Without<ChecksumFlag<C>>>,
+                  mut checksum: Query<
+                &mut ChecksumPart,
+                (Without<RollbackId>, With<ChecksumFlag<C>>),
+            >,
+                  diagnostics: Option<Res<ChecksumDiagnostics>>,
+                  ticks: SystemChangeTick,
+                  mut held: Local<HeldChecksum>| {
+                let type_name = std::any::type_name::<C>();
+                let held = &mut *held;
+                let hash = |rollback: RollbackId, component: &C| {
                     let mut hasher = checksum_hasher();
                     // Hashing the rollback index ensures this hash is unique and stable
                     let order = rollback_ordered.order(rollback);
                     order.hash(&mut hasher);
-                    custom_hasher(&component).hash(&mut hasher);
+                    custom_hasher(component).hash(&mut hasher);
                     (order, hasher.finish())
+                };
+
+                // Rehash what changed since the last checksum (this system runs on
+                // every save, so its last run is that checksum), table by table: a
+                // table where neither the type nor an id changed is not read. When
+                // the held hashes then number more than the world's components,
+                // one went, which leaves no tick: a pass over every entity finds it.
+                let (last_run, this_run) = (ticks.last_run(), ticks.this_run());
+                let by_tables = components.contiguous_iter().is_ok_and(|tables| {
+                    held.begin();
+                    let mut count = 0;
+                    for (ids, values) in tables {
+                        let rows = TableRows::new(ids, values);
+                        count += rows.ids.len();
+                        if !rows.touched {
+                            continue;
+                        }
+                        for row in 0..rows.ids.len() {
+                            if rows.ticks[row].is_newer_than(last_run, this_run)
+                                || rows.id_ticks[row].is_newer_than(last_run, this_run)
+                            {
+                                let id = rows.ids[row];
+                                held.visit(id, true, || hash(id, &rows.values[row]));
+                            }
+                        }
+                    }
+                    held.hashes.len() == count
                 });
-                count + 1
-            });
-            held.end(count);
-
-            if let Some(ref diag) = diagnostics {
-                for entry in &held.hashes {
-                    diag.record_entity_hash(type_name, entry.order, entry.hash);
+                if !by_tables {
+                    // A fold, not a loop: a query's fold walks its tables directly.
+                    held.begin();
+                    let count = components.iter().fold(0, |count, (rollback, component)| {
+                        held.visit(*rollback, component.is_changed(), || {
+                            hash(*rollback, &component)
+                        });
+                        count + 1
+                    });
+                    held.end(count);
                 }
-            }
 
-            // Hash the XOR'ed result to break commutativity with other types
-            let mut hasher = checksum_hasher();
-            held.xor.hash(&mut hasher);
+                if let Some(ref diag) = diagnostics {
+                    for entry in &held.hashes {
+                        diag.record_entity_hash(type_name, entry.order, entry.hash);
+                    }
+                }
 
-            let result = ChecksumPart(hasher.finish() as u128);
+                // Hash the XOR'ed result to break commutativity with other types
+                let mut hasher = checksum_hasher();
+                held.xor.hash(&mut hasher);
 
-            trace!(
-                "Component {} has checksum {:X}",
-                disqualified::ShortName::of::<C>(),
-                result.0
-            );
+                let result = ChecksumPart(hasher.finish() as u128);
 
-            if let Some(ref diag) = diagnostics {
-                diag.record_type_checksum(type_name, result.0);
-            }
+                trace!(
+                    "Component {} has checksum {:X}",
+                    disqualified::ShortName::of::<C>(),
+                    result.0
+                );
 
-            if let Ok(mut checksum) = checksum.single_mut() {
-                *checksum = result;
-            } else {
-                commands.spawn((result, ChecksumFlag::<C>::default()));
-            }
-        };
+                if let Some(ref diag) = diagnostics {
+                    diag.record_type_checksum(type_name, result.0);
+                }
+
+                if let Ok(mut checksum) = checksum.single_mut() {
+                    *checksum = result;
+                } else {
+                    commands.spawn((result, ChecksumFlag::<C>::default()));
+                }
+            };
 
         app.add_systems(SaveWorld, update.in_set(SaveWorldSystems::Checksum));
     }

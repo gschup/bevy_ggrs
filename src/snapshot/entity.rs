@@ -8,6 +8,7 @@
 use crate::{
     ClearSnapshots, GgrsComponentSnapshots, HeldComponentSnapshot, LoadWorld, LoadWorldSystems,
     Restore, Rollback, RollbackEntityMap, RollbackId, SaveWorld, SaveWorldSystems, SharedSnapshots,
+    TableRows,
 };
 use bevy::{
     ecs::{change_detection::CheckChangeTicks, entity::EntityHashMap},
@@ -74,14 +75,22 @@ impl EntitySnapshotPlugin {
         mut store: SharedSnapshots<Entity, Entity>,
         query: Query<(Ref<RollbackId>, Entity)>,
     ) {
-        let len = store.save(
-            query.iter().map(|(rollback, _)| rollback.last_changed()),
-            query
-                .iter()
-                .map(|(rollback, _)| (*rollback, rollback.last_changed())),
-            query.iter().map(|(rollback, entity)| (*rollback, entity)),
-            |entity| entity,
-        );
+        let len = match query.contiguous_iter() {
+            Ok(tables) => {
+                let tables: Vec<_> = tables
+                    .map(|(ids, entities)| TableRows::entities(ids, entities))
+                    .collect();
+                store.save_tables(&tables, |&entity| entity, |&entity| entity)
+            }
+            Err(_) => store.save(
+                query.iter().map(|(rollback, _)| rollback.last_changed()),
+                query
+                    .iter()
+                    .map(|(rollback, _)| (*rollback, rollback.last_changed())),
+                query.iter().map(|(rollback, entity)| (*rollback, entity)),
+                |entity| entity,
+            ),
+        };
 
         trace!("Snapshot {} entity(s)", len);
     }

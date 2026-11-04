@@ -8,11 +8,17 @@
 //! with it. A load writes only the chunks that differ from the ones the world
 //! holds. An id keeps its chunk for life, so a spawn or a despawn moves no
 //! other entity's.
+//!
+//! A save finds what changed table by table ([`TableRows`]): a rolled-back
+//! type and [`RollbackId`] keep a summary tick per table column
+//! (`#[component(summary_tick)]`, which `#[derive(Rollback)]` asks for), so a
+//! table where neither changed since the last save is not read at all, and a
+//! save where nothing changed reads no component's tick.
 
 use std::{marker::PhantomData, sync::Arc};
 
 use bevy::ecs::{
-    change_detection::{CheckChangeTicks, Tick},
+    change_detection::{CheckChangeTicks, ContiguousRef, Tick},
     system::{Res, ResMut, SystemChangeTick, SystemParam},
 };
 
@@ -229,6 +235,58 @@ impl<For, As: Clone> GgrsComponentSnapshot<For, As> {
     }
 }
 
+/// One table's components of a type, with their entities' [`RollbackId`]s, as
+/// a save reads them: row by row, the id, the value and both change ticks.
+pub struct TableRows<'a, V> {
+    /// Whether the table may hold a change since the system last ran: the
+    /// summary tick of the type or of [`RollbackId`] says so, or the type
+    /// keeps none.
+    pub touched: bool,
+    /// Each row's id.
+    pub ids: &'a [RollbackId],
+    /// Each row's id's change tick, its insert: an entity that gains an id
+    /// has the type's components already, with old ticks.
+    pub id_ticks: &'a [Tick],
+    /// Each row's value.
+    pub values: &'a [V],
+    /// Each row's value's change tick.
+    pub ticks: &'a [Tick],
+}
+
+impl<'a, V> TableRows<'a, V> {
+    /// A table of a contiguous query of `(Ref<RollbackId>, Ref<V>)`.
+    pub fn new(ids: ContiguousRef<'a, RollbackId>, values: ContiguousRef<'a, V>) -> Self {
+        let (ids, id_ticks) = ContiguousRef::split(ids);
+        let (values, ticks) = ContiguousRef::split(values);
+        Self {
+            touched: id_ticks.summary_tick_is_changed() != Some(false)
+                || ticks.summary_tick_is_changed() != Some(false),
+            ids,
+            id_ticks: id_ticks.changed(),
+            values,
+            ticks: ticks.changed(),
+        }
+    }
+}
+
+impl<'a> TableRows<'a, bevy::prelude::Entity> {
+    /// A table of a contiguous query of `(Ref<RollbackId>, Entity)`: the
+    /// value is the entity, which changes only with its id.
+    pub fn entities(
+        ids: ContiguousRef<'a, RollbackId>,
+        entities: &'a [bevy::prelude::Entity],
+    ) -> Self {
+        let (ids, id_ticks) = ContiguousRef::split(ids);
+        Self {
+            touched: id_ticks.summary_tick_is_changed() != Some(false),
+            ids,
+            id_ticks: id_ticks.changed(),
+            values: entities,
+            ticks: id_ticks.changed(),
+        }
+    }
+}
+
 /// What a scan of the world found in one chunk.
 #[derive(Clone, Copy, Default)]
 struct ChunkScan {
@@ -258,6 +316,8 @@ pub struct HeldComponentSnapshot<For, As = For> {
     scan: Vec<ChunkScan>,
     /// Per chunk, the values a save copies.
     copies: Vec<Vec<(RollbackId, As)>>,
+    /// The values a save by tables found changed, by chunk.
+    changes: Vec<(RollbackId, As)>,
 }
 
 impl<For, As> Default for HeldComponentSnapshot<For, As> {
@@ -266,6 +326,7 @@ impl<For, As> Default for HeldComponentSnapshot<For, As> {
             held: None,
             scan: Vec::new(),
             copies: Vec::new(),
+            changes: Vec::new(),
         }
     }
 }
@@ -405,6 +466,18 @@ impl<For, As> HeldComponentSnapshot<For, As> {
         {
             return held.clone();
         }
+        self.save_scanned(ticks, values, store, this_run)
+    }
+
+    /// [`save`](Self::save) past its first walk: a change is known or
+    /// likely.
+    fn save_scanned<R>(
+        &mut self,
+        ticks: impl Iterator<Item = (RollbackId, Tick)>,
+        values: impl Iterator<Item = (RollbackId, R)>,
+        store: impl Fn(R) -> As,
+        this_run: Tick,
+    ) -> GgrsComponentSnapshot<For, As> {
         self.scan(ticks, this_run);
         let mut all_shared = true;
         for index in 0..self.scan.len() {
@@ -446,6 +519,120 @@ impl<For, As> HeldComponentSnapshot<For, As> {
         };
         self.held = Some((snapshot.clone(), this_run));
         snapshot
+    }
+
+    /// [`save`](Self::save) from the world's components of the type table by
+    /// table: a table not [`touched`](TableRows::touched) since `last_run`,
+    /// the system's last run, is not read. What a save costs then follows
+    /// what changed, not what exists.
+    ///
+    /// The rows of the touched tables that changed or gained their id since
+    /// the held tick are stored with `store`; each chunk they fall in is the
+    /// held chunk with them put in, its other entries copied with `copy`.
+    /// The count says whether that is all: the held snapshot, plus the ids it
+    /// lacked, holds as many as the world. Otherwise a component went, which
+    /// leaves no tick, and the save walks every row as [`save`](Self::save)
+    /// does. So does a save with no held snapshot, or one held from before
+    /// `last_run`, which the summary ticks cannot vouch for.
+    pub fn save_tables<V>(
+        &mut self,
+        tables: &[TableRows<'_, V>],
+        store: impl Fn(&V) -> As,
+        copy: impl Fn(&As) -> As,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> GgrsComponentSnapshot<For, As> {
+        let total: usize = tables.iter().map(|table| table.ids.len()).sum();
+        let found = match &self.held {
+            Some((_, tick)) if !last_run.is_newer_than(*tick, this_run) => {
+                let tick = *tick;
+                self.changed_rows(tables, &store, tick, this_run);
+                self.put_in_changes(total, &copy)
+            }
+            _ => None,
+        };
+        if let Some(snapshot) = found {
+            self.held = Some((snapshot.clone(), this_run));
+            return snapshot;
+        }
+        let rows = || {
+            tables
+                .iter()
+                .flat_map(|table| table.ids.iter().copied().zip(table.ticks.iter().copied()))
+        };
+        let values = tables
+            .iter()
+            .flat_map(|table| table.ids.iter().copied().zip(table.values));
+        self.save_scanned(rows(), values, store, this_run)
+    }
+
+    /// Fill `changes` with the rows of the touched tables newer than `held`,
+    /// by chunk.
+    fn changed_rows<V>(
+        &mut self,
+        tables: &[TableRows<'_, V>],
+        store: impl Fn(&V) -> As,
+        held: Tick,
+        this_run: Tick,
+    ) {
+        self.changes.clear();
+        for table in tables.iter().filter(|table| table.touched) {
+            for row in 0..table.ids.len() {
+                if table.ticks[row].is_newer_than(held, this_run)
+                    || table.id_ticks[row].is_newer_than(held, this_run)
+                {
+                    self.changes
+                        .push((table.ids[row], store(&table.values[row])));
+                }
+            }
+        }
+        self.changes
+            .sort_unstable_by_key(|(id, _)| (chunk_of(id), *id));
+    }
+
+    /// The held snapshot with `changes` put in, chunk by chunk, or `None`
+    /// when it would hold fewer than `total`: something went that left no
+    /// tick, and only a walk of every row finds where. With no changes, the
+    /// held snapshot itself, shared.
+    fn put_in_changes(
+        &mut self,
+        total: usize,
+        copy: impl Fn(&As) -> As,
+    ) -> Option<GgrsComponentSnapshot<For, As>> {
+        let (held, _) = self.held.as_ref()?;
+        if self.changes.is_empty() {
+            return (held.len() == total).then(|| held.clone());
+        }
+        let mut chunks = held.snapshot.chunks.clone();
+        let mut len = held.len();
+        let mut changes = self.changes.drain(..).peekable();
+        while let Some((first, _)) = changes.peek() {
+            let index = chunk_of(first);
+            let old = held
+                .snapshot
+                .chunk(index)
+                .map_or(&[][..], |chunk| &chunk[..]);
+            let mut entries = Vec::with_capacity(old.len() + 1);
+            let mut old = old.iter().peekable();
+            while let Some((id, value)) = changes.next_if(|(id, _)| chunk_of(id) == index) {
+                while let Some((kept, stored)) = old.next_if(|(kept, _)| *kept < id) {
+                    entries.push((*kept, copy(stored)));
+                }
+                if old.next_if(|(kept, _)| *kept == id).is_none() {
+                    len += 1;
+                }
+                entries.push((id, value));
+            }
+            entries.extend(old.map(|(kept, stored)| (*kept, copy(stored))));
+            if index >= chunks.len() {
+                chunks.resize(index + 1, None);
+            }
+            chunks[index] = Some(entries.into());
+        }
+        (len == total).then(|| GgrsComponentSnapshot {
+            snapshot: Arc::new(Chunks { chunks, len }),
+            _phantom: PhantomData,
+        })
     }
 
     /// Plan a load of `snapshot`: `changed` is the change tick of every
@@ -545,6 +732,27 @@ impl<For: Send + Sync + 'static, As: Send + Sync + 'static> SharedSnapshots<'_, 
         len
     }
 
+    /// Save the frame's snapshot of the world's components table by table
+    /// ([`HeldComponentSnapshot::save_tables`]), and return how many it
+    /// holds.
+    pub fn save_tables<V>(
+        &mut self,
+        tables: &[TableRows<'_, V>],
+        store: impl Fn(&V) -> As,
+        copy: impl Fn(&As) -> As,
+    ) -> usize {
+        let snapshot = self.held.save_tables(
+            tables,
+            store,
+            copy,
+            self.ticks.last_run(),
+            self.ticks.this_run(),
+        );
+        let len = snapshot.len();
+        self.snapshots.push(self.frame.0, snapshot);
+        len
+    }
+
     /// Plan a load of the frame's snapshot ([`HeldComponentSnapshot::load`]).
     pub fn load(
         &mut self,
@@ -583,6 +791,176 @@ mod tests {
             |v| v,
             tick(now),
         )
+    }
+
+    /// One table of `(id index, value, change tick)` rows, ids inserted at
+    /// tick 1, as [`TableRows`] reads it.
+    struct Table {
+        touched: bool,
+        ids: Vec<RollbackId>,
+        id_ticks: Vec<Tick>,
+        values: Vec<u32>,
+        ticks: Vec<Tick>,
+    }
+
+    impl Table {
+        fn new(touched: bool, rows: &[(u32, u32, u32)]) -> Self {
+            Self {
+                touched,
+                ids: rows.iter().map(|&(i, _, _)| id(i)).collect(),
+                id_ticks: rows.iter().map(|_| tick(1)).collect(),
+                values: rows.iter().map(|&(_, v, _)| v).collect(),
+                ticks: rows.iter().map(|&(_, _, t)| tick(t)).collect(),
+            }
+        }
+
+        fn rows(&self) -> TableRows<'_, u32> {
+            TableRows {
+                touched: self.touched,
+                ids: &self.ids,
+                id_ticks: &self.id_ticks,
+                values: &self.values,
+                ticks: &self.ticks,
+            }
+        }
+    }
+
+    /// A save by tables at `now`, whose system last ran at `last`.
+    fn save_tables(held: &mut Held, tables: &[Table], last: u32, now: u32) -> Snapshot {
+        let rows: Vec<_> = tables.iter().map(Table::rows).collect();
+        held.save_tables(&rows, |&v| v, |&v| v, tick(last), tick(now))
+    }
+
+    /// A table whose summary tick did not move is not read: a row tick in it
+    /// that claims a change goes unseen, and the held snapshot is shared.
+    #[test]
+    fn a_save_by_tables_reads_no_untouched_table() {
+        let mut held = Held::default();
+        let first = save_tables(
+            &mut held,
+            &[
+                Table::new(true, &[(1, 1, 1), (2, 2, 1)]),
+                Table::new(true, &[(40, 40, 1)]),
+            ],
+            0,
+            2,
+        );
+        let tables = [
+            Table::new(false, &[(1, 99, 3), (2, 2, 1)]),
+            Table::new(false, &[(40, 40, 1)]),
+        ];
+        let again = save_tables(&mut held, &tables, 2, 4);
+        assert!(again.same(&first), "no table read, nothing copied");
+        assert_eq!(again.get(&id(1)), Some(&1));
+    }
+
+    /// A change in a touched table copies its chunk, with the chunk's other
+    /// entries, from other tables too, kept from the held snapshot; every
+    /// other chunk is shared. The next save, with nothing touched, shares
+    /// the new snapshot whole.
+    #[test]
+    fn a_save_by_tables_copies_only_the_changed_chunk() {
+        let mut held = Held::default();
+        let first = save_tables(
+            &mut held,
+            &[
+                Table::new(true, &[(1, 1, 1), (40, 40, 1)]),
+                Table::new(true, &[(2, 2, 1), (41, 41, 1)]),
+            ],
+            0,
+            2,
+        );
+        let changed = save_tables(
+            &mut held,
+            &[
+                Table::new(true, &[(1, 10, 3), (40, 40, 1)]),
+                Table::new(false, &[(2, 2, 1), (41, 41, 1)]),
+            ],
+            2,
+            4,
+        );
+        assert_eq!(values(&changed), vec![(1, 10), (2, 2), (40, 40), (41, 41)]);
+        assert_eq!(changed.chunks_shared_with(&first), (1, 2));
+
+        let still = save_tables(
+            &mut held,
+            &[
+                Table::new(false, &[(1, 10, 3), (40, 40, 1)]),
+                Table::new(false, &[(2, 2, 1), (41, 41, 1)]),
+            ],
+            4,
+            6,
+        );
+        assert!(still.same(&changed));
+    }
+
+    /// An entity that gains its id, its component's tick old, is found by its
+    /// id's tick.
+    #[test]
+    fn a_save_by_tables_finds_an_entity_that_gained_its_id() {
+        let mut held = Held::default();
+        save_tables(&mut held, &[Table::new(true, &[(1, 1, 1)])], 0, 2);
+        let mut table = Table::new(true, &[(1, 1, 1), (2, 2, 1)]);
+        table.id_ticks[1] = tick(3);
+        let after = save_tables(&mut held, &[table], 2, 4);
+        assert_eq!(values(&after), vec![(1, 1), (2, 2)]);
+    }
+
+    /// A removal leaves no tick: the count finds it, and the save walks every
+    /// row, untouched tables too.
+    #[test]
+    fn a_save_by_tables_after_a_removal_walks_every_row() {
+        let mut held = Held::default();
+        save_tables(
+            &mut held,
+            &[
+                Table::new(true, &[(1, 1, 1), (2, 2, 1)]),
+                Table::new(true, &[(40, 40, 1)]),
+            ],
+            0,
+            2,
+        );
+        let after = save_tables(
+            &mut held,
+            &[
+                Table::new(false, &[(1, 1, 1)]),
+                Table::new(true, &[(40, 41, 3)]),
+            ],
+            2,
+            4,
+        );
+        assert_eq!(values(&after), vec![(1, 1), (40, 41)]);
+    }
+
+    /// A removal beside an add keeps the count: the add is put in, the count
+    /// comes out one over the world's, and the save walks every row.
+    #[test]
+    fn a_save_by_tables_after_a_removal_and_an_add_walks_every_row() {
+        let mut held = Held::default();
+        save_tables(
+            &mut held,
+            &[Table::new(true, &[(1, 1, 1), (2, 2, 1)])],
+            0,
+            2,
+        );
+        let after = save_tables(
+            &mut held,
+            &[Table::new(true, &[(1, 1, 1), (40, 40, 3)])],
+            2,
+            4,
+        );
+        assert_eq!(values(&after), vec![(1, 1), (40, 40)]);
+    }
+
+    /// A held snapshot from before the system's last run, as after a save of
+    /// another system's, cannot be vouched for by the summary ticks: the save
+    /// reads every row.
+    #[test]
+    fn a_save_by_tables_with_an_older_held_snapshot_walks_every_row() {
+        let mut held = Held::default();
+        save_tables(&mut held, &[Table::new(true, &[(1, 1, 1)])], 0, 2);
+        let after = save_tables(&mut held, &[Table::new(false, &[(1, 5, 3)])], 4, 6);
+        assert_eq!(values(&after), vec![(1, 5)]);
     }
 
     /// By index: the order of `iter` within a chunk is `RollbackId`'s, which

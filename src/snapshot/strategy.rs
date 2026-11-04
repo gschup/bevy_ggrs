@@ -36,6 +36,14 @@ pub trait Strategy {
     /// Create a [`Target`](`Strategy::Target`) version of the provided [`Stored`](`Strategy::Stored`) reference.
     fn load(stored: &Self::Stored) -> Self::Target;
 
+    /// A copy of a [`Stored`](`Strategy::Stored`) value: a save that copies a
+    /// chunk for one entity's change keeps its other entries this way.
+    /// Through [`load`](`Strategy::load`) and [`store`](`Strategy::store`)
+    /// unless a strategy has a cheaper way.
+    fn copy(stored: &Self::Stored) -> Self::Stored {
+        Self::store(&Self::load(stored))
+    }
+
     /// Directly update a mutable reference to an existing [`Target`](`Strategy::Target`)
     /// with the data from a provided [`Stored`](`Strategy::Stored`).
     fn update(target: &mut Self::Target, stored: &Self::Stored) {
@@ -102,6 +110,11 @@ impl<T: Copy + RollbackEq> Strategy for CopyEqStrategy<T> {
     }
 
     #[inline(always)]
+    fn copy(stored: &Self::Stored) -> Self::Stored {
+        *stored
+    }
+
+    #[inline(always)]
     fn equals(target: &Self::Target, stored: &Self::Stored) -> bool {
         target.rollback_eq(stored)
     }
@@ -123,6 +136,11 @@ impl<T: Clone + RollbackEq> Strategy for CloneEqStrategy<T> {
 
     #[inline(always)]
     fn load(stored: &Self::Stored) -> Self::Target {
+        stored.clone()
+    }
+
+    #[inline(always)]
+    fn copy(stored: &Self::Stored) -> Self::Stored {
         stored.clone()
     }
 
@@ -154,6 +172,11 @@ impl<T: Copy> Strategy for CopyStrategy<T> {
     fn load(stored: &Self::Stored) -> Self::Target {
         *stored
     }
+
+    #[inline(always)]
+    fn copy(stored: &Self::Stored) -> Self::Stored {
+        *stored
+    }
 }
 
 /// A [`Strategy`] based on [`Clone`]
@@ -171,6 +194,11 @@ impl<T: Clone> Strategy for CloneStrategy<T> {
 
     #[inline(always)]
     fn load(stored: &Self::Stored) -> Self::Target {
+        stored.clone()
+    }
+
+    #[inline(always)]
+    fn copy(stored: &Self::Stored) -> Self::Stored {
         stored.clone()
     }
 
@@ -209,6 +237,13 @@ impl<T: Reflect + FromWorld> Strategy for ReflectStrategy<T> {
     #[inline(always)]
     fn update(target: &mut Self::Target, stored: &Self::Stored) {
         target.apply(stored.as_ref());
+    }
+
+    #[inline(always)]
+    fn copy(stored: &Self::Stored) -> Self::Stored {
+        stored
+            .to_dynamic()
+            .unwrap_or_else(|_| Self::store(&Self::load(stored)))
     }
 
     #[inline(always)]

@@ -7,7 +7,8 @@
 
 use crate::{
     ClearSnapshots, GgrsComponentSnapshots, HeldComponentSnapshot, LoadWorld, LoadWorldSystems,
-    Restore, RollbackId, SaveWorld, SaveWorldSystems, SharedSnapshots, Strategy, stage_insert,
+    Restore, RollbackId, SaveWorld, SaveWorldSystems, SharedSnapshots, Strategy, TableRows,
+    stage_insert,
 };
 use bevy::{
     ecs::{
@@ -69,22 +70,30 @@ where
     ///
     /// Only the chunks of entities holding a component changed, added or
     /// removed since the snapshot the world holds ([`HeldComponentSnapshot`])
-    /// are copied; the rest are shared with it.
+    /// are copied; the rest are shared with it. Tables where nothing changed
+    /// are not read ([`TableRows`]), unless the type is stored in sparse sets.
     pub fn save(
         mut store: SharedSnapshots<S::Target, S::Stored>,
-        query: Query<(&RollbackId, Ref<S::Target>)>,
-        changed: Query<Ref<S::Target>, With<RollbackId>>,
+        query: Query<(Ref<RollbackId>, Ref<S::Target>)>,
     ) {
-        let len = store.save(
-            changed.iter().map(|component| component.last_changed()),
-            query
-                .iter()
-                .map(|(&rollback, component)| (rollback, component.last_changed())),
-            query
-                .iter()
-                .map(|(&rollback, component)| (rollback, component)),
-            |component| S::store(&component),
-        );
+        let len = match query.contiguous_iter() {
+            Ok(tables) => {
+                let tables: Vec<_> = tables
+                    .map(|(ids, values)| TableRows::new(ids, values))
+                    .collect();
+                store.save_tables(&tables, S::store, S::copy)
+            }
+            Err(_) => store.save(
+                query.iter().map(|(_, component)| component.last_changed()),
+                query
+                    .iter()
+                    .map(|(rollback, component)| (*rollback, component.last_changed())),
+                query
+                    .iter()
+                    .map(|(rollback, component)| (*rollback, component)),
+                |component| S::store(&component),
+            ),
+        };
 
         trace!(
             "Snapshot {} {} component(s)",

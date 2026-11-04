@@ -19,10 +19,10 @@ use syn::{DeriveInput, meta::ParseNestedMeta, parse_macro_input};
 ///
 /// ## Summary tick
 ///
-/// A component (not a resource) stored in tables must carry
-/// `#[component(summary_tick)]`: a save skips a table whose summary tick did
-/// not move since the last save, and reads every change tick of one without.
-/// A component without it fails to compile where it registers.
+/// Give a component `#[component(summary_tick)]` as well: a save skips a
+/// table whose summary tick did not move since the last save, and reads every
+/// change tick of one without. Leave it off a type that changes on every
+/// entity every tick, where it only costs.
 ///
 /// ## Extras (optional)
 /// - `eq` — With `copy` or `clone` on a component that implements `RollbackEq`:
@@ -187,26 +187,6 @@ fn derive_rollback_impl(input: DeriveInput) -> syn::Result<proc_macro2::TokenStr
         quote! {}
     };
 
-    // A save reads only the tables whose summary tick moved since the last
-    // one: a table component without it is read whole on every save.
-    let summary_tick_check = if attrs.resource {
-        quote! {}
-    } else {
-        quote! {
-            const {
-                assert!(
-                    <Self as bevy::ecs::component::Component>::HAS_SUMMARY_TICK
-                        || matches!(
-                            <Self as bevy::ecs::component::Component>::STORAGE_TYPE,
-                            bevy::ecs::component::StorageType::SparseSet
-                        ),
-                    "a #[derive(Rollback)] table component needs #[component(summary_tick)]: \
-                     without it, every save reads its every change tick",
-                );
-            }
-        }
-    };
-
     let checksum_call = if attrs.checksum && attrs.resource {
         quote! { app.checksum_resource_with_hash::<Self>(); }
     } else if attrs.checksum {
@@ -219,7 +199,6 @@ fn derive_rollback_impl(input: DeriveInput) -> syn::Result<proc_macro2::TokenStr
         impl #impl_generics bevy_ggrs::RollbackRegistration for #name #ty_generics #where_clause {
             fn register_rollback(app: &mut bevy::prelude::App) {
                 use bevy_ggrs::RollbackApp as _;
-                #summary_tick_check
                 #marker_call
                 #snapshot_call
                 #checksum_call

@@ -9,11 +9,11 @@
 //! holds. An id keeps its chunk for life, so a spawn or a despawn moves no
 //! other entity's.
 //!
-//! A save finds what changed table by table ([`TableRows`]): a rolled-back
-//! type and [`RollbackId`] keep a summary tick per table column
-//! (`#[component(summary_tick)]`, which `#[derive(Rollback)]` asks for), so a
-//! table where neither changed since the last save is not read at all, and a
-//! save where nothing changed reads no component's tick.
+//! A save finds what changed table by table ([`TableRows`]). A type with
+//! `#[component(summary_tick)]` keeps a summary tick per table column, as
+//! [`RollbackId`] does: a table where neither moved since the last save is
+//! not read at all. A type without one has every row of its tables read,
+//! cheaply.
 
 use std::{marker::PhantomData, sync::Arc};
 

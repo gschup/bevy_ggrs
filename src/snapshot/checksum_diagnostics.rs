@@ -165,6 +165,11 @@ impl ChecksumDiagnostics {
 /// When added, the existing checksum plugins will record per-type and per-entity
 /// hash contributions each frame into a [`ChecksumDiagnostics`] resource.
 ///
+/// Recording runs while the resource exists. It costs a map insert per
+/// checksummed entity per frame, so an app that compares checksums only in
+/// some sessions can remove the resource outside them and insert
+/// [`ChecksumDiagnostics::new`] when one starts.
+///
 /// # Examples
 ///
 /// ```rust,no_run
@@ -198,11 +203,14 @@ impl Plugin for ChecksumDiagnosticsPlugin {
                 commit_diagnostics_frame
                     .after(SaveWorldSystems::Checksum)
                     .before(SaveWorldSystems::Snapshot),
-            ),
+            )
+                .run_if(resource_exists::<ChecksumDiagnostics>),
         );
         app.add_observer(
-            |_trigger: On<ClearSnapshots>, mut diagnostics: ResMut<ChecksumDiagnostics>| {
-                diagnostics.clear();
+            |_trigger: On<ClearSnapshots>, diagnostics: Option<ResMut<ChecksumDiagnostics>>| {
+                if let Some(mut diagnostics) = diagnostics {
+                    diagnostics.clear();
+                }
             },
         );
     }

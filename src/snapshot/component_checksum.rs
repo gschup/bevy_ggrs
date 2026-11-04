@@ -14,7 +14,7 @@
 
 use std::hash::{Hash, Hasher};
 
-use bevy::{platform::collections::HashMap, prelude::*};
+use bevy::prelude::*;
 
 use crate::{
     ChecksumDiagnostics, ChecksumFlag, ChecksumPart, RollbackId, RollbackOrdered, SaveWorld,
@@ -49,20 +49,87 @@ use crate::{
 /// ```
 pub struct ComponentChecksumPlugin<C: Component>(pub for<'a> fn(&'a C) -> u64);
 
-/// A type's checksum as it was last taken: each entity's hash, by
-/// [`RollbackId`], their XOR, and a count of the passes taken.
+/// A type's checksum as it was last taken: each entity's hash, their XOR,
+/// and a count of the passes taken.
+///
+/// The hashes are held by the entity index of their [`RollbackId`], not in a
+/// map: every pass visits every entity of the type, so the lookup is paid per
+/// entity per tick, and an index into a dense list is several times cheaper
+/// than a hash lookup. Entity indices are handed out densely.
 #[derive(Default)]
 struct HeldChecksum {
-    hashes: HashMap<RollbackId, EntityHash>,
+    hashes: Vec<Option<EntityHash>>,
+    /// How many of `hashes` are held.
+    len: usize,
     xor: u64,
     pass: u32,
 }
 
 /// One entity's part of a [`HeldChecksum`], and the pass that last found it.
+/// The id tells it from an entity that held the index before.
 struct EntityHash {
+    id: RollbackId,
     order: u64,
     hash: u64,
     seen: u32,
+}
+
+impl HeldChecksum {
+    /// Start a pass over the world's components of the type.
+    fn begin(&mut self) {
+        self.pass = self.pass.wrapping_add(1);
+    }
+
+    /// Find the entity `id` in this pass: rehash it with `hash` (its order and
+    /// its hash) when it `changed` or is not held, else keep its hash.
+    #[inline]
+    fn visit(&mut self, id: RollbackId, changed: bool, hash: impl FnOnce() -> (u64, u64)) {
+        let index = id.index() as usize;
+        if index >= self.hashes.len() {
+            self.hashes.resize_with(index + 1, || None);
+        }
+        let slot = &mut self.hashes[index];
+        if let Some(entry) = slot
+            && entry.id == id
+            && !changed
+        {
+            entry.seen = self.pass;
+            return;
+        }
+        let (order, hash) = hash();
+        // XOR chosen over addition or multiplication as it is closed on u64 and
+        // commutative, and is its own inverse, so a changed entity's old hash
+        // comes back out. An entry under another id is a despawned entity's
+        // whose index was reused: its hash comes out too.
+        let entry = EntityHash {
+            id,
+            order,
+            hash,
+            seen: self.pass,
+        };
+        match slot.replace(entry) {
+            Some(old) => self.xor ^= old.hash,
+            None => self.len += 1,
+        }
+        self.xor ^= hash;
+    }
+
+    /// End a pass that found `count` entities: one held that the pass did not
+    /// find no longer has the component, and its hash comes back out.
+    fn end(&mut self, count: usize) {
+        if self.len == count {
+            return;
+        }
+        for slot in &mut self.hashes {
+            if let Some(entry) = slot
+                && entry.seen != self.pass
+            {
+                self.xor ^= entry.hash;
+                self.len -= 1;
+                *slot = None;
+            }
+        }
+    }
 }
 
 fn default_hasher<C: Component + Hash>(component: &C) -> u64 {
@@ -102,55 +169,26 @@ where
                            mut held: Local<HeldChecksum>| {
             let type_name = std::any::type_name::<C>();
             let held = &mut *held;
-            held.pass = held.pass.wrapping_add(1);
-            let pass = held.pass;
+            held.begin();
 
             // Rehash what changed since the last checksum (this system runs on
-            // every save, so its last run is that checksum), XORing its old hash
-            // out and its new one in.
-            let mut count = 0;
-            for (&rollback, component) in components.iter() {
-                count += 1;
-                if let Some(entry) = held.hashes.get_mut(&rollback)
-                    && !component.is_changed()
-                {
-                    entry.seen = pass;
-                    continue;
-                }
-                let mut hasher = checksum_hasher();
-                // Hashing the rollback index ensures this hash is unique and stable
-                let order = rollback_ordered.order(rollback);
-                order.hash(&mut hasher);
-                custom_hasher(&component).hash(&mut hasher);
-                let hash = hasher.finish();
-                // XOR chosen over addition or multiplication as it is closed on u64 and
-                // commutative, and is its own inverse, so a changed entity's old hash
-                // comes back out
-                let entry = EntityHash {
-                    order,
-                    hash,
-                    seen: pass,
-                };
-                if let Some(old) = held.hashes.insert(rollback, entry) {
-                    held.xor ^= old.hash;
-                }
-                held.xor ^= hash;
-            }
-            // An entity that no longer has the component: this pass did not find
-            // it, and its hash comes back out.
-            if held.hashes.len() != count {
-                let xor = &mut held.xor;
-                held.hashes.retain(|_, entry| {
-                    let kept = entry.seen == pass;
-                    if !kept {
-                        *xor ^= entry.hash;
-                    }
-                    kept
+            // every save, so its last run is that checksum). A fold, not a
+            // loop: a query's fold walks its tables directly.
+            let count = components.iter().fold(0, |count, (&rollback, component)| {
+                held.visit(rollback, component.is_changed(), || {
+                    let mut hasher = checksum_hasher();
+                    // Hashing the rollback index ensures this hash is unique and stable
+                    let order = rollback_ordered.order(rollback);
+                    order.hash(&mut hasher);
+                    custom_hasher(&component).hash(&mut hasher);
+                    (order, hasher.finish())
                 });
-            }
+                count + 1
+            });
+            held.end(count);
 
             if let Some(ref diag) = diagnostics {
-                for entry in held.hashes.values() {
+                for entry in held.hashes.iter().flatten() {
                     diag.record_entity_hash(type_name, entry.order, entry.hash);
                 }
             }
@@ -179,5 +217,68 @@ where
         };
 
         app.add_systems(SaveWorld, update.in_set(SaveWorldSystems::Checksum));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn id(index: u32, generation: u32) -> RollbackId {
+        let entity = Entity::from_raw_u32(index).unwrap();
+        let entity = Entity::from_index_and_generation(
+            entity.index(),
+            bevy::ecs::entity::EntityGeneration::FIRST.after_versions(generation),
+        );
+        RollbackId::new(entity)
+    }
+
+    /// The XOR of `entries`' hashes, as a checksum taken fresh holds it.
+    fn fresh(entries: &[(RollbackId, u64)]) -> u64 {
+        let mut held = HeldChecksum::default();
+        held.begin();
+        for &(id, hash) in entries {
+            held.visit(id, true, || (0, hash));
+        }
+        held.end(entries.len());
+        held.xor
+    }
+
+    /// An entity despawned and its index handed to a new one between two
+    /// passes: the old hash comes out, the new one goes in.
+    #[test]
+    fn a_reused_index_replaces_the_old_hash() {
+        let mut held = HeldChecksum::default();
+        held.begin();
+        held.visit(id(3, 0), true, || (0, 0xa));
+        held.visit(id(4, 0), true, || (1, 0xb));
+        held.end(2);
+
+        held.begin();
+        held.visit(id(3, 1), false, || (2, 0xc));
+        held.visit(id(4, 0), false, || unreachable!("unchanged and held"));
+        held.end(2);
+
+        assert_eq!(held.len, 2);
+        assert_eq!(held.xor, fresh(&[(id(3, 1), 0xc), (id(4, 0), 0xb)]));
+    }
+
+    /// One entity lost the component and another came back in the same pass:
+    /// the count is the same, the departed hash still comes out.
+    #[test]
+    fn a_departure_beside_an_arrival_comes_out() {
+        let mut held = HeldChecksum::default();
+        held.begin();
+        held.visit(id(1, 0), true, || (0, 0x1));
+        held.visit(id(2, 0), true, || (1, 0x2));
+        held.end(2);
+
+        held.begin();
+        held.visit(id(1, 0), false, || unreachable!());
+        held.visit(id(9, 0), false, || (2, 0x9));
+        held.end(2);
+
+        assert_eq!(held.len, 2);
+        assert_eq!(held.xor, fresh(&[(id(1, 0), 0x1), (id(9, 0), 0x9)]));
     }
 }

@@ -69,24 +69,13 @@ impl ChildOfSnapshotPlugin {
         mut store: SharedSnapshots<ChildOf, ChildOf>,
         query: Query<(Ref<RollbackId>, Ref<ChildOf>)>,
     ) {
-        let len = match query.contiguous_iter() {
-            Ok(tables) => {
-                let tables: Vec<_> = tables
-                    .map(|(ids, values)| TableRows::new(ids, values))
-                    .collect();
-                store.save_tables(&tables, ChildOf::clone, ChildOf::clone)
-            }
-            Err(_) => store.save(
-                query.iter().map(|(_, child_of)| child_of.last_changed()),
-                query
-                    .iter()
-                    .map(|(rollback, child_of)| (*rollback, child_of.last_changed())),
-                query
-                    .iter()
-                    .map(|(rollback, child_of)| (*rollback, child_of)),
-                |child_of| ChildOf::clone(&child_of),
-            ),
-        };
+        // ChildOf is stored in tables, so the query is dense.
+        let tables: Vec<_> = query
+            .contiguous_iter()
+            .expect("ChildOf is a table component")
+            .map(|(ids, values)| TableRows::new(ids, values))
+            .collect();
+        let len = store.save_tables(&tables, ChildOf::clone, ChildOf::clone);
 
         trace!(
             "Snapshot {} {} component(s)",

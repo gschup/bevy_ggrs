@@ -75,22 +75,13 @@ impl EntitySnapshotPlugin {
         mut store: SharedSnapshots<Entity, Entity>,
         query: Query<(Ref<RollbackId>, Entity)>,
     ) {
-        let len = match query.contiguous_iter() {
-            Ok(tables) => {
-                let tables: Vec<_> = tables
-                    .map(|(ids, entities)| TableRows::entities(ids, entities))
-                    .collect();
-                store.save_tables(&tables, |&entity| entity, |&entity| entity)
-            }
-            Err(_) => store.save(
-                query.iter().map(|(rollback, _)| rollback.last_changed()),
-                query
-                    .iter()
-                    .map(|(rollback, _)| (*rollback, rollback.last_changed())),
-                query.iter().map(|(rollback, entity)| (*rollback, entity)),
-                |entity| entity,
-            ),
-        };
+        // RollbackId is stored in tables, so the query is dense.
+        let tables: Vec<_> = query
+            .contiguous_iter()
+            .expect("RollbackId is a table component")
+            .map(|(ids, entities)| TableRows::entities(ids, entities))
+            .collect();
+        let len = store.save_tables(&tables, |&entity| entity, |&entity| entity);
 
         trace!("Snapshot {} entity(s)", len);
     }

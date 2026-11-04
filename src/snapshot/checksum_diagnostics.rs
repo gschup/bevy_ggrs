@@ -167,8 +167,8 @@ impl ChecksumDiagnostics {
 ///
 /// Recording runs while the resource exists. It costs a map insert per
 /// checksummed entity per frame, so an app that compares checksums only in
-/// some sessions can remove the resource outside them and insert
-/// [`ChecksumDiagnostics::new`] when one starts.
+/// some sessions sets `history_length` to `None` and inserts
+/// [`ChecksumDiagnostics::new`] when one starts, removing it when it ends.
 ///
 /// # Examples
 ///
@@ -177,24 +177,28 @@ impl ChecksumDiagnostics {
 /// # use bevy_ggrs::prelude::*;
 /// # use bevy_ggrs::ChecksumDiagnosticsPlugin;
 /// # let mut app = App::new();
-/// app.add_plugins(ChecksumDiagnosticsPlugin { history_length: 120 });
+/// app.add_plugins(ChecksumDiagnosticsPlugin { history_length: Some(120) });
 /// ```
 pub struct ChecksumDiagnosticsPlugin {
-    /// Number of frames to retain in the ring buffer. Default: 120.
-    pub history_length: usize,
+    /// Number of frames to retain in the ring buffer, recording from the
+    /// start. `None` records nothing until the app inserts
+    /// [`ChecksumDiagnostics`]. Default: `Some(120)`.
+    pub history_length: Option<usize>,
 }
 
 impl Default for ChecksumDiagnosticsPlugin {
     fn default() -> Self {
         Self {
-            history_length: 120,
+            history_length: Some(120),
         }
     }
 }
 
 impl Plugin for ChecksumDiagnosticsPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(ChecksumDiagnostics::new(self.history_length));
+        if let Some(history_length) = self.history_length {
+            app.insert_resource(ChecksumDiagnostics::new(history_length));
+        }
 
         app.add_systems(
             SaveWorld,

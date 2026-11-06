@@ -13,7 +13,7 @@ use std::marker::PhantomData;
 
 use bevy::{
     prelude::{FromWorld, World},
-    reflect::{PartialReflect, Reflect, ReflectMut, ReflectRef},
+    reflect::{PartialReflect, Reflect, ReflectMut, ReflectRef, TypeInfo},
 };
 
 /// Describes how to efficiently transform a [`Target`](`Strategy::Target`) into a
@@ -144,6 +144,13 @@ fn truncate_lists(target: &mut dyn PartialReflect, source: &dyn PartialReflect) 
             while target.len() > source.len() {
                 target.pop();
             }
+            if is_opaque(
+                target
+                    .get_represented_list_info()
+                    .and_then(|i| i.item_info()),
+            ) {
+                return;
+            }
             for (i, source) in source.iter().enumerate() {
                 if let Some(target) = target.get_mut(i) {
                     truncate_lists(target, source);
@@ -151,6 +158,13 @@ fn truncate_lists(target: &mut dyn PartialReflect, source: &dyn PartialReflect) 
             }
         }
         (ReflectMut::Array(target), ReflectRef::Array(source)) => {
+            if is_opaque(
+                target
+                    .get_represented_array_info()
+                    .and_then(|i| i.item_info()),
+            ) {
+                return;
+            }
             for (i, source) in source.iter().enumerate() {
                 if let Some(target) = target.get_mut(i) {
                     truncate_lists(target, source);
@@ -196,6 +210,13 @@ fn truncate_lists(target: &mut dyn PartialReflect, source: &dyn PartialReflect) 
         }
         _ => {}
     }
+}
+
+/// Whether `info` describes an opaque type, which [`PartialReflect::apply`] replaces as a whole
+/// and which therefore never needs [`truncate_lists`]. Used to skip walking the elements of
+/// lists such as `Vec<u32>`.
+fn is_opaque(info: Option<&'static TypeInfo>) -> bool {
+    matches!(info, Some(TypeInfo::Opaque(_)))
 }
 
 #[cfg(test)]

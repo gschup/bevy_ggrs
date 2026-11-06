@@ -193,6 +193,13 @@ fn truncate_lists(target: &mut dyn PartialReflect, source: &dyn PartialReflect) 
             }
         }
         (ReflectMut::Map(target), ReflectRef::Map(source)) => {
+            if is_opaque(
+                target
+                    .get_represented_map_info()
+                    .and_then(|i| i.value_info()),
+            ) {
+                return;
+            }
             for (key, source) in source.iter() {
                 if let Some(target) = target.get_mut(key) {
                     truncate_lists(target, source);
@@ -214,7 +221,7 @@ fn truncate_lists(target: &mut dyn PartialReflect, source: &dyn PartialReflect) 
 
 /// Whether `info` describes an opaque type, which [`PartialReflect::apply`] replaces as a whole
 /// and which therefore never needs [`truncate_lists`]. Used to skip walking the elements of
-/// lists such as `Vec<u32>`.
+/// lists such as `Vec<u32>` and the values of maps such as `HashMap<String, u32>`.
 fn is_opaque(info: Option<&'static TypeInfo>) -> bool {
     matches!(info, Some(TypeInfo::Opaque(_)))
 }

@@ -136,8 +136,9 @@ impl<T: Reflect + FromWorld> Strategy for ReflectStrategy<T> {
 /// Restoring a snapshot in which a list was shorter would otherwise keep the stale tail.
 ///
 /// Must be called after `target.apply(source)`, so both sides have the same shape apart
-/// from list lengths. Maps and sets need no handling here, as their `apply` already
-/// removes entries missing from the source.
+/// from list lengths. A shape mismatch (only possible with a custom [`PartialReflect`]
+/// implementation) skips that subtree and trips a debug assertion. Maps and sets need no
+/// handling here, as their `apply` already removes entries missing from the source.
 fn truncate_lists(target: &mut dyn PartialReflect, source: &dyn PartialReflect) {
     match (target.reflect_mut(), source.reflect_ref()) {
         (ReflectMut::List(target), ReflectRef::List(source)) => {
@@ -206,16 +207,26 @@ fn truncate_lists(target: &mut dyn PartialReflect, source: &dyn PartialReflect) 
                 }
             }
         }
-        (ReflectMut::Enum(target), ReflectRef::Enum(source))
-            if target.variant_name() == source.variant_name() =>
-        {
+        (ReflectMut::Enum(target), ReflectRef::Enum(source)) => {
+            debug_assert_eq!(
+                target.variant_name(),
+                source.variant_name(),
+                "enum variant differs after `apply`, list truncation is skipped"
+            );
+            if target.variant_name() != source.variant_name() {
+                return;
+            }
             for i in 0..source.field_len() {
                 if let (Some(target), Some(source)) = (target.field_at_mut(i), source.field_at(i)) {
                     truncate_lists(target, source);
                 }
             }
         }
-        _ => {}
+        (target, source) => debug_assert_eq!(
+            target.kind(),
+            source.kind(),
+            "reflect kind differs after `apply`, list truncation is skipped"
+        ),
     }
 }
 

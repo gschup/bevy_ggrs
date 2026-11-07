@@ -95,7 +95,9 @@ impl<T: Clone> Strategy for CloneStrategy<T> {
 /// Restoring a snapshot into an existing value updates it in place via [`PartialReflect::apply`],
 /// then truncates any lists that were longer than in the snapshot. Fields marked
 /// `#[reflect(ignore)]` are not part of the snapshot, so they are left untouched by an in-place
-/// restore and take their [`FromWorld`] value when the value has to be re-created.
+/// restore. When the value has to be re-created, they take the value [`FromWorld`] produces
+/// for an empty [`World`], not the app's world, so a [`FromWorld`] impl must not rely on
+/// resources being present.
 pub struct ReflectStrategy<T: Reflect + FromWorld>(PhantomData<T>);
 
 impl<T: Reflect + FromWorld> Strategy for ReflectStrategy<T> {

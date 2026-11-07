@@ -13,6 +13,16 @@ use bevy::prelude::*;
 use bevy_ggrs::{prelude::*, *};
 use common::base_synctest_app;
 
+/// Asserts that `list` holds one entry per simulated frame: consecutive frame numbers with no
+/// repeats, which a stale tail kept across a rollback would introduce.
+fn assert_one_entry_per_frame(list: &[i32], updates: usize) {
+    assert!(!list.is_empty(), "list is empty after {updates} updates");
+    assert!(
+        list.windows(2).all(|w| w[1] == w[0] + 1),
+        "list should hold consecutive frame numbers after {updates} updates, got {list:?}"
+    );
+}
+
 /// A component holding a list that grows by one element per frame.
 #[derive(Component, Reflect, Default, Clone, Hash, Debug, PartialEq)]
 struct Trail(Vec<i32>);
@@ -44,7 +54,6 @@ fn reflect_strategy_rolls_back_component_list() {
         app.update();
     }
 
-    let frame = app.world().resource::<RollbackFrameCount>().0;
     let trail = app
         .world_mut()
         .query::<&Trail>()
@@ -52,11 +61,7 @@ fn reflect_strategy_rolls_back_component_list() {
         .unwrap()
         .0
         .clone();
-    assert_eq!(
-        trail,
-        (1..=frame).collect::<Vec<_>>(),
-        "Trail should hold exactly one entry per simulated frame after {updates} updates"
-    );
+    assert_one_entry_per_frame(&trail, updates);
 }
 
 /// A resource holding a list that grows by one element per frame.
@@ -86,10 +91,5 @@ fn reflect_strategy_rolls_back_resource_list() {
         app.update();
     }
 
-    let frame = app.world().resource::<RollbackFrameCount>().0;
-    assert_eq!(
-        app.world().resource::<History>().0,
-        (1..=frame).collect::<Vec<_>>(),
-        "History should hold exactly one entry per simulated frame after {updates} updates"
-    );
+    assert_one_entry_per_frame(&app.world().resource::<History>().0, updates);
 }

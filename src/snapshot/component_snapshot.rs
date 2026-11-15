@@ -6,9 +6,9 @@
 //! marked `#[component(immutable)]`, which must be re-inserted rather than mutated in place.
 
 use crate::{
-    ClearSnapshots, GgrsComponentSnapshots, HeldComponentSnapshot, LoadWorld, LoadWorldSystems,
-    Restore, RollbackId, SaveWorld, SaveWorldSystems, SharedSnapshots, Strategy, TableRows,
-    stage_insert,
+    ChunksToLoad, ClearSnapshots, GgrsComponentSnapshot, GgrsComponentSnapshots,
+    HeldComponentSnapshot, LoadWorld, LoadWorldSystems, Restore, RollbackEntities, RollbackId,
+    SaveWorld, SaveWorldSystems, SharedSnapshots, Strategy, TableRows, TablesLoad, stage_insert,
 };
 use bevy::{
     ecs::{
@@ -118,11 +118,87 @@ where
     /// ([`HeldComponentSnapshot`]) is skipped: nothing there is written, so
     /// nothing is marked changed, and the saves of the resimulated frames share
     /// it.
+    ///
+    /// Which chunks those are is found table by table
+    /// ([`HeldComponentSnapshot::plan_tables`]), and only their entities are
+    /// visited, found through [`RollbackEntities`]: a load costs what differs,
+    /// not every entity holding the type. Where the tables cannot vouch for
+    /// the world, or an entity is not where the map says, it walks them all.
     pub fn load(
         mut commands: Commands,
         mut store: SharedSnapshots<S::Target, S::Stored>,
-        mut with: Query<(Entity, &RollbackId, Mut<S::Target>)>,
+        mut queries: ParamSet<(
+            Query<(Ref<RollbackId>, Ref<S::Target>)>,
+            Query<(Entity, &RollbackId, Mut<S::Target>)>,
+        )>,
         without: Query<(Entity, &RollbackId), Without<S::Target>>,
+        entities: Res<RollbackEntities>,
+    ) {
+        let plan = {
+            let tables = queries.p0();
+            match tables.contiguous_iter() {
+                Ok(tables) => {
+                    let tables: Vec<_> = tables
+                        .map(|(ids, values)| TableRows::new(ids, values))
+                        .collect();
+                    store.plan_tables(&tables)
+                }
+                Err(_) => TablesLoad::Walk,
+            }
+        };
+        let chunks = match plan {
+            TablesLoad::Nothing => {
+                store.loaded();
+                return;
+            }
+            TablesLoad::Chunks(chunks) => chunks,
+            TablesLoad::Walk => {
+                Self::walk(&mut commands, &mut store, &mut queries.p1(), &without);
+                return;
+            }
+        };
+        let mut with = queries.p1();
+        let Some(writes) = resolve(&chunks, store.frame_snapshot(), &with, &without, &entities)
+        else {
+            Self::walk(&mut commands, &mut store, &mut with, &without);
+            return;
+        };
+        let snapshot = store.frame_snapshot();
+        for write in &writes {
+            match *write {
+                Write::Update(entity, rollback) => {
+                    let stored = snapshot.get(&rollback).expect("resolved from it");
+                    let (_, _, mut component) = with.get_mut(entity).expect("resolved");
+                    // Read without marking it changed; written only when it differs.
+                    if !S::equals(&component, stored) {
+                        S::update(component.as_mut(), stored);
+                    }
+                }
+                Write::Remove(entity) => {
+                    commands.entity(entity).remove::<S::Target>();
+                }
+                Write::Insert(entity, rollback) => {
+                    let stored = snapshot.get(&rollback).expect("resolved from it");
+                    commands.queue(stage_insert(entity, rollback, S::load(stored)));
+                }
+            }
+        }
+        store.loaded();
+
+        trace!(
+            "Rolled back {} {} component(s) in {} chunk(s)",
+            writes.len(),
+            disqualified::ShortName::of::<S::Target>(),
+            chunks.chunks.len()
+        );
+    }
+
+    /// [`load`](Self::load) by walking every entity holding the type.
+    fn walk(
+        commands: &mut Commands,
+        store: &mut SharedSnapshots<S::Target, S::Stored>,
+        with: &mut Query<(Entity, &RollbackId, Mut<S::Target>)>,
+        without: &Query<(Entity, &RollbackId), Without<S::Target>>,
     ) {
         let Some(plan) = store.load(
             with.iter()
@@ -154,7 +230,7 @@ where
                 },
             );
         if plan.holds_more(matched) {
-            for (entity, rollback) in &without {
+            for (entity, rollback) in without {
                 if let Some(snapshot) = plan.missing(rollback) {
                     commands.queue(stage_insert(entity, *rollback, S::load(snapshot)));
                 }
@@ -162,11 +238,73 @@ where
         }
 
         trace!(
-            "Rolled back {} {} component(s)",
+            "Rolled back {} {} component(s) by walking",
             plan.to_write(),
             disqualified::ShortName::of::<S::Target>()
         );
     }
+}
+
+/// One write of a load by tables, to an entity found and checked before
+/// anything is written.
+enum Write {
+    /// The entity holds the type: give it the snapshot's value.
+    Update(Entity, RollbackId),
+    /// The snapshot holds none for it: remove it.
+    Remove(Entity),
+    /// The entity lacks the type: stage the snapshot's value.
+    Insert(Entity, RollbackId),
+}
+
+/// The writes a load of `chunks` makes, each to an entity [`RollbackEntities`]
+/// names and whose own [`RollbackId`] agrees, or `None` if one does not: the
+/// load then walks. An id of the snapshot whose entity is not in the world,
+/// or is marked despawned, is left alone, as the walk leaves it.
+fn resolve<T: Component<Mutability = Mutable>, As>(
+    chunks: &ChunksToLoad,
+    snapshot: &GgrsComponentSnapshot<T, As>,
+    with: &Query<(Entity, &RollbackId, Mut<T>)>,
+    without: &Query<(Entity, &RollbackId), Without<T>>,
+    entities: &RollbackEntities,
+) -> Option<Vec<Write>> {
+    let holding = |rollback: RollbackId| {
+        let entity = entities.get(rollback)?;
+        let (_, &found, _) = with.get(entity).ok()?;
+        (found == rollback).then_some(entity)
+    };
+    let mut writes = Vec::new();
+    for &index in &chunks.chunks {
+        let world = chunks.world_in(index);
+        let entries = snapshot.chunk_entries(index);
+        for &rollback in world {
+            let entity = holding(rollback)?;
+            if entries
+                .binary_search_by_key(&rollback, |(id, _)| *id)
+                .is_err()
+            {
+                writes.push(Write::Remove(entity));
+            }
+        }
+        for &(rollback, _) in entries {
+            if world.binary_search(&rollback).is_ok() {
+                writes.push(Write::Update(holding(rollback)?, rollback));
+                continue;
+            }
+            let Some(entity) = entities.get(rollback) else {
+                continue;
+            };
+            if let Ok((_, &found)) = without.get(entity) {
+                if found != rollback {
+                    return None;
+                }
+                writes.push(Write::Insert(entity, rollback));
+            } else if with.get(entity).is_ok() {
+                // It holds the type, but the plan did not know: walk.
+                return None;
+            }
+        }
+    }
+    Some(writes)
 }
 
 impl<S> Plugin for ComponentSnapshotPlugin<S>

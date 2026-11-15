@@ -384,6 +384,7 @@ impl Plugin for SnapshotPlugin {
             );
         app.add_plugins(SnapshotSetPlugin)
             .init_resource::<RollbackOrdered>()
+            .init_resource::<RollbackEntities>()
             .init_resource::<RollbackOrderedPrune>()
             .init_resource::<RollbackFrameCount>()
             .init_resource::<ConfirmedFrameCount>()

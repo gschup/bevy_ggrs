@@ -8,7 +8,7 @@
 use std::sync::Arc;
 
 use bevy::{
-    ecs::{lifecycle::HookContext, world::DeferredWorld},
+    ecs::{entity::EntityHashMap, lifecycle::HookContext, world::DeferredWorld},
     platform::collections::HashMap,
     prelude::*,
     reflect::CreateTypeData,
@@ -43,6 +43,7 @@ pub struct Rollback;
     immutable,
     summary_tick,
     clone_behavior = Ignore,
+    on_insert = on_rollback_id_inserted,
     on_remove = on_rollback_id_removed
 )]
 pub struct RollbackId(Entity);
@@ -86,6 +87,45 @@ fn on_rollback_id_removed(mut world: DeferredWorld, ctx: HookContext) {
     };
     if let Some(mut ordered) = world.get_resource_mut::<RollbackOrdered>() {
         ordered.forget(rollback);
+    }
+    if let Some(mut entities) = world.get_resource_mut::<RollbackEntities>() {
+        entities.forget(rollback, ctx.entity);
+    }
+}
+
+/// A respawn gives an id a new entity: [`RollbackEntities`] follows it.
+fn on_rollback_id_inserted(mut world: DeferredWorld, ctx: HookContext) {
+    let Some(&rollback) = world.get::<RollbackId>(ctx.entity) else {
+        return;
+    };
+    if let Some(mut entities) = world.get_resource_mut::<RollbackEntities>() {
+        entities.0.insert(rollback.0, ctx.entity);
+    }
+}
+
+/// The entity carrying each [`RollbackId`], so a load can go straight to the
+/// entities of the chunks it writes instead of walking a query. Kept by
+/// [`RollbackId`]'s hooks: the id is immutable, so every insert, a respawn's
+/// included, passes `on_insert`, and every removal `on_remove`. Not
+/// simulation state and never snapshotted: it describes the world as it is.
+///
+/// Keyed by the whole id, not its index: a respawned id and a newer entity
+/// can share an index. A reader checks what it finds against the entity's
+/// own [`RollbackId`] before it trusts it.
+#[derive(Resource, Default)]
+pub struct RollbackEntities(EntityHashMap<Entity>);
+
+impl RollbackEntities {
+    fn forget(&mut self, rollback: RollbackId, entity: Entity) {
+        if self.0.get(&rollback.0) == Some(&entity) {
+            self.0.remove(&rollback.0);
+        }
+    }
+
+    /// The entity carrying `rollback`, as far as the hooks saw.
+    #[inline]
+    pub fn get(&self, rollback: RollbackId) -> Option<Entity> {
+        self.0.get(&rollback.0).copied()
     }
 }
 

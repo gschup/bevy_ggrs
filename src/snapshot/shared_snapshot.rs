@@ -151,6 +151,12 @@ impl<For, As> GgrsComponentSnapshot<For, As> {
         }
     }
 
+    /// The entries of chunk `index`, sorted by id; empty where the snapshot
+    /// holds none.
+    pub fn chunk_entries(&self, index: usize) -> &[(RollbackId, As)] {
+        self.snapshot.chunk(index).map_or(&[], |chunk| &chunk[..])
+    }
+
     /// Get a single snapshot for the provided [`RollbackId`].
     pub fn get(&self, id: &RollbackId) -> Option<&As> {
         find(self.snapshot.chunk(chunk_of(id))?, id)
@@ -328,6 +334,36 @@ impl<For, As> Default for HeldComponentSnapshot<For, As> {
             copies: Vec::new(),
             changes: Vec::new(),
         }
+    }
+}
+
+/// What [`HeldComponentSnapshot::plan_tables`] found a load must do.
+#[derive(Debug, PartialEq)]
+pub enum TablesLoad {
+    /// The world holds the frame's snapshot already: nothing to write.
+    Nothing,
+    /// Only these chunks can differ.
+    Chunks(ChunksToLoad),
+    /// The tables cannot vouch for the world: plan by walking it.
+    Walk,
+}
+
+/// The chunks a load by tables writes.
+#[derive(Debug, PartialEq)]
+pub struct ChunksToLoad {
+    /// Their indices, ascending.
+    pub chunks: Vec<usize>,
+    /// The ids the world holds a component of the type for in them, by
+    /// chunk, then by id.
+    pub world: Vec<RollbackId>,
+}
+
+impl ChunksToLoad {
+    /// The ids of `world` in chunk `index`.
+    pub fn world_in(&self, index: usize) -> &[RollbackId] {
+        let start = self.world.partition_point(|id| chunk_of(id) < index);
+        let end = self.world.partition_point(|id| chunk_of(id) <= index);
+        &self.world[start..end]
     }
 }
 
@@ -683,6 +719,82 @@ impl<For, As> HeldComponentSnapshot<For, As> {
         })
     }
 
+    /// Plan a load of `snapshot` from the world's components of the type
+    /// table by table, as [`save_tables`](Self::save_tables) saves: what a
+    /// load costs then follows what differs, not what exists.
+    ///
+    /// The world equals the held snapshot except in the rows written since
+    /// the held tick, which the touched tables name. `snapshot` equals the
+    /// held one except in the chunks the two do not share, which a pointer
+    /// compare names. So only those chunks, and the chunks of those rows,
+    /// can need a write; the world holds `snapshot` everywhere else. A
+    /// component that went leaves no tick: the count catches it, and so
+    /// does a load with no held snapshot, or one held from before
+    /// `last_run`, which the summary ticks cannot vouch for. Those plan
+    /// [`Walk`](TablesLoad::Walk), and the caller loads as
+    /// [`load`](Self::load) does.
+    ///
+    /// Plans only: the world equals `snapshot` once the caller has written
+    /// what the plan says and then called [`loaded`](Self::loaded).
+    pub fn plan_tables<V>(
+        &self,
+        snapshot: &GgrsComponentSnapshot<For, As>,
+        tables: &[TableRows<'_, V>],
+        last_run: Tick,
+        this_run: Tick,
+    ) -> TablesLoad {
+        let Some((held, tick)) = &self.held else {
+            return TablesLoad::Walk;
+        };
+        let tick = *tick;
+        if last_run.is_newer_than(tick, this_run) {
+            return TablesLoad::Walk;
+        }
+        let total: usize = tables.iter().map(|table| table.ids.len()).sum();
+        let mut written = Vec::new();
+        for table in tables.iter().filter(|table| table.touched) {
+            for row in 0..table.ids.len() {
+                if table.ticks[row].is_newer_than(tick, this_run)
+                    || table.id_ticks[row].is_newer_than(tick, this_run)
+                {
+                    written.push(table.ids[row]);
+                }
+            }
+        }
+        let gained = written.iter().filter(|id| held.get(id).is_none()).count();
+        if total != held.len() + gained {
+            return TablesLoad::Walk;
+        }
+        let mut chunks: Vec<usize> = written.iter().map(chunk_of).collect();
+        if !held.same(snapshot) {
+            let (ours, theirs) = (&held.snapshot, &snapshot.snapshot);
+            for index in 0..ours.chunks.len().max(theirs.chunks.len()) {
+                if !same_chunk(ours.chunk(index), theirs.chunk(index)) {
+                    chunks.push(index);
+                }
+            }
+        }
+        if chunks.is_empty() {
+            return TablesLoad::Nothing;
+        }
+        chunks.sort_unstable();
+        chunks.dedup();
+        let mut world: Vec<RollbackId> = chunks
+            .iter()
+            .filter_map(|&index| held.snapshot.chunk(index))
+            .flat_map(|chunk| chunk.iter().map(|(id, _)| *id))
+            .chain(written.into_iter().filter(|id| held.get(id).is_none()))
+            .collect();
+        world.sort_unstable_by_key(|id| (chunk_of(id), *id));
+        TablesLoad::Chunks(ChunksToLoad { chunks, world })
+    }
+
+    /// Hold `snapshot`: the world equals it from `this_run` on, after a load
+    /// that wrote what [`plan_tables`](Self::plan_tables) said.
+    pub fn loaded(&mut self, snapshot: &GgrsComponentSnapshot<For, As>, this_run: Tick) {
+        self.held = Some((snapshot.clone(), this_run));
+    }
+
     /// Forget the held snapshot: the next save copies.
     pub fn clear(&mut self) {
         self.held = None;
@@ -751,6 +863,34 @@ impl<For: Send + Sync + 'static, As: Send + Sync + 'static> SharedSnapshots<'_, 
         let len = snapshot.len();
         self.snapshots.push(self.frame.0, snapshot);
         len
+    }
+
+    /// Plan a load of the frame's snapshot table by table
+    /// ([`HeldComponentSnapshot::plan_tables`]).
+    pub fn plan_tables<V>(&self, tables: &[TableRows<'_, V>]) -> TablesLoad {
+        self.held.plan_tables(
+            self.frame_snapshot(),
+            tables,
+            self.ticks.last_run(),
+            self.ticks.this_run(),
+        )
+    }
+
+    /// The frame's snapshot, as a load reads it.
+    pub fn frame_snapshot(&self) -> &GgrsComponentSnapshot<For, As> {
+        let frame = self.frame.0;
+        self.snapshots.peek(frame).unwrap_or_else(|| {
+            panic!("Could not rollback to {frame}: no snapshot at that moment could be found.")
+        })
+    }
+
+    /// Hold the frame's snapshot: a load by tables wrote what its plan said
+    /// ([`HeldComponentSnapshot::loaded`]).
+    pub fn loaded(&mut self) {
+        let frame = self.frame.0;
+        let this_run = self.ticks.this_run();
+        let snapshot = self.snapshots.peek(frame).expect("planned from it");
+        self.held.loaded(snapshot, this_run);
     }
 
     /// Plan a load of the frame's snapshot ([`HeldComponentSnapshot::load`]).
@@ -1073,6 +1213,100 @@ mod tests {
         assert!(matches!(plan.restore(&id(20)), Restore::Stored(&20)));
         assert!(matches!(plan.restore(&id(40)), Restore::Shared));
         assert!(!plan.holds_more(16));
+    }
+
+    /// A world of ids 0..64, value = id, every row written at tick 1, saved
+    /// at 2; then id 20 written at 3 and saved at 4. Returns the two
+    /// snapshots and the world as the second save left it; `held` holds the
+    /// second.
+    fn two_saves_by_tables(held: &mut Held) -> (Snapshot, Snapshot, Vec<(u32, u32, u32)>) {
+        let mut world: Vec<(u32, u32, u32)> = (0..64).map(|i| (i, i, 1)).collect();
+        let old = save_tables(held, &[Table::new(true, &world)], 0, 2);
+        world[20] = (20, 99, 3);
+        let new = save_tables(held, &[Table::new(true, &world)], 2, 4);
+        (old, new, world)
+    }
+
+    /// The ids of `range`, in the order ids sort.
+    fn ids(range: std::ops::Range<u32>) -> Vec<RollbackId> {
+        let mut ids: Vec<_> = range.map(id).collect();
+        ids.sort_unstable();
+        ids
+    }
+
+    fn plan(held: &Held, snapshot: &Snapshot, tables: &[Table], last: u32, now: u32) -> TablesLoad {
+        let rows: Vec<_> = tables.iter().map(Table::rows).collect();
+        held.plan_tables(snapshot, &rows, tick(last), tick(now))
+    }
+
+    /// A rollback to an older snapshot reads no untouched table: the chunks
+    /// the two snapshots do not share are the ones to write, with the ids
+    /// the world holds there, and a load of the held one writes nothing.
+    #[test]
+    fn a_load_by_tables_plans_only_the_chunks_the_snapshots_do_not_share() {
+        let mut held = Held::default();
+        let (old, new, world) = two_saves_by_tables(&mut held);
+        let untouched = [Table::new(false, &world)];
+        assert_eq!(plan(&held, &new, &untouched, 4, 5), TablesLoad::Nothing);
+        assert_eq!(
+            plan(&held, &old, &untouched, 4, 5),
+            TablesLoad::Chunks(ChunksToLoad {
+                chunks: vec![1],
+                world: ids(16..32),
+            })
+        );
+    }
+
+    /// A row written since the held tick makes its chunk load, even onto the
+    /// held snapshot itself.
+    #[test]
+    fn a_load_by_tables_plans_a_chunk_written_since_the_held_tick() {
+        let mut held = Held::default();
+        let (_, new, mut world) = two_saves_by_tables(&mut held);
+        world[40] = (40, 7, 5);
+        assert_eq!(
+            plan(&held, &new, &[Table::new(true, &world)], 4, 6),
+            TablesLoad::Chunks(ChunksToLoad {
+                chunks: vec![2],
+                world: ids(32..48),
+            })
+        );
+    }
+
+    /// An entity that gained the type since the held tick is in the world's
+    /// ids of its chunk, though the held snapshot lacks it.
+    #[test]
+    fn a_load_by_tables_plans_an_entity_that_gained_the_type() {
+        let mut held = Held::default();
+        let (_, new, mut world) = two_saves_by_tables(&mut held);
+        world.push((70, 70, 5));
+        assert_eq!(
+            plan(&held, &new, &[Table::new(true, &world)], 4, 6),
+            TablesLoad::Chunks(ChunksToLoad {
+                chunks: vec![4],
+                world: vec![id(70)],
+            })
+        );
+    }
+
+    /// A removal leaves no tick, so the tables cannot say where: walk. So
+    /// does a load with no held snapshot, or one held from before the
+    /// system's last run.
+    #[test]
+    fn a_load_by_tables_walks_when_the_tables_cannot_vouch() {
+        let mut held = Held::default();
+        let (old, new, world) = two_saves_by_tables(&mut held);
+        let removed: Vec<_> = world.iter().copied().filter(|&(i, _, _)| i != 7).collect();
+        assert_eq!(
+            plan(&held, &old, &[Table::new(false, &removed)], 4, 5),
+            TablesLoad::Walk
+        );
+        let untouched = [Table::new(false, &world)];
+        assert_eq!(plan(&held, &new, &untouched, 5, 6), TablesLoad::Walk);
+        assert_eq!(
+            plan(&Held::default(), &new, &untouched, 4, 5),
+            TablesLoad::Walk
+        );
     }
 
     /// A component changed since the held tick makes its chunk load, even

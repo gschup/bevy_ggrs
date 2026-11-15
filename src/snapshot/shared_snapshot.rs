@@ -293,6 +293,28 @@ impl<'a> TableRows<'a, bevy::prelude::Entity> {
     }
 }
 
+/// The rows of the touched tables written since `held`: the value's tick or
+/// the id's newer (an entity that gains an id has the type's components
+/// already, with old ticks). What a save by tables copies and what a load by
+/// tables writes, found the same way by both.
+fn written_rows<'t, 'a, V>(
+    tables: &'t [TableRows<'a, V>],
+    held: Tick,
+    this_run: Tick,
+) -> impl Iterator<Item = (&'t TableRows<'a, V>, usize)> + 't {
+    tables
+        .iter()
+        .filter(|table| table.touched)
+        .flat_map(move |table| {
+            (0..table.ids.len())
+                .filter(move |&row| {
+                    table.ticks[row].is_newer_than(held, this_run)
+                        || table.id_ticks[row].is_newer_than(held, this_run)
+                })
+                .map(move |row| (table, row))
+        })
+}
+
 /// What a scan of the world found in one chunk.
 #[derive(Clone, Copy, Default)]
 struct ChunkScan {
@@ -612,16 +634,10 @@ impl<For, As> HeldComponentSnapshot<For, As> {
         this_run: Tick,
     ) {
         self.changes.clear();
-        for table in tables.iter().filter(|table| table.touched) {
-            for row in 0..table.ids.len() {
-                if table.ticks[row].is_newer_than(held, this_run)
-                    || table.id_ticks[row].is_newer_than(held, this_run)
-                {
-                    self.changes
-                        .push((table.ids[row], store(&table.values[row])));
-                }
-            }
-        }
+        self.changes.extend(
+            written_rows(tables, held, this_run)
+                .map(|(table, row)| (table.ids[row], store(&table.values[row]))),
+        );
         self.changes
             .sort_unstable_by_key(|(id, _)| (chunk_of(id), *id));
     }
@@ -751,16 +767,9 @@ impl<For, As> HeldComponentSnapshot<For, As> {
             return TablesLoad::Walk;
         }
         let total: usize = tables.iter().map(|table| table.ids.len()).sum();
-        let mut written = Vec::new();
-        for table in tables.iter().filter(|table| table.touched) {
-            for row in 0..table.ids.len() {
-                if table.ticks[row].is_newer_than(tick, this_run)
-                    || table.id_ticks[row].is_newer_than(tick, this_run)
-                {
-                    written.push(table.ids[row]);
-                }
-            }
-        }
+        let written: Vec<RollbackId> = written_rows(tables, tick, this_run)
+            .map(|(table, row)| table.ids[row])
+            .collect();
         let gained = written.iter().filter(|id| held.get(id).is_none()).count();
         if total != held.len() + gained {
             return TablesLoad::Walk;

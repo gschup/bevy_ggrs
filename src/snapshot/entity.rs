@@ -25,6 +25,14 @@ use bevy::{
 #[derive(Component, Debug, Default, Clone, Copy)]
 pub struct Respawned;
 
+/// On an entity an app completes when a load respawns it bare (a generated entity, regrown
+/// from what generated it in [`LoadWorldSystems::Respawned`](crate::LoadWorldSystems::Respawned)).
+/// A load of a frame that lacks it despawns it though another saved frame holds it: nothing is
+/// lost by the respawn, so nothing keeps it in the world for the snapshots. Without it, such an
+/// entity is marked [`RollbackDespawned`](crate::RollbackDespawned) and comes back whole.
+#[derive(Component, Debug, Default, Clone, Copy)]
+pub struct CompletedOnRespawn;
+
 /// Warn about each entity still [`Respawned`] once every app had its chance to complete it, and
 /// take the mark off: a rollback entity despawned outright while a snapshot still held it, which
 /// `despawn_rollback` exists to prevent.
@@ -98,15 +106,15 @@ impl EntitySnapshotPlugin {
         mut commands: Commands,
         mut store: SharedSnapshots<Entity, Entity>,
         mut map: ResMut<RollbackEntityMap>,
-        query: Query<(Ref<RollbackId>, Entity)>,
+        query: Query<(Ref<RollbackId>, Entity, Has<CompletedOnRespawn>)>,
     ) {
         let mut entity_map = EntityHashMap::<Entity>::default();
 
         let Some(plan) = store.load(
-            query.iter().map(|(rollback, _)| rollback.last_changed()),
+            query.iter().map(|(rollback, ..)| rollback.last_changed()),
             query
                 .iter()
-                .map(|(rollback, _)| (*rollback, rollback.last_changed())),
+                .map(|(rollback, ..)| (*rollback, rollback.last_changed())),
         ) else {
             *map = entity_map.into();
             return;
@@ -115,7 +123,7 @@ impl EntitySnapshotPlugin {
         let snapshot = plan.snapshot();
         let mut matched = 0;
         let mut absent = Vec::new();
-        for (rollback, current_entity) in &query {
+        for (rollback, current_entity, completed) in &query {
             match plan.restore(&rollback) {
                 Restore::Shared => {}
                 Restore::Stored(&old_entity) => {
@@ -124,12 +132,12 @@ impl EntitySnapshotPlugin {
                         entity_map.insert(old_entity, current_entity);
                     }
                 }
-                Restore::Absent => absent.push((*rollback, current_entity)),
+                Restore::Absent => absent.push((*rollback, current_entity, completed)),
             }
         }
 
         if plan.holds_more(matched) {
-            let alive: HashSet<RollbackId> = query.iter().map(|(rollback, _)| *rollback).collect();
+            let alive: HashSet<RollbackId> = query.iter().map(|(rollback, ..)| *rollback).collect();
             for (&rollback, &old_entity) in snapshot.iter() {
                 if alive.contains(&rollback) || plan.missing(&rollback).is_none() {
                     continue;
@@ -147,13 +155,14 @@ impl EntitySnapshotPlugin {
         trace!("Rolled back {} entity(s)", snapshot.len());
 
         let frame = store.frame();
-        for (rollback, entity) in absent {
-            if held_by_a_snapshot(store.stored(), &rollback, Some(frame)) {
+        for (rollback, entity, completed) in absent {
+            if !completed && held_by_a_snapshot(store.stored(), &rollback, Some(frame)) {
                 // Another saved frame holds it, and a load of that frame wants it back
                 // whole: it is marked, not despawned. A load of a frame before its spawn
                 // hides an entity a later frame holds, which the load of that frame lifts
                 // (`resurrect_entities`). Never despawned for being confirmed: the frame
-                // that holds it is later than the one loaded.
+                // that holds it is later than the one loaded. One the app completes after
+                // a bare respawn loses nothing by it, and goes (`CompletedOnRespawn`).
                 commands
                     .entity(entity)
                     .queue_silenced(move |entity: EntityWorldMut| mark_since(entity, frame));

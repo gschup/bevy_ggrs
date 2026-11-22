@@ -483,6 +483,44 @@ mod tests {
         );
     }
 
+    /// An entity the app completes after a bare respawn is despawned by a load of a frame
+    /// that lacks it, though a later frame holds it, and the load of that frame respawns it
+    /// for the app to complete.
+    #[test]
+    fn a_load_despawns_what_the_app_completes_on_respawn() {
+        use crate::{CompletedOnRespawn, LoadWorldSystems, Respawned};
+        let mut app = app();
+        // Stands in for the app's completion, and counts what it was handed.
+        app.add_systems(
+            LoadWorld,
+            (|mut commands: Commands, respawned: Query<Entity, With<Respawned>>| {
+                for entity in &respawned {
+                    commands
+                        .entity(entity)
+                        .insert((Authored(1), CompletedOnRespawn))
+                        .remove::<Respawned>();
+                }
+            })
+            .in_set(LoadWorldSystems::Respawned),
+        );
+        let world = app.world_mut();
+        save_world(world); // frame 0, without it
+        advance_frame(world);
+        let entity = world
+            .spawn((Rollback, Authored(1), CompletedOnRespawn))
+            .id();
+        world.flush();
+        save_world(world); // frame 1, with it
+        load_world(world, 0);
+        assert!(world.get_entity(entity).is_err(), "despawned, not marked");
+        load_world(world, 1);
+        let back: Vec<&Authored> = world
+            .query_filtered::<&Authored, With<RollbackId>>()
+            .iter(world)
+            .collect();
+        assert_eq!(back, [&Authored(1)], "respawned and completed");
+    }
+
     /// A load mark goes once no saved frame holds the entity, as every mark does.
     #[test]
     fn a_load_mark_no_saved_snapshot_holds_is_despawned() {

@@ -885,6 +885,11 @@ impl<For: Send + Sync + 'static, As: Send + Sync + 'static> SharedSnapshots<'_, 
         )
     }
 
+    /// Every stored snapshot of the type, the frame's and the others.
+    pub fn stored(&self) -> &GgrsComponentSnapshots<For, As> {
+        &self.snapshots
+    }
+
     /// The frame's snapshot, as a load reads it.
     pub fn frame_snapshot(&self) -> &GgrsComponentSnapshot<For, As> {
         let frame = self.frame.0;

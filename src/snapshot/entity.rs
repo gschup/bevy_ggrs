@@ -9,9 +9,10 @@ use crate::{
     ClearSnapshots, GgrsComponentSnapshots, HeldComponentSnapshot, LoadWorld, LoadWorldSystems,
     Restore, Rollback, RollbackEntityMap, RollbackId, SaveWorld, SaveWorldSystems, SharedSnapshots,
     TableRows,
+    snapshot::despawn::{held_by_a_snapshot, mark_since},
 };
 use bevy::{
-    ecs::{change_detection::CheckChangeTicks, entity::EntityHashMap},
+    ecs::{change_detection::CheckChangeTicks, entity::EntityHashMap, world::EntityWorldMut},
     platform::collections::HashSet,
     prelude::*,
 };
@@ -113,6 +114,7 @@ impl EntitySnapshotPlugin {
 
         let snapshot = plan.snapshot();
         let mut matched = 0;
+        let mut absent = Vec::new();
         for (rollback, current_entity) in &query {
             match plan.restore(&rollback) {
                 Restore::Shared => {}
@@ -122,11 +124,7 @@ impl EntitySnapshotPlugin {
                         entity_map.insert(old_entity, current_entity);
                     }
                 }
-                Restore::Absent => {
-                    // A child the frame lacks along with its parent is gone
-                    // already when the parent's despawn came first.
-                    commands.entity(current_entity).try_despawn();
-                }
+                Restore::Absent => absent.push((*rollback, current_entity)),
             }
         }
 
@@ -147,6 +145,24 @@ impl EntitySnapshotPlugin {
         }
 
         trace!("Rolled back {} entity(s)", snapshot.len());
+
+        let frame = store.frame();
+        for (rollback, entity) in absent {
+            if held_by_a_snapshot(store.stored(), &rollback, Some(frame)) {
+                // Another saved frame holds it, and a load of that frame wants it back
+                // whole: it is marked, not despawned. A load of a frame before its spawn
+                // hides an entity a later frame holds, which the load of that frame lifts
+                // (`resurrect_entities`). Never despawned for being confirmed: the frame
+                // that holds it is later than the one loaded.
+                commands
+                    .entity(entity)
+                    .queue_silenced(move |entity: EntityWorldMut| mark_since(entity, frame));
+            } else {
+                // A child the frame lacks along with its parent is gone
+                // already when the parent's despawn came first.
+                commands.entity(entity).try_despawn();
+            }
+        }
 
         *map = entity_map.into();
     }

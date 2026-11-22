@@ -97,34 +97,75 @@ impl Plugin for RollbackDespawnPlugin {
     }
 }
 
+/// Lift the marks a load of the frame undoes: one naming a later frame, and one on an entity
+/// the frame's snapshot holds, with the marks of the descendants that have no [`RollbackId`] of
+/// their own. The second is a mark a load made ([`EntitySnapshotPlugin::load`]): an entity a
+/// later frame holds, hidden by a load of an earlier one, comes back whole on a load of the
+/// later one.
+///
+/// [`EntitySnapshotPlugin::load`]: crate::EntitySnapshotPlugin::load
 fn resurrect_entities(
     world: &mut World,
-    despawn_query: &mut QueryState<(Entity, &RollbackDespawned)>,
+    despawn_query: &mut QueryState<(Entity, &RollbackDespawned, Option<&RollbackId>)>,
 ) {
-    let rollback_frame = world.resource::<RollbackFrameCount>();
+    let rollback_frame = *world.resource::<RollbackFrameCount>();
+    let loaded = world
+        .resource::<GgrsComponentSnapshots<Entity>>()
+        .peek(rollback_frame.0);
+    let mut lift = Vec::new();
+    for (entity, despawned_frame, rollback) in despawn_query.iter(world) {
+        // The mark names the first frame whose snapshot lacks the entity, so a load of
+        // that frame keeps it and only a load of an earlier frame lifts it.
+        if *despawned_frame > rollback_frame {
+            lift.push(entity);
+        } else if let Some(rollback) = rollback
+            && loaded.is_some_and(|snapshot| snapshot.get(rollback).is_some())
+        {
+            lift.push(entity);
+            let mut pending: Vec<Entity> = world
+                .get::<Children>(entity)
+                .map(|children| children.iter().collect())
+                .unwrap_or_default();
+            while let Some(child) = pending.pop() {
+                if world.get::<RollbackId>(child).is_some() {
+                    continue;
+                }
+                if let Some(children) = world.get::<Children>(child) {
+                    pending.extend(children.iter());
+                }
+                if world.get::<RollbackDespawned>(child).is_some() {
+                    lift.push(child);
+                }
+            }
+        }
+    }
+    for entity in lift {
+        world.entity_mut(entity).remove::<RollbackDespawned>();
+    }
+}
 
-    despawn_query
-        .iter(world)
-        .filter_map(|(entity, despawned_frame)| {
-            // The mark names the first frame whose snapshot lacks the entity, so a load of
-            // that frame keeps it and only a load of an earlier frame lifts it.
-            (despawned_frame > rollback_frame).then_some(entity)
-        })
-        .collect::<Vec<_>>()
-        .into_iter()
-        .for_each(|entity| {
-            world.entity_mut(entity).remove::<RollbackDespawned>();
-        });
+/// Whether a saved snapshot holds `rollback`, the one of `except` aside.
+pub(crate) fn held_by_a_snapshot(
+    entities: &GgrsComponentSnapshots<Entity>,
+    rollback: &RollbackId,
+    except: Option<Frame>,
+) -> bool {
+    entities
+        .iter()
+        .any(|(frame, snapshot)| Some(frame) != except && snapshot.get(rollback).is_some())
 }
 
 /// Despawn every marked rollback entity no saved snapshot holds.
 ///
 /// After the save, so the frames discarded this [`SaveWorld`] (confirmed away, beyond the
-/// depth, or cleared by a session reset) count as gone. A mark names the first frame whose
-/// snapshot lacks the entity, and the entity is in every frame from its spawn up to that one,
-/// so the newest saved frame before the mark holds it or no saved frame does: one lookup per
-/// mark. A marked entity without a [`RollbackId`] is a descendant marked with its rollback
-/// ancestor and goes with it.
+/// depth, or cleared by a session reset) count as gone. A mark the simulation made names the
+/// first frame whose snapshot lacks the entity, and the entity is in every frame of its run
+/// from its spawn up to that one, so the newest saved frame before the mark holds it, the one
+/// lookup most marks need. The rest are looked up in every saved frame: a mark a load made
+/// ([`EntitySnapshotPlugin::load`](crate::EntitySnapshotPlugin::load)) is on an entity frames
+/// after it hold, and a frame saved by an earlier run of the frames can hold an entity a later
+/// run despawned sooner. A marked entity without a [`RollbackId`] is a descendant marked with
+/// its rollback ancestor and goes with it.
 fn despawn_unheld_entities(
     world: &mut World,
     marked: &mut QueryState<(Entity, &RollbackId, &RollbackDespawned)>,
@@ -134,10 +175,11 @@ fn despawn_unheld_entities(
     let unheld: Vec<Entity> = marked
         .iter(world)
         .filter(|(_, rollback, mark)| {
-            !frames
-                .newest_before(mark.frame())
+            let newest_before = frames.newest_before(mark.frame());
+            let held_there = newest_before
                 .and_then(|frame| entities.peek(frame))
-                .is_some_and(|snapshot| snapshot.get(rollback).is_some())
+                .is_some_and(|snapshot| snapshot.get(rollback).is_some());
+            !held_there && !held_by_a_snapshot(entities, rollback, newest_before)
         })
         .map(|(entity, _, _)| entity)
         .collect();
@@ -189,7 +231,7 @@ pub fn despawn_rollback(entity: EntityWorldMut) {
 /// [`RollbackDespawnCommandExtension::despawn_rollback_since`] on an [`EntityWorldMut`]: mark
 /// the entity and its descendants as despawned since `frame`, or despawn them outright when
 /// `frame` is confirmed already. A missing [`ConfirmedFrameCount`] confirms nothing.
-pub fn despawn_rollback_since(mut entity: EntityWorldMut, frame: Frame) {
+pub fn despawn_rollback_since(entity: EntityWorldMut, frame: Frame) {
     let confirmed = entity
         .get_resource::<ConfirmedFrameCount>()
         .map(|&ConfirmedFrameCount(confirmed)| confirmed);
@@ -198,6 +240,11 @@ pub fn despawn_rollback_since(mut entity: EntityWorldMut, frame: Frame) {
         entity.despawn();
         return;
     }
+    mark_since(entity, frame);
+}
+
+/// Mark the entity and its descendants as despawned since `frame`, keeping an earlier mark.
+pub(crate) fn mark_since(mut entity: EntityWorldMut, frame: Frame) {
     let root = entity.id();
     entity.world_scope(|world| {
         let mut pending = vec![root];
@@ -317,6 +364,86 @@ mod tests {
             2,
             "nothing respawned beside it"
         );
+    }
+
+    /// A load of a frame after the mark, from a world a load put before it, hides the entity
+    /// instead of despawning it: the frames before the mark still hold it, and a load of one
+    /// wants it back whole.
+    #[test]
+    fn a_load_past_the_mark_and_back_keeps_the_entity_whole() {
+        let mut app = app();
+        let (entity, child) = marked_at_two(&mut app);
+        let world = app.world_mut();
+        load_world(world, 1);
+        load_world(world, 2);
+        assert!(!visible(world, entity), "frame 2 lacks it");
+        assert!(world.get_entity(entity).is_ok(), "marked, not despawned");
+        load_world(world, 1);
+        assert!(visible(world, entity), "the same entity, back");
+        assert!(visible(world, child));
+        assert_eq!(world.get::<Authored>(entity), Some(&Authored(1)));
+        assert_eq!(world.get::<Authored>(child), Some(&Authored(7)));
+    }
+
+    /// An entity spawned after a frame, hidden by a load of that frame, comes back whole on a
+    /// load of a later frame that holds it: a seek back over its spawn and forward again.
+    #[test]
+    fn a_load_before_a_spawn_hides_it_and_a_load_after_lifts_it() {
+        let mut app = app();
+        let world = app.world_mut();
+        save_world(world); // frame 0, without it
+        advance_frame(world);
+        let child = world.spawn((Rollback, Authored(7))).id();
+        let entity = world.spawn((Rollback, Authored(1))).add_child(child).id();
+        let bare = world.spawn(Authored(9)).id();
+        world.entity_mut(entity).add_child(bare);
+        world.flush();
+        save_world(world); // frame 1, with it
+        advance_frame(world);
+        save_world(world); // frame 2, with it
+        load_world(world, 0);
+        assert!(!visible(world, entity), "frame 0 lacks it");
+        assert!(world.get_entity(entity).is_ok(), "frame 1 holds it: marked");
+        assert!(
+            world.get_entity(bare).is_ok(),
+            "its child goes with the mark"
+        );
+        load_world(world, 2);
+        assert!(visible(world, entity), "the same entity, back");
+        assert!(visible(world, child));
+        assert_eq!(
+            world.get::<RollbackDespawned>(bare),
+            None,
+            "its child is back"
+        );
+        assert_eq!(world.get::<Authored>(entity), Some(&Authored(1)));
+        assert_eq!(world.get::<Authored>(child), Some(&Authored(7)));
+        assert_eq!(
+            world
+                .query_filtered::<Entity, With<RollbackId>>()
+                .iter(world)
+                .count(),
+            2,
+            "nothing respawned beside it"
+        );
+    }
+
+    /// A load mark goes once no saved frame holds the entity, as every mark does.
+    #[test]
+    fn a_load_mark_no_saved_snapshot_holds_is_despawned() {
+        let mut app = app();
+        let world = app.world_mut();
+        save_world(world); // frame 0, without it
+        advance_frame(world);
+        let entity = world.spawn((Rollback, Authored(1))).id();
+        world.flush();
+        save_world(world); // frame 1, with it
+        load_world(world, 0);
+        assert!(world.get_entity(entity).is_ok(), "frame 1 holds it");
+        save_world(world); // frame 0 again
+        advance_frame(world);
+        save_world(world); // frame 1 again, without it
+        assert!(world.get_entity(entity).is_err(), "no frame holds it");
     }
 
     #[test]

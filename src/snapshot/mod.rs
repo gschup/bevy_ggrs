@@ -191,6 +191,13 @@ impl<For, As> GgrsSnapshots<For, As> {
         self.snapshots.get(&frame)
     }
 
+    /// Every stored frame and its snapshot, in no particular order.
+    pub fn iter(&self) -> impl Iterator<Item = (i32, &As)> + '_ {
+        self.snapshots
+            .iter()
+            .map(|(&frame, snapshot)| (frame, snapshot))
+    }
+
     /// A system which evicts old snapshots based on [`SnapshotDepth`] and
     /// confirms the [`ConfirmedFrameCount`]. Pinned frames (via [`PinnedFrames`])
     /// are never evicted or confirmed away.

@@ -122,26 +122,46 @@ fn resurrect_entities(
             && loaded.is_some_and(|snapshot| snapshot.get(rollback).is_some())
         {
             lift.push(entity);
-            let mut pending: Vec<Entity> = world
-                .get::<Children>(entity)
-                .map(|children| children.iter().collect())
-                .unwrap_or_default();
-            while let Some(child) = pending.pop() {
-                if world.get::<RollbackId>(child).is_some() {
-                    continue;
-                }
-                if let Some(children) = world.get::<Children>(child) {
-                    pending.extend(children.iter());
-                }
-                if world.get::<RollbackDespawned>(child).is_some() {
-                    lift.push(child);
-                }
-            }
+            // The descendants the same mark hid, down to the next rollback entity, which
+            // the snapshot decides for itself. A mark of an earlier frame is a delete of
+            // its own and stays.
+            lift.extend(
+                descendants(world, entity, |child| {
+                    world.get::<RollbackId>(child).is_none()
+                })
+                .filter(|&child| {
+                    world.get::<RollbackId>(child).is_none()
+                        && world.get::<RollbackDespawned>(child) == Some(despawned_frame)
+                }),
+            );
         }
     }
     for entity in lift {
         world.entity_mut(entity).remove::<RollbackDespawned>();
     }
+}
+
+/// Every descendant of `root`, depth first, going below a descendant only where `descend`
+/// says so (the descendant itself is listed either way).
+fn descendants<'w>(
+    world: &'w World,
+    root: Entity,
+    descend: impl Fn(Entity) -> bool + 'w,
+) -> impl Iterator<Item = Entity> + 'w {
+    let children = |entity: Entity| {
+        world
+            .get::<Children>(entity)
+            .into_iter()
+            .flat_map(|children| children.iter())
+    };
+    let mut pending: Vec<Entity> = children(root).collect();
+    std::iter::from_fn(move || {
+        let entity = pending.pop()?;
+        if descend(entity) {
+            pending.extend(children(entity));
+        }
+        Some(entity)
+    })
 }
 
 /// Whether a saved snapshot holds `rollback`, the one of `except` aside.
@@ -247,11 +267,10 @@ pub fn despawn_rollback_since(entity: EntityWorldMut, frame: Frame) {
 pub(crate) fn mark_since(mut entity: EntityWorldMut, frame: Frame) {
     let root = entity.id();
     entity.world_scope(|world| {
-        let mut pending = vec![root];
-        while let Some(entity) = pending.pop() {
-            if let Some(children) = world.get::<Children>(entity) {
-                pending.extend(children.iter());
-            }
+        let entities: Vec<Entity> = std::iter::once(root)
+            .chain(descendants(world, root, |_| true))
+            .collect();
+        for entity in entities {
             let since = world
                 .get::<RollbackDespawned>(entity)
                 .map_or(frame, |marked| marked.0.min(frame));
@@ -425,6 +444,42 @@ mod tests {
                 .count(),
             2,
             "nothing respawned beside it"
+        );
+    }
+
+    /// A GGRS rollback over a spawn: the load hides the first copy, which the frames after it
+    /// still hold, and the resimulation spawns another and saves those frames again. Once the
+    /// last frame that held the first copy is saved over, it goes for good, and one copy is left.
+    #[test]
+    fn a_rollback_over_a_spawn_ends_with_one_copy() {
+        let mut app = app();
+        let world = app.world_mut();
+        save_world(world); // frame 0, without it
+        advance_frame(world);
+        let first = world.spawn((Rollback, Authored(1))).id();
+        world.flush();
+        save_world(world); // frame 1
+        advance_frame(world);
+        save_world(world); // frame 2
+        load_world(world, 0);
+        assert!(world.get_entity(first).is_ok(), "frames 1 and 2 hold it");
+        save_world(world); // frame 0 again
+        advance_frame(world);
+        let second = world.spawn((Rollback, Authored(1))).id();
+        world.flush();
+        save_world(world); // frame 1 again
+        assert!(world.get_entity(first).is_ok(), "frame 2 still holds it");
+        advance_frame(world);
+        save_world(world); // frame 2 again
+        assert!(world.get_entity(first).is_err(), "no frame holds it");
+        assert!(visible(world, second));
+        assert_eq!(
+            world
+                .query_filtered::<Entity, (With<RollbackId>, Allow<RollbackDespawned>)>()
+                .iter(world)
+                .count(),
+            1,
+            "one copy, no leftover mark"
         );
     }
 
